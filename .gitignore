@@ -3,6 +3,8 @@ data/*.db
 data/*.db-*
 data/*.sqlite*
 .env
+.env*
 .DS_Store
 *.log
 .claude/
+.vercel

@@ -49,6 +49,20 @@ tudominio.com {
 }
 ```
 
+## Vercel (solo el cliente)
+
+Vercel **no puede ejecutar el servidor** (necesita un proceso persistente para WebSockets y SQLite), pero sí aloja el
+cliente como sitio estático (`vercel.json` publica la carpeta `public/`). Así quedan disponibles la campaña, el tutorial,
+la tienda y las partidas contra la IA; el **modo online, el desafío diario y la nube** requieren el servidor en Fly/Render/VPS.
+
+```bash
+node scripts/make-vercel-config.js   # regenera vercel.json (hash de CSP) si editas el script en línea de index.html
+vercel deploy --prod
+```
+
+Para tener todo junto en Vercel haría falta separar el backend (API + WebSocket en otro host) y configurar en el cliente
+la URL del servidor; hoy el cliente asume el mismo origen.
+
 ## Copias de seguridad
 
 `gambito.db` está en modo WAL: copia también `gambito.db-wal` y `gambito.db-shm`, o usa
