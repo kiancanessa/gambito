@@ -1,0 +1,328 @@
+// Salas de partida en tiempo real. El servidor es la autoridad: valida jugadas, relojes y resultado.
+import crypto from 'node:crypto';
+import { Chess } from 'chess.js';
+import { ratingChanges } from './elo.js';
+
+export const TIME_CONTROLS = {
+  none: { id: 'none', base: 0, inc: 0 },
+  bullet: { id: 'bullet', base: 60, inc: 0 },
+  blitz3: { id: 'blitz3', base: 180, inc: 0 },
+  blitz3_2: { id: 'blitz3_2', base: 180, inc: 2 },
+  blitz5: { id: 'blitz5', base: 300, inc: 0 },
+  rapid10: { id: 'rapid10', base: 600, inc: 0 },
+  rapid15_10: { id: 'rapid15_10', base: 900, inc: 10 },
+};
+
+export const EMOTE_COUNT = 12; // los textos viven en el cliente; aquí solo se valida el id
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const DISCONNECT_GRACE_MS = 45_000;
+
+const genCode = () => Array.from(crypto.randomBytes(6), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+const other = (c) => (c === 'w' ? 'b' : 'w');
+const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
+
+export class Room {
+  constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null }) {
+    this.m = manager;
+    this.code = code;
+    this.tc = TIME_CONTROLS[tcId] ?? TIME_CONTROLS.none;
+    this.rated = rated;
+    this.hostColor = colorPref === 'w' || colorPref === 'b' ? colorPref : Math.random() < 0.5 ? 'w' : 'b';
+    this.reserved = reserved; // { w: userId, b: userId } para revanchas
+    this.players = { w: null, b: null };
+    this.sockets = new Set();
+    this.chess = new Chess();
+    this.uci = [];
+    this.status = 'waiting'; // waiting | playing | over
+    this.result = null;
+    this.ratingDelta = null;
+    this.clocks = this.tc.base ? { w: this.tc.base * 1000, b: this.tc.base * 1000 } : null;
+    this.running = null;
+    this.lastTick = 0;
+    this.drawOffer = null;
+    this.rematchVotes = new Set();
+    this.rematchCode = null;
+    this.createdAt = Date.now();
+    this.touched = Date.now();
+    this.flagTimer = null;
+    this.dcTimers = {};
+    this.emoteAt = { w: 0, b: 0 };
+  }
+
+  // ----- Asientos -----
+  seat(user, ws) {
+    this.touched = Date.now();
+    let role = ['w', 'b'].find((c) => this.players[c]?.id === user.id);
+    if (!role) {
+      const reservedRole = this.reserved && ['w', 'b'].find((c) => this.reserved[c] === user.id && !this.players[c]);
+      const free = ['w', 'b'].filter((c) => !this.players[c]);
+      if (reservedRole) role = reservedRole;
+      else if (free.length) role = !this.players.w && !this.players.b ? this.hostColor : free[0];
+      else role = 's';
+      if (role !== 's') this.players[role] = { id: user.id, name: user.name, rating: user.rating, games: user.games ?? 0, socks: new Set() };
+    }
+    if (role !== 's') {
+      const p = this.players[role];
+      p.socks.add(ws);
+      p.name = user.name;
+      clearTimeout(this.dcTimers[role]);
+    }
+    this.sockets.add(ws);
+    ws.meta.room = this.code;
+    ws.meta.role = role;
+    if (this.status === 'waiting' && this.players.w && this.players.b) this.status = 'playing';
+    return role;
+  }
+
+  detach(ws) {
+    this.sockets.delete(ws);
+    const role = ws.meta.role;
+    ws.meta.room = null;
+    ws.meta.role = null;
+    if (!role || role === 's') return;
+    const p = this.players[role];
+    p?.socks.delete(ws);
+    if (p && p.socks.size === 0 && this.status === 'playing') {
+      clearTimeout(this.dcTimers[role]);
+      this.dcTimers[role] = setTimeout(() => {
+        if (this.status !== 'playing' || p.socks.size) return;
+        if (this.uci.length >= 2) this.end(other(role), 'desconexión');
+        else this.end(null, 'abortada');
+      }, DISCONNECT_GRACE_MS);
+    }
+    this.broadcast();
+  }
+
+  // ----- Estado -----
+  clockSnapshot() {
+    if (!this.clocks) return null;
+    const c = { w: this.clocks.w, b: this.clocks.b, running: this.running };
+    if (this.running) c[this.running] = Math.max(0, c[this.running] - (Date.now() - this.lastTick));
+    return c;
+  }
+
+  snapshot(role) {
+    const pub = (p) => p && { id: p.id, name: p.name, rating: p.rating, online: p.socks.size > 0 };
+    return {
+      t: 'state',
+      code: this.code,
+      you: role,
+      status: this.status,
+      result: this.result,
+      ratingDelta: this.ratingDelta,
+      rated: this.rated,
+      tc: this.tc.id,
+      tcInfo: { base: this.tc.base, inc: this.tc.inc },
+      fen: this.chess.fen(),
+      moves: this.uci,
+      turn: this.chess.turn(),
+      players: { w: pub(this.players.w), b: pub(this.players.b) },
+      clocks: this.clockSnapshot(),
+      drawOffer: this.drawOffer,
+      rematch: [...this.rematchVotes],
+      rematchCode: this.rematchCode,
+      spectators: Math.max(0, this.sockets.size - ['w', 'b'].reduce((n, c) => n + (this.players[c]?.socks.size ?? 0), 0)),
+    };
+  }
+
+  send(ws, msg) {
+    if (ws.readyState === 1) ws.send(JSON.stringify(msg));
+  }
+
+  broadcast() {
+    for (const ws of this.sockets) this.send(ws, this.snapshot(ws.meta.role));
+  }
+
+  // ----- Acciones -----
+  fail(ws, message) {
+    this.send(ws, { t: 'error', message });
+    this.send(ws, this.snapshot(ws.meta.role)); // resincroniza al cliente
+  }
+
+  move(ws, uci) {
+    const role = ws.meta.role;
+    if (this.status !== 'playing') return this.fail(ws, 'No hay partida en curso');
+    if (role !== this.chess.turn()) return this.fail(ws, 'No es tu turno');
+    if (typeof uci !== 'string' || !UCI.test(uci)) return this.fail(ws, 'Jugada no válida');
+
+    const now = Date.now();
+    if (this.clocks && this.running === role) {
+      this.clocks[role] -= now - this.lastTick;
+      if (this.clocks[role] <= 0) {
+        this.clocks[role] = 0;
+        this.end(other(role), 'tiempo');
+        return;
+      }
+    }
+    try {
+      this.chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    } catch {
+      return this.fail(ws, 'Jugada ilegal');
+    }
+    this.touched = now;
+    this.uci.push(uci);
+    this.drawOffer = null;
+
+    if (this.clocks) {
+      // El primer movimiento de cada bando no corre reloj; el incremento se suma desde la tercera jugada.
+      if (this.uci.length > 2) this.clocks[role] += this.tc.inc * 1000;
+      this.running = this.uci.length >= 2 ? this.chess.turn() : null;
+      this.lastTick = now;
+    }
+
+    if (this.chess.isCheckmate()) return this.end(role, 'jaque mate');
+    if (this.chess.isStalemate()) return this.end(null, 'rey ahogado');
+    if (this.chess.isInsufficientMaterial()) return this.end(null, 'material insuficiente');
+    if (this.chess.isThreefoldRepetition()) return this.end(null, 'triple repetición');
+    if (this.chess.isDraw()) return this.end(null, 'regla de las 50 jugadas');
+    this.scheduleFlag();
+    this.broadcast();
+  }
+
+  scheduleFlag() {
+    clearTimeout(this.flagTimer);
+    if (!this.clocks || !this.running || this.status !== 'playing') return;
+    const left = this.clocks[this.running] - (Date.now() - this.lastTick);
+    this.flagTimer = setTimeout(() => this.checkFlag(), Math.max(0, left) + 30);
+  }
+
+  checkFlag() {
+    if (this.status !== 'playing' || !this.running) return;
+    const left = this.clocks[this.running] - (Date.now() - this.lastTick);
+    if (left <= 0) this.end(other(this.running), 'tiempo');
+    else this.scheduleFlag();
+  }
+
+  resign(ws) {
+    const role = ws.meta.role;
+    if (role === 's' || this.status !== 'playing') return;
+    // Antes de que cada bando haya movido, rendirse equivale a abortar (sin efecto en el ranking).
+    if (this.uci.length < 2) return this.end(null, 'abortada');
+    this.end(other(role), 'rendición');
+  }
+
+  drawAction(ws, action) {
+    const role = ws.meta.role;
+    if (role === 's' || this.status !== 'playing') return;
+    if (action === 'offer' && !this.drawOffer) this.drawOffer = role;
+    else if (action === 'accept' && this.drawOffer && this.drawOffer !== role) return this.end(null, 'tablas acordadas');
+    else if (action === 'decline' && this.drawOffer && this.drawOffer !== role) this.drawOffer = null;
+    this.broadcast();
+  }
+
+  emote(ws, id) {
+    const role = ws.meta.role;
+    if (role === 's' || !Number.isInteger(id) || id < 0 || id >= EMOTE_COUNT) return;
+    const now = Date.now();
+    if (now - this.emoteAt[role] < 1500) return;
+    this.emoteAt[role] = now;
+    for (const s of this.sockets) this.send(s, { t: 'emote', from: role, id });
+  }
+
+  rematch(ws) {
+    const role = ws.meta.role;
+    if (role === 's' || this.status !== 'over' || !this.players.w || !this.players.b) return;
+    if (this.rematchCode) return;
+    this.rematchVotes.add(role);
+    if (this.rematchVotes.size === 2) this.rematchCode = this.m.createRematch(this);
+    this.broadcast();
+  }
+
+  end(winner, reason) {
+    if (this.status === 'over') return;
+    const cs = this.clockSnapshot();
+    if (cs) {
+      this.clocks.w = cs.w;
+      this.clocks.b = cs.b;
+    }
+    this.running = null;
+    this.status = 'over';
+    this.result = { winner, reason };
+    this.drawOffer = null;
+    clearTimeout(this.flagTimer);
+    Object.values(this.dcTimers).forEach(clearTimeout);
+    this.touched = Date.now();
+    this.ratingDelta = this.m.onGameEnd(this);
+    this.broadcast();
+  }
+
+  dispose() {
+    clearTimeout(this.flagTimer);
+    Object.values(this.dcTimers).forEach(clearTimeout);
+  }
+}
+
+export class RoomManager {
+  /** @param {ReturnType<import('./db.js').openDb>} db */
+  constructor(db) {
+    this.db = db;
+    this.rooms = new Map();
+    this.sweeper = setInterval(() => this.sweep(), 60_000);
+    this.sweeper.unref?.();
+  }
+
+  create({ tcId, rated = false, colorPref = 'r', reserved = null }) {
+    let code;
+    do code = genCode();
+    while (this.rooms.has(code));
+    const room = new Room(this, { code, tcId, rated, colorPref, reserved });
+    this.rooms.set(code, room);
+    return room;
+  }
+
+  get(code) {
+    return this.rooms.get(String(code ?? '').toUpperCase());
+  }
+
+  createRematch(old) {
+    // Colores intercambiados: quien jugó con negras ahora lleva blancas.
+    const room = this.create({ tcId: old.tc.id, rated: old.rated, reserved: { w: old.players.b.id, b: old.players.w.id } });
+    return room.code;
+  }
+
+  onGameEnd(room) {
+    const { w, b } = room.players;
+    if (!w || !b || room.uci.length === 0) return null;
+    this.db.insertGame({
+      id: crypto.randomUUID(),
+      code: room.code,
+      whiteId: w.id,
+      blackId: b.id,
+      winner: room.result.winner,
+      reason: room.result.reason,
+      moves: JSON.stringify(room.uci),
+      rated: room.rated,
+      tc: room.tc.id,
+      createdAt: room.createdAt,
+    });
+    if (!room.rated || room.result.reason === 'abortada') return null;
+    const uw = this.db.userById(w.id);
+    const ub = this.db.userById(b.id);
+    if (!uw || !ub) return null;
+    const scoreW = room.result.winner === 'w' ? 1 : room.result.winner === 'b' ? 0 : 0.5;
+    const [dw, db] = ratingChanges(uw, ub, scoreW);
+    const nw = Math.max(100, uw.rating + dw);
+    const nb = Math.max(100, ub.rating + db);
+    this.db.applyRating(w.id, nw, scoreW);
+    this.db.applyRating(b.id, nb, 1 - scoreW);
+    w.rating = nw;
+    b.rating = nb;
+    return { w: dw, b: db, ratings: { w: nw, b: nb } };
+  }
+
+  sweep(now = Date.now()) {
+    for (const [code, room] of this.rooms) {
+      const idle = now - room.touched;
+      const empty = room.sockets.size === 0;
+      if ((room.status === 'over' && idle > 20 * 60_000) || (room.status === 'waiting' && empty && idle > 30 * 60_000) || (empty && idle > 2 * 3600_000)) {
+        room.dispose();
+        this.rooms.delete(code);
+      }
+    }
+  }
+
+  close() {
+    clearInterval(this.sweeper);
+    this.rooms.forEach((r) => r.dispose());
+  }
+}

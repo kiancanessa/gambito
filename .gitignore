@@ -1,0 +1,8 @@
+node_modules/
+data/*.db
+data/*.db-*
+data/*.sqlite*
+.env
+.DS_Store
+*.log
+.claude/

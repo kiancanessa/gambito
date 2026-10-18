@@ -1,0 +1,34 @@
+# Despliegue en Fly.io. Cambia `app` por un nombre único y ejecuta:
+#   fly launch --no-deploy --copy-config && fly volumes create gambito_data --size 1 && fly deploy
+# IMPORTANTE: las salas de partida viven en memoria, así que debe haber UNA sola máquina (ver docs/DEPLOY.md).
+app = "gambito-chess"
+primary_region = "mad"
+
+[build]
+
+[env]
+  PORT = "8080"
+  DATA_DIR = "/data"
+  NODE_ENV = "production"
+
+[mounts]
+  source = "gambito_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"   # los WebSockets y las salas en memoria no toleran paradas automáticas
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0820">
+  <title>Gambito · Crónicas del Tablero</title>
+  <meta name="description" content="Ajedrez 3D con campaña, partidas online con amigos, desafío diario y skins. Gratis y de código abierto.">
+  <meta property="og:title" content="Gambito · Crónicas del Tablero">
+  <meta property="og:description" content="Ajedrez 3D con historia, multijugador y skins. Te reto a una partida.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/icons/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="ambient" id="ambient" aria-hidden="true"></div>
+  <div class="celebrate" id="celebrate" aria-hidden="true"></div>
+
+  <header class="topbar" id="topbar">
+    <button class="brand" data-go="home" aria-label="Inicio"><i class="brand-ico">♞</i> <span>Gambito</span></button>
+    <div class="chips">
+      <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><i class="lg" id="profileGlyph">♟</i><b id="profileName">Jugador</b></button>
+      <span class="chip level" title="Nivel de jugador"><em>NV</em><b id="hudLevel">1</b><span class="xpbar"><i id="hudXp"></i></span></span>
+      <span class="chip streak" title="Racha diaria">🔥 <b id="hudStreak">0</b></span>
+      <span class="chip coins" id="coinChip" title="Oros"><i class="coin"></i> <b id="hudCoins">0</b></span>
+      <button class="icon-btn" id="muteBtn" aria-label="Sonido" title="Sonido">🔊</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- INICIO -->
+    <section class="screen" id="screen-home">
+      <div class="home-grid">
+        <div class="home-copy">
+          <p class="eyebrow">Crónicas del Tablero</p>
+          <h1>Gambito</h1>
+          <p class="tagline">Un peón sin nombre. Un reino partido en 64 casillas.<br>Corónate y cambia el destino del tablero.</p>
+          <div class="menu">
+            <button class="big-btn primary" data-go="campaign"><span class="ico">⚔️</span><span><b>Campaña</b><small id="homeCampaignInfo">Valle de Peones</small></span><i class="arrow">▶</i></button>
+            <button class="big-btn hot" data-go="online"><span class="ico">🌐</span><span><b>Jugar online</b><small>Reta a un amigo o sube de liga</small></span><i class="arrow">▶</i></button>
+            <button class="big-btn" data-go="daily"><span class="ico">🧩</span><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span><i class="arrow">▶</i></button>
+            <div class="menu-row">
+              <button class="big-btn compact" data-go="quick"><span class="ico">♟️</span><b>Vs IA</b></button>
+              <button class="big-btn compact" data-go="missions"><span class="ico">🎯</span><b>Misiones</b><span class="dot-badge" id="missionsDot" hidden>!</span></button>
+              <button class="big-btn compact" data-go="season"><span class="ico">🎖</span><b>Temporada</b><span class="dot-badge" id="seasonDot" hidden>!</span></button>
+              <button class="big-btn compact" data-go="shop"><span class="ico">🎨</span><b>Tienda</b></button>
+            </div>
+          </div>
+          <div class="home-foot">
+            <span id="homeStats"></span>
+            <span class="foot-links"><button class="link-btn" id="tutorialBtn">Tutorial</button><button class="link-btn" id="installBtn" hidden>Instalar app</button><button class="link-btn" id="resetBtn">Reiniciar progreso</button></span>
+          </div>
+          <p class="oss-line">Código abierto (GPL-3.0) · <a href="https://github.com/kiancanessa/gambito" id="repoLink" target="_blank" rel="noopener">Contribuye en GitHub</a> · <a href="/privacidad.html">Privacidad</a></p>
+        </div>
+        <div class="hero-stage" id="heroStage" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- CAMPAÑA -->
+    <section class="screen" id="screen-campaign" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2 id="chapterName">Capítulo 1</h2>
+      </div>
+      <div class="campaign-layout">
+        <div class="map-card"><div class="map-host" id="mapHost"></div></div>
+        <aside class="map-side">
+          <div class="progress-card" id="progressCard"></div>
+          <div class="node-card" id="nodeCard"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ONLINE -->
+    <section class="screen" id="screen-online" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Jugar online</h2>
+        <span class="chip" id="onlineCount"></span>
+      </div>
+      <div class="panel offline-card" id="onlineOffline" hidden>
+        <h3>Sin conexión con el servidor</h3>
+        <p class="muted">El modo online necesita el servidor de Gambito. Comprueba tu conexión e inténtalo de nuevo; el resto del juego funciona sin conexión.</p>
+        <button class="btn primary" data-go="online">Reintentar</button>
+      </div>
+      <div class="online-grid" id="onlineBody" hidden>
+        <div class="online-main">
+          <div class="panel">
+            <div class="profile-strip" id="onlineProfile"></div>
+            <h3>Clasificatoria</h3>
+            <div class="tc-grid" id="tcGrid"></div>
+            <button class="big-btn primary" id="queueBtn"><span class="ico">⚔️</span><span><b>Buscar rival</b><small>Partida clasificatoria · sube de liga</small></span><i class="arrow">▶</i></button>
+            <div class="queue-box" id="queueBox" hidden>
+              <div class="spinner"></div>
+              <div><b>Buscando rival…</b><small>Llevas <span id="queueTime">0:00</span>. La búsqueda se amplía con el tiempo.</small></div>
+              <button class="btn danger" id="queueCancel">Cancelar</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Con un amigo</h3>
+            <div class="friend-row">
+              <label>Tiempo <select id="friendTc"></select></label>
+              <div class="seg" id="friendColor"><button data-color="w">⚪ Blancas</button><button data-color="b">⚫ Negras</button><button data-color="r" class="on">🎲 Azar</button></div>
+            </div>
+            <button class="big-btn" id="createBtn"><span class="ico">🔗</span><span><b>Crear partida por enlace</b><small>Comparte el enlace y juega al instante</small></span><i class="arrow">▶</i></button>
+            <form class="join-form" id="joinForm">
+              <input id="joinCode" placeholder="Código o enlace de la partida" maxlength="80" autocomplete="off" aria-label="Código de partida">
+              <button class="btn">Unirme</button>
+            </form>
+          </div>
+        </div>
+        <aside class="map-side"><div class="progress-card" id="leaderboardCard"></div></aside>
+      </div>
+    </section>
+
+    <!-- DESAFÍO DIARIO -->
+    <section class="screen" id="screen-daily" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Desafío diario</h2>
+      </div>
+      <div class="panel offline-card" id="dailyOffline" hidden>
+        <h3>Sin conexión con el servidor</h3>
+        <p class="muted">El desafío diario es igual para todo el mundo y se clasifica en línea.</p>
+        <button class="btn primary" data-go="daily">Reintentar</button>
+      </div>
+      <div class="campaign-layout" id="dailyBody" hidden>
+        <div class="panel daily-card" id="dailyCard"></div>
+        <aside class="map-side"><div class="progress-card" id="dailyBoard"></div></aside>
+      </div>
+    </section>
+
+    <!-- MISIONES -->
+    <section class="screen" id="screen-missions" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Misiones</h2>
+      </div>
+      <div class="missions-wrap" id="missionsBody"></div>
+    </section>
+
+    <!-- TEMPORADA -->
+    <section class="screen" id="screen-season" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Pase de temporada</h2>
+      </div>
+      <div id="seasonBody"></div>
+    </section>
+
+    <!-- PARTIDA RÁPIDA -->
+    <section class="screen" id="screen-quick" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Partida rápida contra la IA</h2>
+      </div>
+      <div class="panel">
+        <h3>Rival</h3>
+        <div class="level-grid" id="quickLevels"></div>
+        <h3>Tu color</h3>
+        <div class="seg" id="quickColor">
+          <button data-color="w" class="on">⚪ Blancas</button>
+          <button data-color="b">⚫ Negras</button>
+          <button data-color="r">🎲 Azar</button>
+        </div>
+        <button class="big-btn primary center" id="quickStart">Jugar</button>
+      </div>
+    </section>
+
+    <!-- TABLERO -->
+    <section class="screen" id="screen-game" hidden>
+      <div class="game-wrap">
+        <div class="side side-left">
+          <div class="player-card opp" id="oppCard">
+            <div class="avatar" id="oppAvatar">♞</div>
+            <div class="who"><b id="oppName">Rival</b><small id="oppTitle"></small></div>
+            <div class="thinking" id="thinking" hidden><i></i><i></i><i></i></div>
+            <span class="clock" id="oppClock" hidden>0:00</span>
+          </div>
+          <div class="captured" id="capOpp" aria-label="Piezas capturadas por el rival"></div>
+        </div>
+
+        <div class="board-col" id="boardCol">
+          <div class="mode-banner" id="modeBanner" hidden></div>
+          <div class="board-frame" id="boardFrame">
+            <div class="stage3d" id="stage3d"></div>
+            <div class="board" id="board" role="grid" aria-label="Tablero de ajedrez"></div>
+            <div class="fx-layer" id="fxLayer"></div>
+            <div class="banner" id="banner" hidden></div>
+            <div class="bubble" id="bubble" hidden></div>
+            <button class="view-btn" id="viewBtn" title="Cambiar ángulo de cámara" aria-label="Cambiar ángulo de cámara">🎥 <span id="viewLabel">Vista 3D</span></button>
+            <div class="wait-overlay" id="waitOverlay" hidden>
+              <div class="wait-card">
+                <div class="spinner"></div>
+                <h3>Esperando a tu rival</h3>
+                <p class="muted">Comparte este enlace. La partida empieza cuando se una.</p>
+                <input id="waitLink" readonly aria-label="Enlace de la partida">
+                <p class="code-line">Código: <b id="waitCode">······</b></p>
+                <div class="modal-actions">
+                  <button class="btn primary" data-wait="copy">🔗 Copiar enlace</button>
+                  <button class="btn" data-wait="share">📤 Compartir</button>
+                  <button class="btn danger" data-wait="cancel">Cancelar</button>
+                </div>
+              </div>
+            </div>
+            <div class="draw-prompt" id="drawPrompt" hidden>
+              <span>🤝 Tu rival ofrece tablas</span>
+              <button class="btn primary" id="drawAccept">Aceptar</button>
+              <button class="btn" id="drawDecline">Rechazar</button>
+            </div>
+          </div>
+          <div class="quip" id="quip" hidden></div>
+          <div class="emote-bar" id="emoteBar" hidden></div>
+        </div>
+
+        <div class="side side-right">
+          <div class="captured" id="capMe" aria-label="Piezas que has capturado"></div>
+          <div class="player-card me" id="meCard">
+            <div class="avatar">♙</div>
+            <div class="who"><b id="meName">Tú</b><small id="meSub">Peón sin nombre</small></div>
+            <span class="clock" id="meClock" hidden>0:00</span>
+          </div>
+          <div class="game-actions">
+            <button class="btn" id="hintBtn" title="Pista (10 oros)">💡 Pista <small>10🪙</small></button>
+            <button class="btn" id="undoBtn" title="Deshacer tu última jugada">↩ Deshacer</button>
+            <button class="btn" id="drawBtn" hidden>🤝 Tablas</button>
+            <button class="btn danger" id="resignBtn">🏳 Rendirse</button>
+          </div>
+          <div class="moves" id="moveList" aria-label="Jugadas"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIENDA -->
+    <section class="screen" id="screen-shop" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Volver</button>
+        <h2>Tienda de skins</h2>
+        <span class="chip coins big"><i class="coin"></i> <b id="shopCoins">0</b></span>
+      </div>
+      <div class="seg shop-tabs" id="shopTabs">
+        <button data-tab="sets" class="on">Piezas</button>
+        <button data-tab="boards">Tableros</button>
+        <button data-tab="fx">Efectos</button>
+      </div>
+      <div class="shop-grid" id="shopGrid"></div>
+    </section>
+  </main>
+
+  <!-- MODAL GENÉRICO -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
