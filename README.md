@@ -63,8 +63,8 @@ docs/              arquitectura y despliegue
 
 ## Desplegar
 
-Una imagen Docker lo contiene todo (`Dockerfile`), con configuraciones listas para Fly.io (`fly.toml`) y Render
-(`render.yaml`). Guía paso a paso, dominio, HTTPS y límites de escalado en **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+Una imagen Docker lo contiene todo (`Dockerfile`). Hay una receta **100 % gratuita** (Render Free + Neon + UptimeRobot,
+`render.yaml`) y otra para Fly.io (`fly.toml`). Guía paso a paso, dominio, HTTPS y límites de escalado en **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ## Contribuir
 

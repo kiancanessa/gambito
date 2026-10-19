@@ -62,6 +62,13 @@ rendirse antes de que ambos muevan aborta la partida sin tocar el ranking; 45 s 
   servidor de `window.GAMBITO_API` (`public/config.js`). La sesión va en `Authorization: Bearer`, sin cookies.
 - **CSP:** el importmap se autoriza por hash (con finales de línea normalizados a LF, igual que el navegador).
 
+## Persistencia en alojamientos gratuitos
+
+`server/persist.js` permite desplegar donde el disco es efímero (Render Free): con `DATABASE_URL` (Postgres de Neon) la base de datos
+SQLite se restaura al arrancar y se copia con `VACUUM INTO` cada 15 min si hubo cambios (`total_changes()`) y al recibir SIGTERM.
+Una instancia solo escribe la copia mientras es su "propietaria" (columna `owner`): si arranca otra, la antigua deja de escribir.
+Si no se puede leer la copia, el servidor **no arranca** (así nunca se sube una base vacía encima de la buena).
+
 ## Cliente
 
 - `session.js` prepara la pantalla de partida y crea un `Game` por modo (IA local, online, desafío diario con

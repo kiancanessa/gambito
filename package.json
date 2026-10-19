@@ -13,10 +13,12 @@
     "dev": "node --watch server/index.js",
     "test": "node --test \"test/**/*.test.js\"",
     "puzzles": "node scripts/gen-puzzles.js",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "check:neon": "node scripts/check-neon.js"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
+    "pg": "^8.23.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

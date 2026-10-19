@@ -1,25 +1,26 @@
-# Despliegue en Render (Blueprint): New + → Blueprint → elige este repositorio.
-# Usa el plan "starter" (siempre encendido + disco persistente). El plan gratuito se duerme a los 15 minutos
-# (cortaría las partidas en curso) y borraría la base de datos en cada despliegue.
-# Guía completa en docs/DEPLOY.md.
+# Despliegue GRATUITO en Render (Blueprint): New + → Blueprint → elige este repositorio.
+#
+# El plan gratuito no tiene disco persistente y se duerme a los 15 min sin tráfico, así que:
+#   - la base de datos SQLite se copia a un Postgres gratuito de Neon (DATABASE_URL) y se restaura al arrancar
+#     (ver server/persist.js);
+#   - un monitor gratuito (UptimeRobot) llama a /healthz cada 5 min para que no se duerma.
+# Guía paso a paso en docs/DEPLOY.md. Si algún día quieres más fiabilidad: plan "starter" + un disco en /data.
 services:
   - type: web
     name: gambito
     runtime: docker
-    plan: starter
+    plan: free
     region: oregon # cerca de México y EE. UU.; otras: ohio, virginia, frankfurt, singapore
-    numInstances: 1 # las salas de partida viven en memoria: no escales a más de una instancia
     autoDeploy: true
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATA_DIR
-        value: /data
+        value: /tmp/gambito # disco efímero: la copia buena vive en Neon
       # Cliente alojado en Vercel autorizado a usar la API y el WebSocket (separa varios con comas).
       - key: ALLOWED_ORIGINS
         value: https://gambito-five.vercel.app
-    disk:
-      name: gambito-data
-      mountPath: /data
-      sizeGB: 1
+      # Cadena de conexión de Neon (secreto): la pegas tú en el panel de Render, no se guarda en el repositorio.
+      - key: DATABASE_URL
+        sync: false

@@ -6,16 +6,43 @@ import { DB_FILE, HOST, PORT, PUBLIC_DIR, TRUST_PROXY } from './config.js';
 import { loadPuzzles } from './daily.js';
 import { openDb } from './db.js';
 import { Matchmaker } from './matchmaker.js';
+import { PgStore, createPersistence } from './persist.js';
 import { RoomManager } from './rooms.js';
 import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
 
-export function startServer({ port = PORT, host = HOST, dbFile = DB_FILE, publicDir = PUBLIC_DIR, puzzles = null } = {}) {
+// Persistencia opcional para alojamientos sin disco (Render Free): con DATABASE_URL (Postgres de Neon) la base de datos
+// SQLite se restaura al arrancar y se copia periódicamente (ver server/persist.js).
+export async function startServer({
+  port = PORT,
+  host = HOST,
+  dbFile = DB_FILE,
+  publicDir = PUBLIC_DIR,
+  puzzles = null,
+  databaseUrl = process.env.DATABASE_URL,
+  persistStore = null,
+  // 15 min: el plan gratuito de Neon (100 CU-h/mes) se suspende a los 5 min de inactividad; guardar más a menudo lo mantendría
+  // despierto y agotaría la cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
+  persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 15 * 60_000,
+} = {}) {
+  let persistence = null;
+  if (persistStore || databaseUrl) {
+    persistence = createPersistence({ dbFile, store: persistStore ?? new PgStore(databaseUrl), intervalMs: persistIntervalMs });
+    await persistence.restore();
+  }
   const db = openDb(dbFile);
+  persistence?.start(db);
   const rooms = new RoomManager(db);
   const matchmaker = new Matchmaker(rooms);
   let ws = null;
-  const api = createApi({ db, rooms, matchmaker, onlineCount: () => ws?.count() ?? 0, puzzles: puzzles ?? loadPuzzles() });
+  const api = createApi({
+    db,
+    rooms,
+    matchmaker,
+    onlineCount: () => ws?.count() ?? 0,
+    puzzles: puzzles ?? loadPuzzles(),
+    persistStatus: () => persistence?.status() ?? null,
+  });
   const serveStatic = createStatic(publicDir);
 
   const server = http.createServer(async (req, res) => {
@@ -38,6 +65,7 @@ export function startServer({ port = PORT, host = HOST, dbFile = DB_FILE, public
         db,
         rooms,
         matchmaker,
+        persistence,
         port: actual,
         url: `http://localhost:${actual}`,
         async close() {
@@ -46,6 +74,7 @@ export function startServer({ port = PORT, host = HOST, dbFile = DB_FILE, public
           ws.close();
           await new Promise((r) => server.close(r));
           server.closeAllConnections?.();
+          await persistence?.stop(); // copia final antes de cerrar la base de datos
           db.close();
         },
       });

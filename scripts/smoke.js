@@ -66,6 +66,16 @@ async function main() {
 
   const stats = await json('/api/stats');
   check('GET /api/stats', stats.res.ok && typeof stats.body?.users === 'number', `${stats.body?.users} cuentas`);
+  const persist = stats.body?.persist;
+  if (persist) {
+    check(
+      'Copia de la base de datos (Neon) sin errores',
+      !persist.lastError && !persist.lostOwnership,
+      persist.lastError ?? (persist.lastOkAt ? `última copia hace ${Math.round((Date.now() - persist.lastOkAt) / 1000)} s` : 'aún sin copia (se hace cada 15 min si hay cambios y al apagar)'),
+    );
+  } else {
+    console.log('• Copia de la base de datos: desactivada (sin DATABASE_URL; usa el disco local)');
+  }
 
   const a = await json('/api/guest', { method: 'POST', body: JSON.stringify({ name: 'Smoke Blancas' }) });
   const b = await json('/api/guest', { method: 'POST', body: JSON.stringify({ name: 'Smoke Negras' }) });

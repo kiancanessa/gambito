@@ -5,7 +5,7 @@ import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, onlineCount, puzzles }) {
+export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
 
   // Limitador sencillo en memoria: `max` peticiones por `windowMs` y clave.
@@ -123,7 +123,16 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles }) {
 
       if (pathname === '/api/stats' && method === 'GET') {
         const s = db.stats();
-        return send(res, 200, { online: onlineCount(), queue: matchmaker.size(), rooms: rooms.rooms.size, users: s.users, gamesToday: s.gamesToday });
+        const p = persistStatus();
+        return send(res, 200, {
+          online: onlineCount(),
+          queue: matchmaker.size(),
+          rooms: rooms.rooms.size,
+          users: s.users,
+          gamesToday: s.gamesToday,
+          // Copia de la base de datos (solo con DATABASE_URL): cuándo fue la última y si hay error.
+          persist: p && { lastOkAt: p.lastOkAt, lastError: p.lastError, lostOwnership: p.lostOwnership },
+        });
       }
 
       if (pathname === '/api/leaderboard' && method === 'GET') {
