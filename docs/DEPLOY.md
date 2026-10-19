@@ -19,6 +19,9 @@ Gambito es **un único servicio Node** (estáticos + API + WebSocket) con una ba
 | `ALLOWED_ORIGINS` | *(vacío)* | Otras webs autorizadas a usar la API y el WebSocket (cliente en Vercel), separadas por comas |
 | `DATABASE_URL` | *(vacío)* | Postgres (Neon) donde se copia la base de datos en alojamientos **sin disco**. Si está definida, se restaura al arrancar y se guarda cada 3 min (si hubo cambios) y al apagar |
 | `PERSIST_INTERVAL_MS` | `180000` | Cada cuántos ms se guarda la copia (solo con `DATABASE_URL`) |
+| `METRICS_TOKEN` | *(vacío)* | Si la defines, `GET /api/metrics` (con `Authorization: Bearer <token>`) devuelve métricas en JSON, o en formato Prometheus con `?format=prom`. Sin ella el endpoint no existe |
+| `METRICS_LOG_MS` | `300000` | Cada cuántos ms se escribe una línea `[metrics] …` en el log (`0` la desactiva) |
+| `BLOCK_SAME_IP_RANKED` | *(vacío)* | Con `1`, la cola clasificatoria no empareja dos cuentas de la misma IP |
 | `CSP_CONNECT_EXTRA` | *(vacío)* | Orígenes extra permitidos en `connect-src` de la CSP (solo si el cliente se sirve desde este servidor pero usa otra API) |
 
 Límites anti-abuso (en `server/config.js`): 3 partidas abiertas por jugador, 8 salas nuevas por minuto, 20 WebSockets por IP,
@@ -149,6 +152,16 @@ Si prefieres un solo sitio, usa directamente la URL del servidor: ya sirve el cl
       `npm run puzzles -- 365 10 --append` (365 en total, 10 procesos de Stockfish; tarda un buen rato).
 - [ ] Revisar la lista de palabras bloqueadas de nombres (`server/auth.js`) para tu idioma y comunidad.
 - [ ] Monitorizar `/healthz` y `/api/stats` (jugadores en línea, partidas del día).
+
+## Métricas y juego limpio
+
+- **Log gratis:** cada 5 min el servidor escribe una línea `[metrics] up=… ws=… rooms=… playing=… queue=… rss=…MB loop_p99=…ms games=… moves=… flags=…` que ves en los logs de Render.
+- **Endpoint:** define `METRICS_TOKEN` en Render (cualquier texto largo y secreto) y consulta
+  `curl -H "Authorization: Bearer TU_TOKEN" https://gambito.onrender.com/api/metrics` (JSON) o añade `?format=prom` para
+  Prometheus/Grafana Cloud (plan gratuito). Incluye conexiones, salas, cola, memoria, retraso del bucle de eventos,
+  latencia HTTP, partidas, jugadas, operaciones de cartera y alertas de juego limpio.
+- **Revisar alertas y reportes:** `DATABASE_URL="postgresql://…" npm run reports` lee la última copia de Neon (solo lectura) y lista a quién han
+  reportado y qué alertas de ritmo hay. No sanciona nada solo: lo decides tú.
 
 ## Cuando haya mucha gente
 

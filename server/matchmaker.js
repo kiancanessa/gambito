@@ -46,7 +46,7 @@ export class Matchmaker {
       const window = Math.min(WINDOW_MAX, WINDOW_BASE + WINDOW_PER_SECOND * waited);
       let best = null;
       for (const b of sorted) {
-        if (b === a || used.has(b) || b.tcId !== a.tcId || b.user.id === a.user.id || !this.canMatch(a.user, b.user)) continue;
+        if (b === a || used.has(b) || b.tcId !== a.tcId || b.user.id === a.user.id || !this.canMatch(a.user, b.user, a.ws, b.ws)) continue;
         const wb = Math.min(WINDOW_MAX, WINDOW_BASE + WINDOW_PER_SECOND * ((now - b.since) / 1000));
         const diff = Math.abs(a.user.rating - b.user.rating);
         if (diff <= Math.max(window, wb) && (!best || diff < best.diff)) best = { entry: b, diff };

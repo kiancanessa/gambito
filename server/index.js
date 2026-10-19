@@ -12,6 +12,7 @@ import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
 import { CircuitManager } from './tournaments.js';
 import { createSocial } from './social.js';
+import { createMetrics } from './metrics.js';
 
 // Persistencia opcional para alojamientos sin disco (Render Free): con DATABASE_URL (Postgres de Neon) la base de datos
 // SQLite se restaura al arrancar y se copia periódicamente (ver server/persist.js).
@@ -29,7 +30,10 @@ export async function startServer({
   persistOptions = {},
   // Tiempos del Royale Circuit (pruebas). CIRCUIT_FILL_MS acorta la espera de inscripción para probarlo a mano.
   circuitOptions = process.env.CIRCUIT_FILL_MS ? { fillAfterMs: Number(process.env.CIRCUIT_FILL_MS) } : {},
+  // Cada cuántos ms se escribe una línea de métricas en el log (0 la desactiva).
+  metricsLogMs = process.env.METRICS_LOG_MS === undefined ? 300_000 : Number(process.env.METRICS_LOG_MS),
 } = {}) {
+  const metrics = createMetrics();
   let persistence = null;
   if (persistStore || databaseUrl) {
     persistence = createPersistence({ dbFile, store: persistStore ?? new PgStore(databaseUrl), intervalMs: persistIntervalMs, ...persistOptions });
@@ -37,10 +41,13 @@ export async function startServer({
   }
   const db = openDb(dbFile);
   persistence?.start(db);
-  const rooms = new RoomManager(db);
+  const rooms = new RoomManager(db, { metrics });
   const social = createSocial(db);
-  const matchmaker = new Matchmaker(rooms, { canMatch: (a, b) => !social.isBlocked(a.id, b.id) });
-  const circuit = new CircuitManager({ rooms, db, options: circuitOptions });
+  // No se empareja a quien se ha bloqueado ni, con BLOCK_SAME_IP_RANKED=1, a dos cuentas de la misma IP (reparto de puntos entre cuentas propias).
+  const matchmaker = new Matchmaker(rooms, {
+    canMatch: (a, b, wa, wb) => !social.isBlocked(a.id, b.id) && !(process.env.BLOCK_SAME_IP_RANKED === '1' && wa?.ip && wa.ip === wb?.ip),
+  });
+  const circuit = new CircuitManager({ rooms, db, options: circuitOptions, metrics });
   let ws = null;
   const api = createApi({
     db,
@@ -48,6 +55,7 @@ export async function startServer({
     matchmaker,
     circuit,
     social,
+    metrics,
     presence: (ids) => ws?.presence(ids) ?? {},
     notify: (id, msg) => ws?.notify(id, msg),
     onlineCount: () => ws?.count() ?? 0,
@@ -58,6 +66,14 @@ export async function startServer({
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    const t0 = performance.now();
+    const isApi = url.pathname.startsWith('/api/') || url.pathname === '/healthz';
+    if (isApi) {
+      res.on('finish', () => {
+        metrics.observeHttp(performance.now() - t0);
+        metrics.inc('http_requests_total', { status: `${Math.floor(res.statusCode / 100)}xx` });
+      });
+    }
     const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
     const ip = fwd || req.socket.remoteAddress || 'unknown';
     if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') {
@@ -66,7 +82,17 @@ export async function startServer({
     }
     await serveStatic(req, res, url);
   });
-  ws = attachWs(server, { db, rooms, matchmaker, circuit, social });
+  ws = attachWs(server, { db, rooms, matchmaker, circuit, social, metrics });
+  const countRooms = (status) => [...rooms.rooms.values()].filter((r) => r.status === status).length;
+  metrics.gauge('ws_connections', () => ws?.count() ?? 0);
+  metrics.gauge('rooms_total', () => rooms.rooms.size);
+  metrics.gauge('rooms_playing', () => countRooms('playing'));
+  metrics.gauge('rooms_waiting', () => countRooms('waiting'));
+  metrics.gauge('queue_size', () => matchmaker.size());
+  metrics.gauge('circuit_running', () => [...circuit.tournaments.values()].filter((t) => t.status === 'running').length);
+  metrics.gauge('persist_degraded', () => (persistence?.status().degraded ? 1 : 0));
+  const metricsTimer = metricsLogMs > 0 ? setInterval(() => console.log(metrics.line()), metricsLogMs) : null;
+  metricsTimer?.unref();
 
   return new Promise((resolve) => {
     server.listen(port, host, () => {
@@ -83,6 +109,8 @@ export async function startServer({
         async close() {
           matchmaker.close();
           circuit.close();
+          clearInterval(metricsTimer);
+          metrics.stop();
           ws.close(); // primero los sockets: al caer, las salas programan avisos de desconexión que rooms.close() debe limpiar
           rooms.close();
           // Se dejan de aceptar conexiones y se cortan las que siguen abiertas (keep-alive de proxys y monitores):

@@ -38,10 +38,27 @@ try {
        GROUP BY r.target_id ORDER BY people DESC, last DESC LIMIT 50`,
     )
     .all(Date.now() - 7 * DAY);
+  console.log('— Reportes de jugadores —');
   if (!rows.length) console.log('Sin reportes.');
   for (const r of rows) {
     console.log(`${String(r.people).padStart(2)} persona(s) · ${r.total} reporte(s) (${r.week} esta semana) · ${r.name} [${r.id}] · motivos: ${r.reasons} · último: ${new Date(r.last).toLocaleString('es')}`);
   }
+  // Alertas automáticas de juego limpio (ritmo sospechoso, parejas repetidas, partidas relámpago).
+  let flags = [];
+  try {
+    flags = db
+      .prepare(
+        `SELECT f.user_id AS id, COALESCE(u.name, '(cuenta borrada)') AS name, f.kind, COUNT(*) AS n, MAX(f.score) AS score, MAX(f.created_at) AS last
+         FROM game_flags f LEFT JOIN users u ON u.id = f.user_id
+         GROUP BY f.user_id, f.kind ORDER BY n DESC, score DESC LIMIT 50`,
+      )
+      .all();
+  } catch {
+    /* copia de una versión anterior sin la tabla */
+  }
+  console.log('\n— Alertas de juego limpio (solo orientativas) —');
+  if (!flags.length) console.log('Sin alertas.');
+  for (const f of flags) console.log(`${String(f.n).padStart(3)}× ${f.kind.padEnd(15)} · ${f.name} [${f.id}] · puntuación máx. ${f.score} · última: ${new Date(f.last).toLocaleString('es')}`);
   db.close();
 } catch (err) {
   console.error(`No se pudo leer: ${err.message}`);

@@ -4,6 +4,8 @@ import { sha256 } from './auth.js';
 import { LIMITS, TRUST_PROXY, allowedOrigins } from './config.js';
 import { TIME_CONTROLS } from './rooms.js';
 
+const KNOWN_MESSAGES = new Set(['auth', 'create', 'join', 'queue', 'dequeue', 'move', 'resign', 'draw', 'emote', 'rematch', 'leave', 'invite', 'circuit_join', 'circuit_leave', 'circuit_sync']);
+
 const clientIp = (req) => {
   const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
   return fwd || req.socket.remoteAddress || 'unknown';
@@ -21,7 +23,7 @@ function originAllowed(req) {
   return allowedOrigins().includes(origin.replace(/\/$/, ''));
 }
 
-export function attachWs(server, { db, rooms, matchmaker, circuit, social }) {
+export function attachWs(server, { db, rooms, matchmaker, circuit, social, metrics = { inc() {} } }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048 });
   const perIp = new Map();
 
@@ -39,6 +41,7 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social }) {
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.ip = ip;
+      metrics.inc('ws_connections_total');
       perIp.set(ip, (perIp.get(ip) ?? 0) + 1);
       wss.emit('connection', ws, req);
     });
@@ -58,7 +61,10 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social }) {
       meta.windowStart = now;
       meta.count = 0;
     }
-    if (++meta.count > 40) return; // más de 40 mensajes en 5 s: se ignora
+    if (++meta.count > 40) {
+      metrics.inc('ws_dropped_total'); // más de 40 mensajes en 5 s: se ignora
+      return;
+    }
 
     let msg;
     try {
@@ -67,6 +73,7 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social }) {
       return;
     }
     if (!msg || typeof msg.t !== 'string') return;
+    metrics.inc('ws_messages_total', { t: KNOWN_MESSAGES.has(msg.t) ? msg.t : 'other' });
 
     if (msg.t === 'auth') {
       const user = typeof msg.token === 'string' ? db.userByToken(sha256(msg.token)) : null;

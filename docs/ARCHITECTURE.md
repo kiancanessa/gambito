@@ -45,6 +45,7 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `POST /api/social/{request,respond,remove,block,unblock}` | sí | Solicitud (por `code`, o por `id` si habéis compartido partida), aceptar/rechazar, quitar, bloquear y desbloquear |
 | `POST /api/report` | sí | Reporta a un jugador con quien has jugado (`reason`: abuso, trampas, nombre, otro) |
 | `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
+| `GET /api/metrics` | `METRICS_TOKEN` | Métricas internas (JSON o `?format=prom`); no existe sin el token configurado |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
 Hay límites de peticiones por IP y por usuario (`server/api.js`).
@@ -142,6 +143,23 @@ Límites: 100 amigos, 20 solicitudes enviadas, 200 bloqueos, 5 reportes al día.
   (o en el tablero DOM de respaldo).
 - `store.js` guarda el progreso en `localStorage` (con `wallet` activo, `wallet.js` lo concilia con el servidor); `net.js` lo sincroniza con la nube (gana el guardado con más progreso
   si hay conflicto entre dispositivos).
+
+## Métricas y juego limpio (Fase 6)
+
+`server/metrics.js` es un registro mínimo (contadores con etiquetas, medidores calculados al leer, histograma de latencia HTTP y retraso del bucle
+de eventos con `perf_hooks`) sin dependencias. Se alimenta desde `rooms.js` (jugadas, partidas por modo/resultado), `ws.js` (conexiones, mensajes por
+tipo, mensajes descartados por límite), `api.js` (cuentas creadas, operaciones de cartera por resultado), `tournaments.js` y `fairplay.js`.
+
+`server/fairplay.js` reacciona de dos formas distintas, adrede:
+
+1. **Protege el ranking (automático):** una clasificatoria no mueve el Elo si es la 4.ª+ contra el mismo rival en 24 h (reparto de puntos entre
+   cuentas), ni si termina por rendición/desconexión antes de la 6.ª jugada. La sala informa con `unrated: 'pair' | 'quick'`. Además,
+   `BLOCK_SAME_IP_RANKED=1` impide emparejar dos cuentas de la misma IP.
+2. **Alertas para revisar (no sanciona):** con el tiempo que tardó cada jugada (`room.thinks`) se detecta ritmo casi idéntico (`uniform_timing`: ≥ 15
+   jugadas, media ≥ 1,5 s y variación < 12 %) o jugar casi todo al instante (`instant_moves`: ≥ 20 jugadas, ≥ 60 % bajo 400 ms, no en bala). Se
+   guardan en `game_flags` y se leen con `npm run reports`. No se evalúan las primeras 3 jugadas de cada bando ni las partidas con bots.
+
+Sin motor de ajedrez en el servidor no se pueden detectar jugadas de ordenador por calidad; estas señales son baratas y solo orientan.
 
 ## Escalado (siguiente paso)
 

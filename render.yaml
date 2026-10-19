@@ -21,6 +21,12 @@ services:
       # Cliente alojado en Vercel autorizado a usar la API y el WebSocket (separa varios con comas).
       - key: ALLOWED_ORIGINS
         value: https://gambito-five.vercel.app
+      # Dos cuentas de la misma IP no se emparejan en clasificatoria (para jugar juntos en casa: partida con amigo).
+      - key: BLOCK_SAME_IP_RANKED
+        value: '1'
+      # Token para leer /api/metrics (secreto, opcional): si no lo defines, el endpoint no existe. Ver docs/DEPLOY.md.
+      - key: METRICS_TOKEN
+        sync: false
       # Cadena de conexión de Neon (secreto): la pegas tú en el panel de Render, no se guarda en el repositorio.
       - key: DATABASE_URL
         sync: false

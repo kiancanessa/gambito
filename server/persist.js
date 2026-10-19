@@ -155,6 +155,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            WHERE o.reporter_id IN (SELECT id FROM main.users)
              AND NOT EXISTS (SELECT 1 FROM main.reports r WHERE r.reporter_id = o.reporter_id AND r.target_id = o.target_id AND r.created_at = o.created_at);`
       : '';
+    const fair = oldTables.has('game_flags') ? 'INSERT OR IGNORE INTO game_flags SELECT * FROM old.game_flags;' : '';
     db.raw.exec(`
       BEGIN;
       INSERT OR IGNORE INTO users SELECT * FROM old.users;
@@ -169,6 +170,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       ${wallet}
       ${circuit}
       ${social}
+      ${fair}
       COMMIT;
     `);
   } catch (err) {

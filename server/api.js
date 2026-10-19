@@ -1,12 +1,13 @@
 // API HTTP/JSON: cuentas de invitado, guardado en la nube, desafío diario, clasificación y estadísticas.
 import { bearer, cleanName, defaultName, newId, newRecoveryCode, newToken, normalizeCode, sha256 } from './auth.js';
+import { timingSafeEqual } from 'node:crypto';
 import { LIMITS, SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 import { createWallets } from './wallet.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, circuit, social, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, social, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
   const wallets = createWallets(db);
 
@@ -101,6 +102,7 @@ export function createApi({ db, rooms, matchmaker, circuit, social, presence = (
       if (pathname === '/api/guest' && method === 'POST') {
         if (limited(`guest:${ip}`, LIMITS.guestsPerHour, 3600_000)) return send(res, 429, { error: 'Demasiadas cuentas nuevas desde esta red' });
         const body = await readJson(req);
+        metrics?.inc('guests_created_total');
         const token = newToken();
         const recovery = newRecoveryCode();
         const user = db.createUser({
@@ -121,6 +123,21 @@ export function createApi({ db, rooms, matchmaker, circuit, social, presence = (
         const token = newToken();
         db.rotateToken(user.id, sha256(token));
         return send(res, 200, { user, token });
+      }
+
+      // Métricas internas: solo si el operador define METRICS_TOKEN; si no, el endpoint ni existe.
+      if (pathname === '/api/metrics' && method === 'GET') {
+        const token = process.env.METRICS_TOKEN;
+        if (!token || !metrics) return send(res, 404, { error: 'No encontrado' });
+        const given = bearer(req) ?? '';
+        const ok = given.length === token.length && timingSafeEqual(Buffer.from(given), Buffer.from(token));
+        if (!ok) return send(res, 401, { error: 'No autorizado' });
+        if (url.searchParams.get('format') === 'prom') {
+          const text = metrics.prometheus();
+          res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8', 'Cache-Control': 'no-store' });
+          return res.end(text);
+        }
+        return send(res, 200, metrics.snapshot());
       }
 
       if (pathname === '/api/stats' && method === 'GET') {
@@ -285,7 +302,9 @@ export function createApi({ db, rooms, matchmaker, circuit, social, presence = (
       if (pathname === '/api/wallet/ops' && method === 'POST') {
         const body = await readJson(req, 16 * 1024);
         if (!Array.isArray(body.ops)) return send(res, 400, { error: 'Operaciones no válidas' });
-        return send(res, 200, wallets.apply(user.id, body.ops));
+        const applied = wallets.apply(user.id, body.ops);
+        for (const r of applied.results) metrics?.inc('wallet_ops_total', { result: r.ok ? (r.reason ?? 'ok') : r.reason });
+        return send(res, 200, applied);
       }
 
       if (pathname === '/api/daily/submit' && method === 'POST') {

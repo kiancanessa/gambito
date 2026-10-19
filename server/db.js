@@ -115,6 +115,16 @@ export function openDb(file) {
       ctx TEXT,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS game_flags (
+      game_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      score REAL NOT NULL,
+      detail TEXT,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, user_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS idx_flags_user ON game_flags(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_reports_target ON reports(target_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_day ON daily_results(day, seconds);
@@ -160,6 +170,10 @@ export function openDb(file) {
     resultOf: db.prepare('SELECT placement, coins, xp, item FROM tournament_results WHERE tournament_id = ? AND user_id = ?'),
     resultsOf: db.prepare('SELECT tournament_id AS id, placement, coins, xp, item, created_at AS at FROM tournament_results WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'),
     champions: db.prepare('SELECT champion AS name, finished_at AS at FROM tournaments ORDER BY finished_at DESC LIMIT ?'),
+    pairGames: db.prepare(
+      'SELECT COUNT(*) AS n FROM games WHERE rated = 1 AND created_at > ?3 AND ((white_id = ?1 AND black_id = ?2) OR (white_id = ?2 AND black_id = ?1))',
+    ),
+    insertFlag: db.prepare('INSERT OR IGNORE INTO game_flags (game_id,user_id,kind,score,detail,created_at) VALUES (?,?,?,?,?,?)'),
     gameByCode: db.prepare('SELECT * FROM games WHERE code = ? AND (white_id = ? OR black_id = ?) ORDER BY created_at DESC LIMIT 1'),
     dailyCount: db.prepare('SELECT COUNT(*) AS n FROM daily_results WHERE day = ?'),
     counts: db.prepare('SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM games WHERE created_at > ?) AS gamesToday'),
@@ -211,6 +225,8 @@ export function openDb(file) {
     tournamentResult: (id, userId) => q.resultOf.get(id, userId) ?? null,
     circuitResultsOf: (userId, limit = 20) => q.resultsOf.all(userId, limit),
     recentChampions: (limit = 5) => q.champions.all(limit),
+    ratedGamesBetween: (a, b, since) => q.pairGames.get(a, b, since).n,
+    insertFlag: (gameId, f) => q.insertFlag.run(gameId, f.userId, f.kind, f.score, f.detail ?? null, Date.now()),
     gamesOf: (userId, limit = 20) => q.gamesOf.all(userId, userId, limit),
     gameById: (id) => q.gameById.get(id) ?? null,
     gameByCode: (code, userId) => q.gameByCode.get(code, userId, userId) ?? null,

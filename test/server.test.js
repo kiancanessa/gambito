@@ -286,6 +286,11 @@ describe('emparejamiento clasificatorio', () => {
     await state(blackClient, (s) => s.moves.length === 1);
     blackClient.send({ t: 'move', uci: 'e7e5' });
     await state(whiteClient, (s) => s.moves.length === 2);
+    // al menos 6 jugadas: una rendición más temprana no puntúa (juego limpio, Fase 6)
+    for (const [client, uci, n] of [[whiteClient, 'g1f3', 3], [blackClient, 'b8c6', 4], [whiteClient, 'f1c4', 5], [blackClient, 'g8f6', 6]]) {
+      client.send({ t: 'move', uci });
+      await state(client === whiteClient ? blackClient : whiteClient, (s) => s.moves.length === n);
+    }
     blackClient.send({ t: 'resign' });
     const over = await state(whiteClient, (s) => s.status === 'over');
     assert.equal(over.result.winner, 'w');

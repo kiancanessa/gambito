@@ -309,6 +309,9 @@ async function finishOnline(summary) {
     return;
   }
   const rated = !!s?.rated;
+  if (s?.unrated) {
+    toast(s.unrated === 'pair' ? 'Esta partida no puntúa: ya jugasteis 3 clasificatorias en 24 h contra el mismo rival.' : 'Esta partida no puntúa: terminó demasiado pronto.', 5000);
+  }
   const minMoves = summary.moves >= 6;
   const base = { win: 60, draw: 20, loss: 10 }[summary.result] * (rated ? 1.5 : 1);
   const rows = [];

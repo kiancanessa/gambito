@@ -99,8 +99,9 @@ export class CircuitManager {
    * @param {ReturnType<import('./db.js').openDb>} o.db
    * @param {object} [o.options]  sobrescribe `CIRCUIT` (pruebas)
    */
-  constructor({ rooms, db, options = {} }) {
+  constructor({ rooms, db, options = {}, metrics = { inc() {} } }) {
     this.rooms = rooms;
+    this.metrics = metrics;
     this.db = db;
     this.cfg = { ...CIRCUIT, ...options };
     this.tournaments = new Map();
@@ -216,6 +217,7 @@ export class CircuitManager {
     }
     t.entrants.sort((a, b) => b.rating - a.rating);
     t.entrants.forEach((e, i) => (e.seed = i + 1));
+    this.metrics.inc('circuit_started_total');
     t.status = 'running';
     t.startedAt = Date.now();
     const round0 = SEED_PAIRS.map(([x, y], slot) => this.newMatch(0, slot, t.entrants[x], t.entrants[y]));
@@ -323,6 +325,7 @@ export class CircuitManager {
   }
 
   finish(t, champion) {
+    this.metrics.inc('circuit_finished_total');
     t.status = 'finished';
     t.champion = champion;
     t.finishedAt = Date.now();

@@ -2,6 +2,8 @@
 import crypto from 'node:crypto';
 import { Chess } from 'chess.js';
 import { ratingChanges } from './elo.js';
+import { assessGame, recordFlags } from './fairplay.js';
+import { nullMetrics } from './metrics.js';
 
 export const TIME_CONTROLS = {
   none: { id: 'none', base: 0, inc: 0 },
@@ -72,6 +74,9 @@ export class Room {
     this.flagTimer = null;
     this.dcTimers = {};
     this.emoteAt = { w: 0, b: 0 };
+    this.thinks = []; // [{ role, ms }]: tiempo que tardó cada jugada (para las heurísticas de juego limpio)
+    this.lastMoveAt = 0;
+    this.unrated = null; // motivo por el que una partida clasificatoria no puntúa ('pair' | 'quick')
   }
 
   // ----- Asientos -----
@@ -108,7 +113,10 @@ export class Room {
     this.sockets.add(ws);
     ws.meta.room = this.code;
     ws.meta.role = role;
-    if (this.status === 'waiting' && this.players.w && this.players.b) this.status = 'playing';
+    if (this.status === 'waiting' && this.players.w && this.players.b) {
+      this.status = 'playing';
+      this.lastMoveAt = Date.now();
+    }
     return role;
   }
 
@@ -167,6 +175,7 @@ export class Room {
       rematchCode: this.rematchCode,
       spectators: this.spectatorCount(),
       circuit: this.circuit,
+      unrated: this.unrated,
     };
   }
 
@@ -205,6 +214,9 @@ export class Room {
       return this.fail(ws, 'Jugada ilegal');
     }
     this.touched = now;
+    this.m.metrics.inc('moves_total');
+    this.thinks.push({ role, ms: now - (this.lastMoveAt || now) });
+    this.lastMoveAt = now;
     this.uci.push(uci);
     this.drawOffer = null;
 
@@ -296,6 +308,7 @@ export class Room {
     Object.values(this.dcTimers).forEach(clearTimeout);
     this.touched = Date.now();
     this.ratingDelta = this.m.onGameEnd(this);
+    this.m.metrics.inc('games_total', { mode: this.circuit ? 'circuit' : this.rated ? 'ranked' : 'friend', result: winner ? 'decisive' : reason === 'abortada' ? 'aborted' : 'draw' });
     this.broadcast();
     this.onOver?.(this);
   }
@@ -308,8 +321,9 @@ export class Room {
 
 export class RoomManager {
   /** @param {ReturnType<import('./db.js').openDb>} db */
-  constructor(db) {
+  constructor(db, { metrics = nullMetrics } = {}) {
     this.db = db;
+    this.metrics = metrics;
     this.rooms = new Map();
     this.sweeper = setInterval(() => this.sweep(), 60_000);
     this.sweeper.unref?.();
@@ -373,8 +387,9 @@ export class RoomManager {
   onGameEnd(room) {
     const { w, b } = room.players;
     if (!w || !b || room.uci.length === 0) return null;
+    const gameId = crypto.randomUUID();
     this.db.insertGame({
-      id: crypto.randomUUID(),
+      id: gameId,
       code: room.code,
       whiteId: w.id,
       blackId: b.id,
@@ -385,7 +400,20 @@ export class RoomManager {
       tc: room.tc.id,
       createdAt: room.createdAt,
     });
+    // Juego limpio: alertas para revisar y protección del ranking (ver fairplay.js).
+    let assessment = { skipRating: false, flags: [] };
+    try {
+      assessment = assessGame({ room, db: this.db });
+      recordFlags({ db: this.db, gameId, flags: assessment.flags, metrics: this.metrics });
+    } catch (err) {
+      console.error('[fairplay]', err);
+    }
     if (!room.rated || room.result.reason === 'abortada') return null;
+    if (assessment.skipRating) {
+      room.unrated = assessment.reason;
+      this.metrics.inc('rating_skipped_total', { reason: assessment.reason });
+      return null;
+    }
     const uw = this.db.userById(w.id);
     const ub = this.db.userById(b.id);
     if (!uw || !ub) return null;
