@@ -80,6 +80,17 @@ function claim(kind, id) {
   return true;
 }
 
+// Resumen para el lobby: misiones diarias con su progreso.
+export function missionsSummary() {
+  ensureMissions();
+  const view = (kind) =>
+    state.missions[kind].map((m) => {
+      const def = defOf(kind, m.id);
+      return { text: def.text, progress: m.progress, target: def.target, ready: m.progress >= def.target && !m.claimed, claimed: m.claimed, coins: def.coins };
+    });
+  return { daily: view('daily'), weekly: view('weekly') };
+}
+
 export function renderMissions() {
   ensureMissions();
   const block = (kind, title, hint) => {

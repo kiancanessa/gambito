@@ -325,6 +325,24 @@ export class RoomManager {
     this.rooms.delete(room.code);
   }
 
+  // Partidas clasificatorias en curso para el lobby ("en vivo"). Las partidas con amigo no se listan: son privadas por enlace.
+  liveGames(limit = 6) {
+    const list = [];
+    for (const room of this.rooms.values()) {
+      if (!room.rated || room.status !== 'playing' || !room.isFull()) continue;
+      const { w, b } = room.players;
+      list.push({
+        code: room.code,
+        tc: room.tc.id,
+        moves: room.uci.length,
+        spectators: room.spectatorCount(),
+        w: { name: w.name, rating: w.rating },
+        b: { name: b.name, rating: b.rating },
+      });
+    }
+    return list.sort((x, y) => y.w.rating + y.b.rating - (x.w.rating + x.b.rating)).slice(0, limit);
+  }
+
   // Partidas abiertas (esperando o en juego) en las que participa el jugador.
   activeCountFor(userId) {
     let n = 0;

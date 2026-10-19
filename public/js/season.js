@@ -25,6 +25,16 @@ export function addSeasonXp(n) {
 const rewardFor = (level) => SEASON.rewards[level] ?? SEASON.defaultReward;
 const rewardText = (r) => (r.coins ? `🪙 ${r.coins}` : r.label);
 
+// Resumen para el lobby.
+export function seasonSummary() {
+  ensureSeason();
+  const level = seasonLevel();
+  const into = state.season.xp - level * SEASON.xpPerLevel;
+  const maxed = level >= SEASON.levels;
+  const next = maxed ? null : rewardFor(level + 1);
+  return { name: SEASON.name, level, levels: SEASON.levels, per: SEASON.xpPerLevel, into, maxed, nextReward: next && rewardText(next), claimable: claimableSeason() };
+}
+
 export const claimableSeason = () => {
   ensureSeason();
   let n = 0;

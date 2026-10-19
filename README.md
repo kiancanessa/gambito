@@ -13,6 +13,7 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Tablero 3D** | three.js: piezas torneadas, sombras, cámara con 3 ángulos, animaciones de captura, enroque, coronación y rey que cae en mate. Respaldo 2D si no hay WebGL. |
 | **Campaña** | "Valle de Peones": mapa interactivo con 5 rivales, diálogos, jefe y estrellas por rendimiento. |
 | **Online** | Partida por enlace (`/g/CODIGO`), emparejamiento clasificatorio con Elo y ligas (Peón → Rey), relojes, tablas, revancha, espectadores y emotes (sin chat libre). |
+| **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/campaña, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
 | **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
 | **Skins** | 6 sets de piezas, 6 tableros y 4 efectos de captura (materiales y texturas procedurales, sin imágenes). |
@@ -49,6 +50,7 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/game.js         controlador de partida (IA local, online, tutorial, puzzles)
   js/session.js      prepara la pantalla de partida para cada modo
   js/online.js       multijugador (hub, sala, relojes, emotes, revancha)
+  js/lobby.js        lobby competitivo (agrega online, diario, misiones, temporada)
   js/net.js          API REST, sesión de invitado, nube y WebSocket
   js/daily.js        desafío diario    js/missions.js · js/season.js   progreso
   js/tutorial.js     tutorial          js/share.js   tarjeta y clip

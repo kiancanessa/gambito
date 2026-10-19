@@ -44,6 +44,7 @@
           <h1>Gambito</h1>
           <p class="tagline">Un peón sin nombre. Un reino partido en 64 casillas.<br>Corónate y cambia el destino del tablero.</p>
           <div class="menu">
+            <button class="big-btn gold" id="lobbyBtn" data-go="lobby" hidden><span class="ico">🏆</span><span><b>Lobby competitivo</b><small>Tu liga, partidas en vivo, misiones y más</small></span><i class="arrow">▶</i></button>
             <button class="big-btn primary" data-go="campaign"><span class="ico">⚔️</span><span><b>Campaña</b><small id="homeCampaignInfo">Valle de Peones</small></span><i class="arrow">▶</i></button>
             <button class="big-btn hot" data-go="online"><span class="ico">🌐</span><span><b>Jugar online</b><small>Reta a un amigo o sube de liga</small></span><i class="arrow">▶</i></button>
             <button class="big-btn" data-go="daily"><span class="ico">🧩</span><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span><i class="arrow">▶</i></button>
@@ -62,6 +63,16 @@
         </div>
         <div class="hero-stage" id="heroStage" aria-hidden="true"></div>
       </div>
+    </section>
+
+    <!-- LOBBY COMPETITIVO -->
+    <section class="screen" id="screen-lobby" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="home">← Inicio</button>
+        <h2>Lobby</h2>
+        <span class="chip" id="lbPresence"></span>
+      </div>
+      <div class="lobby-grid" id="lobbyBody"></div>
     </section>
 
     <!-- CAMPAÑA -->

@@ -17,6 +17,8 @@ import { initStage, mountHome, stage, stopDemo, thumbFor } from './stage.js';
 import {
   addCoins, addXp, buy, claimDaily, dailyAvailable, equip, onChange, owns, resetAll, save, state,
 } from './store.js';
+import { flags } from './flags.js';
+import { enterLobby, initLobby } from './lobby.js';
 import { initTutorial, startTutorial } from './tutorial.js';
 import {
   $, $$, app, avatar, celebrate, choice, confirmModal, esc, showScreen, stars as starsHtml, toast, VS,
@@ -105,6 +107,10 @@ async function go(name) {
   if (name !== 'home') stopDemo();
   if (name === 'online') {
     await enterHub();
+    return;
+  }
+  if (name === 'lobby') {
+    await enterLobby();
     return;
   }
   if (name === 'daily') {
@@ -244,17 +250,20 @@ $('#quickColor').addEventListener('click', (e) => {
   quick.color = b.dataset.color;
   renderQuick();
 });
-$('#quickStart').addEventListener('click', () => {
-  const i = QUICK_LEVELS.findIndex((l) => l.id === quick.level);
+// Partida rápida contra la IA (también la usa el lobby).
+function startQuick(levelId, colorPref) {
+  const i = QUICK_LEVELS.findIndex((l) => l.id === levelId);
   const l = QUICK_LEVELS[i];
-  const color = quick.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : quick.color;
+  const color = colorPref === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : colorPref;
   beginGame({
     mode: 'quick', playerColor: color,
     ai: { skill: l.skill, depth: l.depth, movetime: l.movetime, blunder: l.blunder },
     opp: { name: `Rival ${l.name}`, title: `Nivel ${l.id} de ${QUICK_LEVELS.length}`, glyph: QUICK_GLYPHS[i], color: QUICK_COLORS[i] },
     reward: Math.round(50 * l.mult),
   });
-});
+}
+app.startQuick = startQuick;
+$('#quickStart').addEventListener('click', () => startQuick(quick.level, quick.color));
 
 // ---------- Partida contra la IA ----------
 function dialogueHtml(who, text) {
@@ -277,6 +286,7 @@ async function beginGame(cfg) {
   });
 }
 app.beginGame = beginGame;
+app.startCampaign = startCampaign;
 
 // ---------- Recompensas y resultado ----------
 function computeRewards(cfg, s) {
@@ -542,6 +552,8 @@ initMissions();
 initSeason();
 initTutorial();
 initProfile();
+initLobby();
+$('#lobbyBtn').hidden = !flags.lobby;
 buildAmbient();
 applySkins();
 updateHud();

@@ -9,4 +9,5 @@ const BACKEND_URL = 'https://gambito.onrender.com';
 window.GAMBITO_API = location.hostname.endsWith('.vercel.app') ? BACKEND_URL : '';
 
 // Interruptores de funciones en desarrollo (se pueden activar con ?flag=nombre en la URL).
-window.GAMBITO_FLAGS = {};
+// lobby: lobby competitivo (Fase 1). Ponlo en false para volver a la pantalla de inicio anterior.
+window.GAMBITO_FLAGS = { lobby: true };

@@ -2,6 +2,7 @@
 import { EMOTES, GLYPH, LEAGUES, TIME_CONTROLS, leagueOf } from './data.js';
 import { sfx } from './fx.js';
 import { track } from './missions.js';
+import { flags } from './flags.js';
 import { api, ensureOnline, net, refreshUser, socket } from './net.js';
 import { addSeasonXp } from './season.js';
 import { startSession, setBanner } from './session.js';
@@ -81,6 +82,16 @@ async function refreshHubData() {
   if (app.screen === 'online') renderHub();
 }
 
+// Otras pantallas (el lobby) reutilizan estas acciones y se suscriben al estado de la cola.
+export const getTc = () => on.tc;
+export function setTc(id) {
+  on.tc = id;
+  localStorage.setItem('gambito.tc', id);
+}
+export const queueInfo = () => ({ active: on.queued, since: on.queueSince });
+const queueSubs = new Set();
+export const onQueueChange = (fn) => queueSubs.add(fn);
+
 function renderQueue() {
   $('#queueBox').hidden = !on.queued;
   $('#queueBtn').hidden = on.queued;
@@ -88,6 +99,7 @@ function renderQueue() {
     const s = Math.floor((Date.now() - on.queueSince) / 1000);
     $('#queueTime').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
+  queueSubs.forEach((fn) => fn(queueInfo()));
 }
 
 async function connect() {
@@ -104,7 +116,7 @@ async function connect() {
   }
 }
 
-async function startQueue() {
+export async function startQueue() {
   if (!(await connect())) return;
   on.queued = true;
   on.queueSince = Date.now();
@@ -114,18 +126,19 @@ async function startQueue() {
   on.queueTimer = setInterval(() => (on.queued ? renderQueue() : clearInterval(on.queueTimer)), 1000);
 }
 
-function cancelQueue() {
+export function cancelQueue() {
   on.queued = false;
   socket.send({ t: 'dequeue' });
   renderQueue();
 }
 
-async function createFriendGame() {
+export async function createRoom({ tc, color = 'r' }) {
   if (!(await connect())) return;
-  on.tc = $('#friendTc').value;
-  localStorage.setItem('gambito.tc', on.tc);
-  socket.send({ t: 'create', tc: on.tc, color: on.color });
+  setTc(tc);
+  socket.send({ t: 'create', tc, color });
 }
+
+const createFriendGame = () => createRoom({ tc: $('#friendTc').value, color: on.color });
 
 export async function joinRoom(code) {
   if (!(await connect())) return false;
@@ -361,7 +374,7 @@ function leaveGame() {
 
 async function leaveToHub() {
   leaveGame();
-  await app.go('online');
+  await app.go(flags.lobby ? 'lobby' : 'online');
 }
 
 // ---------- Eventos de la interfaz ----------
@@ -382,7 +395,7 @@ export function initOnline() {
     if (m.code === 'nogame') {
       toast(m.message);
       history.replaceState(null, '', '/');
-      app.go('online');
+      app.go(flags.lobby ? 'lobby' : 'online');
     } else if (m.message) toast(m.message);
   });
   socket.on('emote', (m) => {

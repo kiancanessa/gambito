@@ -136,6 +136,8 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
         });
       }
 
+      if (pathname === '/api/live' && method === 'GET') return send(res, 200, { games: rooms.liveGames(6) });
+
       if (pathname === '/api/leaderboard' && method === 'GET') {
         const user = authUser(req);
         const top = db.leaderboard(20).map((r, i) => ({ rank: i + 1, ...r }));

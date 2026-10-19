@@ -35,6 +35,7 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `GET /api/daily` | opcional | Puzzle del día, ranking y mi resultado |
 | `POST /api/daily/submit` | sí | Envía solución (se verifica con chess.js) |
 | `GET /api/leaderboard` | opcional | Top 20 por rating |
+| `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
 Hay límites de peticiones por IP y por usuario (`server/api.js`).
