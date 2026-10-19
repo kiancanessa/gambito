@@ -59,6 +59,7 @@ export function startSession(cfg) {
   $('#resignBtn').textContent = ui.resignLabel;
   $('#drawBtn').hidden = !ui.draw;
   $('#emoteBar').hidden = !ui.emotes;
+  $('#replayBar').hidden = true;
   $('#oppClock').hidden = !ui.clocks;
   $('#meClock').hidden = !ui.clocks;
   $('#drawPrompt').hidden = true;

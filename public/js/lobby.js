@@ -3,7 +3,9 @@
 import { CAMPAIGN, GLYPH, LEAGUES, QUICK_LEVELS, TIME_CONTROLS, leagueOf } from './data.js';
 import { missionsSummary } from './missions.js';
 import { api, ensureOnline, net, onNet, refreshUser } from './net.js';
+import { flags } from './flags.js';
 import { cancelQueue, createRoom, getTc, joinRoom, onQueueChange, queueInfo, setTc, startQueue } from './online.js';
+import { historyHtml, openReplay, tcName } from './replay.js';
 import { seasonSummary } from './season.js';
 import { state } from './store.js';
 import { $, $$, app, avatar, esc, fmtCountdown, fmtDuration, showScreen, toast, VS } from './ui.js';
@@ -22,7 +24,7 @@ const lb = {
   mode: localStorage.getItem('gambito.lobby.mode') || 'ranked',
   color: 'r',
   aiLevel: 3,
-  data: { stats: null, top: [], me: null, live: [], daily: null },
+  data: { stats: null, top: [], me: null, live: [], daily: null, history: [] },
   offline: false,
   timer: null,
   built: false,
@@ -30,10 +32,6 @@ const lb = {
 if (!MODES.some((m) => m.id === lb.mode)) lb.mode = 'ranked';
 
 const glyph = (g, color) => `<span class="lg" style="color:${color}">${GLYPH[g]}${VS}</span>`;
-const tcName = (id) => {
-  const t = TIME_CONTROLS.find((x) => x.id === id);
-  return t ? (id === 'none' ? 'Sin reloj' : `${t.label} ${t.sub}`) : id;
-};
 const online = () => !!net.user && !lb.offline;
 
 // ---------- Estructura ----------
@@ -50,6 +48,7 @@ function build() {
       <section class="lb-card" id="lbRank"></section>
     </div>
     <section class="lb-card lb-live" id="lbLive"></section>
+    ${flags.replays ? '<section class="lb-card lb-history" id="lbHistory"></section>' : ''}
     <section class="lb-card lb-circuit" id="lbCircuit"></section>`;
 }
 
@@ -201,6 +200,13 @@ function renderLive() {
     ${rows ? `<ul class="live-list">${rows}</ul>` : `<p class="muted">${online() ? 'No hay partidas clasificatorias en curso ahora mismo. ¡Empieza una y deja que otros te vean!' : 'Conéctate para ver partidas en directo.'}</p>`}`;
 }
 
+function renderHistory() {
+  if (!flags.replays) return;
+  const rows = historyHtml(lb.data.history);
+  $('#lbHistory').innerHTML = `<div class="card-head"><p class="eyebrow">🎬 Mis últimas partidas</p></div>
+    ${rows ? `<ul class="live-list history-list">${rows}</ul>` : `<p class="muted">${online() ? 'Aquí aparecerán tus partidas online para que las revises o las compartas.' : 'Conéctate para ver tu historial.'}</p>`}`;
+}
+
 function renderCircuit() {
   $('#lbCircuit').innerHTML = `
     <div class="circuit-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -223,6 +229,7 @@ function renderAll() {
   renderSeason();
   renderRank();
   renderLive();
+  renderHistory();
   renderCircuit();
   renderPresence();
 }
@@ -230,11 +237,12 @@ function renderAll() {
 // ---------- Datos ----------
 async function refresh() {
   if (!net.user) return;
-  const [st, top, live, daily] = await Promise.all([
+  const [st, top, live, daily, history] = await Promise.all([
     api('/api/stats', { auth: false }),
     api('/api/leaderboard'),
     api('/api/live', { auth: false }),
     api('/api/daily'),
+    flags.replays ? api('/api/me/games?limit=6') : { ok: false },
   ]);
   if (app.screen !== 'lobby') return;
   lb.offline = !(st.ok || top.ok);
@@ -245,6 +253,7 @@ async function refresh() {
   }
   if (live.ok) lb.data.live = live.json.games;
   if (daily.ok) lb.data.daily = daily.json;
+  if (history.ok) lb.data.history = history.json.games;
   await refreshUser();
   if (app.screen === 'lobby') renderAll();
 }
@@ -294,6 +303,8 @@ export function initLobby() {
       lb.aiLevel = Number(ai.dataset.ai);
       return renderPlayBodyOnly();
     }
+    const rep = e.target.closest('[data-replay]');
+    if (rep) return openReplay(rep.dataset.replay);
     const spec = e.target.closest('[data-spectate]');
     if (spec) return joinRoom(spec.dataset.spectate);
     const act = e.target.closest('[data-lb]')?.dataset.lb;

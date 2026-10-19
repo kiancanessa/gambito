@@ -37,6 +37,8 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `GET /api/leaderboard` | opcional | Top 20 por rating |
 | `GET /api/wallet` | sí | Cartera verificada (oros, XP, nivel, inventario, equipado); se crea desde el guardado la primera vez |
 | `POST /api/wallet/ops` | sí | Lote de operaciones (`buy`, `equip`, `spend`, `earn`, `reset`) ≤ 50; devuelve la cartera y el resultado de cada una |
+| `GET /api/me/games` | sí | Tus últimas partidas online (`?limit=`, máx. 50): resultado, rival, control, jugadas |
+| `GET /api/games/:id` | sí | Partida completa para la repetición (jugadas UCI, jugadores). Solo la ven quienes la jugaron; si no, 404 |
 | `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
@@ -93,6 +95,13 @@ Las operaciones pendientes se guardan en `localStorage` y se reenvían al volver
 Migración idempotente: la primera vez que se pide la cartera se crea desde el guardado antiguo, recortado (máx. 20 000 oros, solo
 objetos del catálogo). Después, el guardado en la nube ya no decide estos campos. `mergeSnapshot` también fusiona estas tablas y
 tolera copias de versiones sin ellas. Lo que sigue en el cliente: temporada (XP), misiones, campaña y estadísticas.
+
+## Repeticiones (Fase 3)
+
+Cada partida online terminada ya se guarda en `games` con sus jugadas; la Fase 3 solo las expone. `public/js/replay.js` abre la pantalla de
+partida en modo espectador sin motor (`remote.send` vacío y `game.over = true`) y la gobierna con una barra: inicio/anterior/
+reproducir/siguiente/final, velocidad 0,5×–2× y deslizador. Avanzar de uno en uno anima la jugada; retroceder o saltar reconstruye
+la posición con `loadMoves`. **Compartir** reutiliza `share.js`: tarjeta o clip de las últimas jugadas hasta el punto que estés viendo.
 
 ## Cliente
 

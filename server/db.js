@@ -99,6 +99,16 @@ export function openDb(file) {
     ),
     dailyMine: db.prepare('SELECT seconds, attempts FROM daily_results WHERE day = ? AND user_id = ?'),
     dailyRank: db.prepare('SELECT COUNT(*) + 1 AS rank FROM daily_results WHERE day = ? AND seconds < ?'),
+    gamesOf: db.prepare(
+      `SELECT g.id, g.code, g.winner, g.reason, g.rated, g.tc, g.created_at, g.white_id, g.black_id, json_array_length(g.moves) AS plies,
+              w.name AS white_name, b.name AS black_name
+       FROM games g LEFT JOIN users w ON w.id = g.white_id LEFT JOIN users b ON b.id = g.black_id
+       WHERE g.white_id = ? OR g.black_id = ? ORDER BY g.created_at DESC LIMIT ?`,
+    ),
+    gameById: db.prepare(
+      `SELECT g.*, w.name AS white_name, w.rating AS white_rating, b.name AS black_name, b.rating AS black_rating
+       FROM games g LEFT JOIN users w ON w.id = g.white_id LEFT JOIN users b ON b.id = g.black_id WHERE g.id = ?`,
+    ),
     gameByCode: db.prepare('SELECT * FROM games WHERE code = ? AND (white_id = ? OR black_id = ?) ORDER BY created_at DESC LIMIT 1'),
     dailyCount: db.prepare('SELECT COUNT(*) AS n FROM daily_results WHERE day = ?'),
     counts: db.prepare('SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM games WHERE created_at > ?) AS gamesToday'),
@@ -136,6 +146,8 @@ export function openDb(file) {
     ratingRank: (rating) => q.rankOf.get(rating).rank,
     dailySubmit: (day, userId, seconds, attempts) => q.dailyInsert.run(day, userId, seconds, attempts, Date.now()),
     dailyTop: (day, limit = 20) => q.dailyTop.all(day, limit),
+    gamesOf: (userId, limit = 20) => q.gamesOf.all(userId, userId, limit),
+    gameById: (id) => q.gameById.get(id) ?? null,
     gameByCode: (code, userId) => q.gameByCode.get(code, userId, userId) ?? null,
     dailyMine: (day, userId) => q.dailyMine.get(day, userId) ?? null,
     dailyRank: (day, seconds) => q.dailyRank.get(day, seconds).rank,

@@ -11,4 +11,5 @@ window.GAMBITO_API = location.hostname.endsWith('.vercel.app') ? BACKEND_URL : '
 // Interruptores de funciones en desarrollo (se pueden activar con ?flag=nombre en la URL).
 // lobby: lobby competitivo (Fase 1). Ponlo en false para volver a la pantalla de inicio anterior.
 // wallet: cartera verificada en el servidor (Fase 2). Ponlo en false para volver al guardado solo local.
-window.GAMBITO_FLAGS = { lobby: true, wallet: true };
+// replays: historial y repeticiones de tus partidas online (Fase 3).
+window.GAMBITO_FLAGS = { lobby: true, wallet: true, replays: true };

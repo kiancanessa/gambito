@@ -185,6 +185,48 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
         return send(res, 200, { updatedAt });
       }
 
+      // ----- Repeticiones: solo las ven quienes jugaron la partida -----
+      if (pathname === '/api/me/games' && method === 'GET') {
+        const limit = clamp(url.searchParams.get('limit') ?? 20, 1, 50);
+        const games = db.gamesOf(user.id, limit).map((g) => {
+          const mine = g.white_id === user.id ? 'w' : 'b';
+          return {
+            id: g.id,
+            code: g.code,
+            you: mine,
+            result: !g.winner ? 'draw' : g.winner === mine ? 'win' : 'loss',
+            reason: g.reason,
+            rated: !!g.rated,
+            tc: g.tc,
+            plies: g.plies,
+            createdAt: g.created_at,
+            opponent: (mine === 'w' ? g.black_name : g.white_name) ?? 'Jugador',
+          };
+        });
+        return send(res, 200, { games });
+      }
+
+      const replay = pathname.match(/^\/api\/games\/([\w-]{8,64})$/);
+      if (replay && method === 'GET') {
+        const g = db.gameById(replay[1]);
+        if (!g || (g.white_id !== user.id && g.black_id !== user.id)) return send(res, 404, { error: 'Partida no encontrada' });
+        return send(res, 200, {
+          game: {
+            id: g.id,
+            code: g.code,
+            you: g.white_id === user.id ? 'w' : 'b',
+            winner: g.winner,
+            reason: g.reason,
+            rated: !!g.rated,
+            tc: g.tc,
+            createdAt: g.created_at,
+            moves: JSON.parse(g.moves),
+            white: { name: g.white_name ?? 'Jugador', rating: g.white_rating },
+            black: { name: g.black_name ?? 'Jugador', rating: g.black_rating },
+          },
+        });
+      }
+
       if (pathname === '/api/wallet' && method === 'GET') return send(res, 200, { wallet: wallets.ensure(user.id) });
 
       if (pathname === '/api/wallet/ops' && method === 'POST') {

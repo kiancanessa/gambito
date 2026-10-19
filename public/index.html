@@ -230,6 +230,19 @@
           </div>
           <div class="quip" id="quip" hidden></div>
           <div class="emote-bar" id="emoteBar" hidden></div>
+          <div class="replay-bar" id="replayBar" hidden>
+            <div class="rp-buttons">
+              <button data-rp="start" aria-label="Al inicio">⏮</button>
+              <button data-rp="prev" aria-label="Jugada anterior">◀</button>
+              <button class="rp-play" id="rpPlay" data-rp="play" aria-label="Reproducir o pausar">⏵</button>
+              <button data-rp="next" aria-label="Jugada siguiente">▶</button>
+              <button data-rp="end" aria-label="Al final">⏭</button>
+              <button id="rpSpeed" data-rp="speed" aria-label="Velocidad">1×</button>
+              <button data-rp="share" aria-label="Compartir">📤</button>
+            </div>
+            <input type="range" id="rpSlider" min="0" max="0" value="0" aria-label="Jugada de la repetición">
+            <small id="rpLabel"></small>
+          </div>
         </div>
 
         <div class="side side-right">

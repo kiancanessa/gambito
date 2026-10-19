@@ -788,11 +788,12 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, .big-btn:focus-vi
 
 .lobby-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 1040px) {
-  .lobby-grid { grid-template-columns: minmax(0, 1fr) 370px; grid-template-areas: 'player side' 'play side' 'live side' 'circuit side'; align-items: start; }
+  .lobby-grid { grid-template-columns: minmax(0, 1fr) 370px; grid-template-areas: 'player side' 'play side' 'live side' 'history side' 'circuit side'; align-items: start; }
   .lb-player { grid-area: player; }
   .lb-play { grid-area: play; }
   .lb-side { grid-area: side; }
   .lb-live { grid-area: live; }
+  .lb-history { grid-area: history; }
   .lb-circuit { grid-area: circuit; }
 }
 .lb-side { display: grid; gap: 16px; }
@@ -897,3 +898,19 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, .big-btn:focus-vi
 .circuit-art i:nth-child(7) { grid-area: 4 / 3; background: #ffcf5a; box-shadow: 0 0 12px #ffcf5a; }
 .queue-box > .spinner { flex: none; }
 .lb-cta small { opacity: 0.9; color: #4a2300; }
+
+/* =====================================================================
+   Repeticiones (Fase 3)
+   ===================================================================== */
+.pill.bad { background: rgba(255, 90, 110, 0.2); color: #ff9aa8; }
+.history-list li { grid-template-columns: auto 1fr auto; }
+.history-list .vs { display: grid; gap: 2px; }
+.history-list .btn { grid-column: auto; grid-row: auto; }
+.replay-bar { width: 100%; max-width: 940px; display: grid; gap: 6px; padding: 8px 4px 4px; justify-items: center; }
+.rp-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.rp-buttons button { min-width: 44px; padding: 9px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); font-size: 1rem; transition: background 0.2s, transform 0.15s; }
+.rp-buttons button:hover { background: rgba(120, 100, 220, 0.5); }
+.rp-buttons button:active { transform: translateY(1px); }
+.rp-buttons .rp-play { background: linear-gradient(180deg, #a48bff, #6f50e8); color: #fff; min-width: 56px; }
+.replay-bar input[type='range'] { width: min(100%, 520px); accent-color: #a48bff; }
+.replay-bar small { color: var(--muted); }
