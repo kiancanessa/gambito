@@ -4,8 +4,9 @@ export const WINDOW_PER_SECOND = 25;
 export const WINDOW_MAX = 600;
 
 export class Matchmaker {
-  constructor(rooms, { intervalMs = 1500 } = {}) {
+  constructor(rooms, { intervalMs = 1500, canMatch = () => true } = {}) {
     this.rooms = rooms;
+    this.canMatch = canMatch; // (userA, userB) => boolean: p. ej. no emparejar a quien se ha bloqueado
     this.queue = []; // { user, ws, tcId, since }
     this.timer = setInterval(() => this.tick(), intervalMs);
     this.timer.unref?.();
@@ -45,7 +46,7 @@ export class Matchmaker {
       const window = Math.min(WINDOW_MAX, WINDOW_BASE + WINDOW_PER_SECOND * waited);
       let best = null;
       for (const b of sorted) {
-        if (b === a || used.has(b) || b.tcId !== a.tcId || b.user.id === a.user.id) continue;
+        if (b === a || used.has(b) || b.tcId !== a.tcId || b.user.id === a.user.id || !this.canMatch(a.user, b.user)) continue;
         const wb = Math.min(WINDOW_MAX, WINDOW_BASE + WINDOW_PER_SECOND * ((now - b.since) / 1000));
         const diff = Math.abs(a.user.rating - b.user.rating);
         if (diff <= Math.max(window, wb) && (!best || diff < best.diff)) best = { entry: b, diff };

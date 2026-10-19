@@ -142,6 +142,19 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            SELECT o.tournament_id, o.user_id, o.placement, o.coins, o.xp, o.item, o.created_at FROM old.tournament_results o
            WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id);`
       : '';
+    const social = ['friend_codes', 'friendships', 'blocks', 'reports'].every((t) => oldTables.has(t))
+      ? `INSERT OR IGNORE INTO friend_codes SELECT * FROM old.friend_codes WHERE user_id IN (SELECT id FROM main.users);
+         INSERT OR IGNORE INTO friendships SELECT * FROM old.friendships
+           WHERE low IN (SELECT id FROM main.users) AND high IN (SELECT id FROM main.users);
+         UPDATE friendships SET status = 'accepted'
+           WHERE status = 'pending' AND EXISTS (SELECT 1 FROM old.friendships o WHERE o.low = friendships.low AND o.high = friendships.high AND o.status = 'accepted');
+         INSERT OR IGNORE INTO blocks SELECT * FROM old.blocks
+           WHERE user_id IN (SELECT id FROM main.users) AND blocked_id IN (SELECT id FROM main.users);
+         INSERT INTO reports (reporter_id, target_id, reason, ctx, created_at)
+           SELECT o.reporter_id, o.target_id, o.reason, o.ctx, o.created_at FROM old.reports o
+           WHERE o.reporter_id IN (SELECT id FROM main.users)
+             AND NOT EXISTS (SELECT 1 FROM main.reports r WHERE r.reporter_id = o.reporter_id AND r.target_id = o.target_id AND r.created_at = o.created_at);`
+      : '';
     db.raw.exec(`
       BEGIN;
       INSERT OR IGNORE INTO users SELECT * FROM old.users;
@@ -155,6 +168,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       INSERT OR IGNORE INTO daily_results SELECT * FROM old.daily_results;
       ${wallet}
       ${circuit}
+      ${social}
       COMMIT;
     `);
   } catch (err) {

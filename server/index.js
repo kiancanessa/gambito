@@ -11,6 +11,7 @@ import { RoomManager } from './rooms.js';
 import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
 import { CircuitManager } from './tournaments.js';
+import { createSocial } from './social.js';
 
 // Persistencia opcional para alojamientos sin disco (Render Free): con DATABASE_URL (Postgres de Neon) la base de datos
 // SQLite se restaura al arrancar y se copia periódicamente (ver server/persist.js).
@@ -37,7 +38,8 @@ export async function startServer({
   const db = openDb(dbFile);
   persistence?.start(db);
   const rooms = new RoomManager(db);
-  const matchmaker = new Matchmaker(rooms);
+  const social = createSocial(db);
+  const matchmaker = new Matchmaker(rooms, { canMatch: (a, b) => !social.isBlocked(a.id, b.id) });
   const circuit = new CircuitManager({ rooms, db, options: circuitOptions });
   let ws = null;
   const api = createApi({
@@ -45,6 +47,9 @@ export async function startServer({
     rooms,
     matchmaker,
     circuit,
+    social,
+    presence: (ids) => ws?.presence(ids) ?? {},
+    notify: (id, msg) => ws?.notify(id, msg),
     onlineCount: () => ws?.count() ?? 0,
     puzzles: puzzles ?? loadPuzzles(),
     persistStatus: () => persistence?.status() ?? null,
@@ -61,7 +66,7 @@ export async function startServer({
     }
     await serveStatic(req, res, url);
   });
-  ws = attachWs(server, { db, rooms, matchmaker, circuit });
+  ws = attachWs(server, { db, rooms, matchmaker, circuit, social });
 
   return new Promise((resolve) => {
     server.listen(port, host, () => {
@@ -78,8 +83,8 @@ export async function startServer({
         async close() {
           matchmaker.close();
           circuit.close();
+          ws.close(); // primero los sockets: al caer, las salas programan avisos de desconexión que rooms.close() debe limpiar
           rooms.close();
-          ws.close();
           // Se dejan de aceptar conexiones y se cortan las que siguen abiertas (keep-alive de proxys y monitores):
           // esperar a que se cierren solas bloqueaba el apagado y la copia final nunca se hacía.
           const closed = new Promise((r) => server.close(r));

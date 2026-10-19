@@ -949,3 +949,19 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, .big-btn:focus-vi
 .cm .btn { justify-self: stretch; }
 .circuit-cta { display: grid; gap: 8px; justify-items: end; }
 .champs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+/* =====================================================================
+   Social (Fase 5)
+   ===================================================================== */
+.friend-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 14px; background: rgba(0, 0, 0, 0.28); }
+.friend-code b { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.12em; color: var(--gold); }
+.fr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fr-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); }
+.fr-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.pdot { width: 10px; height: 10px; border-radius: 50%; background: #6b6490; flex: none; }
+.pdot.on { background: #2fbf71; box-shadow: 0 0 8px #2fbf71; }
+.pdot.queue { background: #ffcf5a; box-shadow: 0 0 8px #ffcf5a; }
+.pdot.play { background: #ff3b5c; box-shadow: 0 0 8px #ff3b5c; }
+.opp-menu { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--glass); border: 1px solid var(--line); font-size: 1.2rem; line-height: 1; display: grid; place-items: center; }
+.opp-menu:hover { background: rgba(120, 100, 220, 0.5); }

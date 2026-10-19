@@ -1,12 +1,12 @@
 // API HTTP/JSON: cuentas de invitado, guardado en la nube, desafío diario, clasificación y estadísticas.
 import { bearer, cleanName, defaultName, newId, newRecoveryCode, newToken, normalizeCode, sha256 } from './auth.js';
-import { SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
+import { LIMITS, SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 import { createWallets } from './wallet.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, circuit, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, social, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
   const wallets = createWallets(db);
 
@@ -99,7 +99,7 @@ export function createApi({ db, rooms, matchmaker, circuit, onlineCount, puzzles
       if (limited(`all:${ip}`, 240, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
 
       if (pathname === '/api/guest' && method === 'POST') {
-        if (limited(`guest:${ip}`, 20, 3600_000)) return send(res, 429, { error: 'Demasiadas cuentas nuevas desde esta red' });
+        if (limited(`guest:${ip}`, LIMITS.guestsPerHour, 3600_000)) return send(res, 429, { error: 'Demasiadas cuentas nuevas desde esta red' });
         const body = await readJson(req);
         const token = newToken();
         const recovery = newRecoveryCode();
@@ -229,6 +229,55 @@ export function createApi({ db, rooms, matchmaker, circuit, onlineCount, puzzles
             black: { name: g.black_name ?? 'Jugador', rating: g.black_rating },
           },
         });
+      }
+
+      // ----- Social: amigos, bloqueos y reportes -----
+      if (pathname.startsWith('/api/social') || pathname === '/api/report') {
+        if (pathname === '/api/social' && method === 'GET') return send(res, 200, social.list(user.id, presence));
+        if (method !== 'POST') return send(res, 404, { error: 'No encontrado' });
+        if (limited(`social:${user.id}`, 30, 60_000)) return send(res, 429, { error: 'Demasiadas acciones sociales seguidas' });
+        const body = await readJson(req);
+        const id = typeof body.id === 'string' ? body.id.slice(0, 40) : '';
+        // Con quien se puede interactuar por id: quien ha compartido partida contigo (nunca bots).
+        const canInteract = (other) => !other.startsWith('bot-') && (rooms.shareRoom(user.id, other) || social.hasPlayed(user.id, other));
+
+        if (pathname === '/api/social/request') {
+          let targetId;
+          if (typeof body.code === 'string') {
+            const target = social.userByCode(body.code);
+            if (!target) return send(res, 404, { error: 'Código no válido' });
+            targetId = target.id;
+          } else if (id && canInteract(id)) targetId = id;
+          else return send(res, 404, { error: 'No encontrado' });
+          const r = social.request(user.id, targetId);
+          if (r.status === 'pending') notify(targetId, { t: 'friend_request', from: { id: user.id, name: user.name } });
+          else notify(targetId, { t: 'friends_changed' });
+          return send(res, 200, { status: r.status, user: r.user });
+        }
+        if (pathname === '/api/social/respond') {
+          const r = social.respond(user.id, id, body.accept === true);
+          notify(id, { t: 'friends_changed' });
+          return send(res, 200, r);
+        }
+        if (pathname === '/api/social/remove') {
+          social.remove(user.id, id);
+          notify(id, { t: 'friends_changed' });
+          return send(res, 200, { ok: true });
+        }
+        if (pathname === '/api/social/block') {
+          social.block(user.id, id);
+          notify(id, { t: 'friends_changed' });
+          return send(res, 200, { ok: true });
+        }
+        if (pathname === '/api/social/unblock') {
+          social.unblock(user.id, id);
+          return send(res, 200, { ok: true });
+        }
+        if (pathname === '/api/report') {
+          if (!id || !canInteract(id)) return send(res, 404, { error: 'No encontrado' });
+          return send(res, 200, social.report(user.id, id, body.reason, body.ctx));
+        }
+        return send(res, 404, { error: 'No encontrado' });
       }
 
       if (pathname === '/api/wallet' && method === 'GET') return send(res, 200, { wallet: wallets.ensure(user.id) });

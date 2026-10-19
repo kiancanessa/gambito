@@ -29,4 +29,5 @@ export const LIMITS = {
   socketsPerUser: 6, // conexiones simultáneas por cuenta (varias pestañas/dispositivos)
   createsPerMinute: 8, // salas nuevas por minuto y conexión
   spectatorsPerRoom: 200,
+  guestsPerHour: 20, // cuentas de invitado nuevas por hora e IP
 };

@@ -89,6 +89,33 @@ export function openDb(file) {
       created_at INTEGER NOT NULL,
       PRIMARY KEY (tournament_id, user_id)
     );
+    CREATE TABLE IF NOT EXISTS friend_codes (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      code TEXT NOT NULL UNIQUE
+    );
+    CREATE TABLE IF NOT EXISTS friendships (
+      low TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      high TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      requested_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (low, high)
+    );
+    CREATE TABLE IF NOT EXISTS blocks (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      blocked_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, blocked_id)
+    );
+    CREATE TABLE IF NOT EXISTS reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_id TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      ctx TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_target ON reports(target_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_day ON daily_results(day, seconds);
   `);

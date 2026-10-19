@@ -226,6 +226,11 @@ function handleState(s) {
   $('#oppTitle').textContent = `${oi.title}${opp && !opp.online ? ' · desconectado' : ''}`;
   $('#oppAvatar').style.setProperty('--c', oi.color);
   $('#oppAvatar').textContent = GLYPH[oi.glyph] + VS;
+  // Menú del rival (añadir amigo / reportar / bloquear): solo con rivales humanos.
+  const menu = $('#oppMenuBtn');
+  const human = !!opp && !opp.id.startsWith('bot-') && !on.spectator;
+  menu.hidden = !(flags.social && human);
+  if (human) Object.assign(menu.dataset, { id: opp.id, name: opp.name });
   if (on.spectator) $('#meName').textContent = s.players.w?.name ?? 'Blancas';
   if (me) $('#meSub').textContent = `${on.spectator ? 'Espectador' : on.pc === 'w' ? 'Blancas' : 'Negras'} · ${me.rating} pts`;
   setBanner(`<span>${s.circuit ? `🏆 Royale Circuit · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>

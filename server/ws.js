@@ -21,7 +21,7 @@ function originAllowed(req) {
   return allowedOrigins().includes(origin.replace(/\/$/, ''));
 }
 
-export function attachWs(server, { db, rooms, matchmaker, circuit }) {
+export function attachWs(server, { db, rooms, matchmaker, circuit, social }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048 });
   const perIp = new Map();
 
@@ -145,6 +145,19 @@ export function attachWs(server, { db, rooms, matchmaker, circuit }) {
       case 'leave':
         leaveRoom(ws, true);
         break;
+      // ----- Invitaciones a amigos -----
+      case 'invite': {
+        meta.invites = (meta.invites ?? []).filter((t) => now - t < 60_000);
+        if (meta.invites.length >= 10) return send(ws, { t: 'error', message: 'Demasiadas invitaciones seguidas: espera un momento' });
+        const to = typeof msg.to === 'string' ? msg.to : '';
+        if (!room || room.status !== 'waiting' || meta.role === 's' || !room.hasPlayer(meta.user.id)) return send(ws, { t: 'error', message: 'Crea una partida y espera a tu rival antes de invitar' });
+        if (!social.areFriends(meta.user.id, to) || social.isBlocked(meta.user.id, to)) return send(ws, { t: 'error', message: 'Solo puedes invitar a tus amigos' });
+        meta.invites.push(now);
+        const from = { id: meta.user.id, name: meta.user.name, rating: meta.user.rating };
+        const delivered = notify(to, { t: 'invite', from, code: room.code, tc: room.tc.id });
+        send(ws, delivered ? { t: 'invited', to } : { t: 'error', message: 'Tu amigo no está conectado ahora mismo' });
+        break;
+      }
       // ----- Royale Circuit -----
       case 'circuit_join':
         meta.user = db.userById(meta.user.id) ?? meta.user;
@@ -195,7 +208,38 @@ export function attachWs(server, { db, rooms, matchmaker, circuit }) {
   }, 30_000);
   heartbeat.unref?.();
 
+  // Envía un mensaje a todas las conexiones de un usuario; devuelve cuántas lo recibieron.
+  function notify(userId, msg) {
+    let n = 0;
+    for (const c of wss.clients) {
+      if (c.meta?.user?.id === userId && c.readyState === 1) {
+        send(c, msg);
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  // Estado en línea de varios usuarios: online | queue (buscando partida) | playing; los que no aparecen están desconectados.
+  function presence(ids) {
+    const want = new Set(ids);
+    const rank = { online: 1, queue: 2, playing: 3 };
+    const out = {};
+    for (const c of wss.clients) {
+      const id = c.meta?.user?.id;
+      if (!id || !want.has(id)) continue;
+      const r = c.meta.room && rooms.get(c.meta.room);
+      let st = 'online';
+      if (c.meta.queued) st = 'queue';
+      if (r && r.status === 'playing' && r.hasPlayer(id)) st = 'playing';
+      if (!out[id] || rank[st] > rank[out[id]]) out[id] = st;
+    }
+    return out;
+  }
+
   return {
+    notify,
+    presence,
     count: () => wss.clients.size,
     close() {
       clearInterval(heartbeat);

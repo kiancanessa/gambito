@@ -85,6 +85,16 @@
       <div class="circuit-body" id="circuitBody"></div>
     </section>
 
+    <!-- AMIGOS -->
+    <section class="screen" id="screen-social" hidden>
+      <div class="screen-head">
+        <button class="back" data-go="lobby">← Lobby</button>
+        <h2>Amigos</h2>
+        <span class="chip">👥 Social</span>
+      </div>
+      <div class="circuit-body" id="socialBody"></div>
+    </section>
+
     <!-- CAMPAÑA -->
     <section class="screen" id="screen-campaign" hidden>
       <div class="screen-head">
@@ -205,6 +215,7 @@
             <div class="who"><b id="oppName">Rival</b><small id="oppTitle"></small></div>
             <div class="thinking" id="thinking" hidden><i></i><i></i><i></i></div>
             <span class="clock" id="oppClock" hidden>0:00</span>
+            <button class="opp-menu" id="oppMenuBtn" hidden aria-label="Opciones del rival: añadir amigo, reportar o bloquear" title="Añadir amigo · Reportar · Bloquear">⋯</button>
           </div>
           <div class="captured" id="capOpp" aria-label="Piezas capturadas por el rival"></div>
         </div>
@@ -228,6 +239,7 @@
                 <div class="modal-actions">
                   <button class="btn primary" data-wait="copy">🔗 Copiar enlace</button>
                   <button class="btn" data-wait="share">📤 Compartir</button>
+                  <button class="btn" data-wait="invite" hidden>👥 Invitar amigo</button>
                   <button class="btn danger" data-wait="cancel">Cancelar</button>
                 </div>
               </div>

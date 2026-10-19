@@ -14,7 +14,8 @@
     "test": "node --test \"test/**/*.test.js\"",
     "puzzles": "node scripts/gen-puzzles.js",
     "smoke": "node scripts/smoke.js",
-    "check:neon": "node scripts/check-neon.js"
+    "check:neon": "node scripts/check-neon.js",
+    "reports": "node scripts/reports.js"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

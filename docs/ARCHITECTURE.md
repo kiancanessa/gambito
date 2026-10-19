@@ -41,6 +41,9 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `GET /api/games/:id` | sí | Partida completa para la repetición (jugadas UCI, jugadores). Solo la ven quienes la jugaron; si no, 404 |
 | `GET /api/circuit` | no | Royale Circuit: inscripción abierta, torneos en curso con sus partidas en directo y últimos campeones |
 | `GET /api/circuit/me` | sí | Tus premios del Circuit (placement, oros, objeto) |
+| `GET /api/social` | sí | Tu código de amigo, amigos (con presencia), solicitudes enviadas/recibidas y bloqueados |
+| `POST /api/social/{request,respond,remove,block,unblock}` | sí | Solicitud (por `code`, o por `id` si habéis compartido partida), aceptar/rechazar, quitar, bloquear y desbloquear |
+| `POST /api/report` | sí | Reporta a un jugador con quien has jugado (`reason`: abuso, trampas, nombre, otro) |
 | `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
@@ -48,10 +51,10 @@ Hay límites de peticiones por IP y por usuario (`server/api.js`).
 
 ## Protocolo WebSocket (`/ws`, JSON)
 
-Cliente → servidor: `circuit_join`, `circuit_leave`, `circuit_sync` (Royale Circuit) y `auth {token}`, `create {tc, color}`, `join {code}`, `queue {tc}`, `dequeue`,
+Cliente → servidor: `invite {to}` (Social), `circuit_join`, `circuit_leave`, `circuit_sync` (Royale Circuit) y `auth {token}`, `create {tc, color}`, `join {code}`, `queue {tc}`, `dequeue`,
 `move {uci}`, `resign`, `draw {action: offer|accept|decline}`, `emote {id}`, `rematch`, `leave`.
 
-Servidor → cliente: `circuit_state {circuit}` (vista completa del torneo del jugador), `circuit_match {code, round, label, opponent}` (entrar a su partida) y `authed`, `created {code}`, `state {…}`, `queued`, `matched {code}`, `emote`, `error {message, code?}`.
+Servidor → cliente: `invite {from, code, tc}`, `invited`, `friend_request {from}`, `friends_changed` (Social), `circuit_state {circuit}` (vista completa del torneo del jugador), `circuit_match {code, round, label, opponent}` (entrar a su partida) y `authed`, `created {code}`, `state {…}`, `queued`, `matched {code}`, `emote`, `error {message, code?}`.
 
 `state` es la **única fuente de verdad** de una sala: `fen`, `moves` (UCI), `turn`, `status` (`waiting|playing|over`),
 `result`, `clocks` (ms restantes + bando en marcha), `players`, `drawOffer`, `rematchCode`, `ratingDelta`, `you` (`w|b|s`).
@@ -118,6 +121,18 @@ Al terminar se guarda en `tournaments` y `tournament_results`; los premios (30/6
 Circuito** al campeón) se cobran por la cartera con la fuente `circuit` (clave `circuit:<id>`, solo para quien tiene resultado). El set
 exclusivo (`exclusive` en `SHOP`) no se compra ni se acepta desde un guardado antiguo. Los torneos en curso viven en memoria: un reinicio
 del servidor los pierde (los resultados ya guardados no). `CIRCUIT_FILL_MS` acorta la espera para probarlo a mano.
+
+## Social (Fase 5)
+
+`server/social.js` (tablas `friend_codes`, `friendships`, `blocks`, `reports`). Sin email ni chat libre: cada jugador tiene un **código de amigo** de
+8 caracteres (`ABCD-EFGH`) que comparte fuera del juego. La amistad se pide con el código (30 acciones/min por usuario) o por `id` solo si
+habéis **compartido partida** (sala viva o historial en `games`; nunca con bots), y se acepta desde el otro lado; si los dos se piden, se acepta sola.
+Límites: 100 amigos, 20 solicitudes enviadas, 200 bloqueos, 5 reportes al día.
+
+- **Presencia:** `online`, `queue` o `playing`, calculada con los sockets abiertos (`presence()` en `ws.js`); el cliente la consulta cada 15 s.
+- **Invitaciones:** `invite {to}` solo desde tu sala en espera y a un amigo no bloqueado; llega como `invite` a todas sus conexiones y expira a los 2 min en el cliente.
+- **Bloquear** borra la amistad, impide solicitudes en ambos sentidos (siempre responde «no encontrado», sin revelar quién bloqueó) y el matchmaker no los empareja (`canMatch`).
+- **Reportes:** se guardan con motivo de una lista; uno por objetivo y día. No hay sanciones automáticas (se podrían usar para linchar a alguien): `npm run reports` los lista por número de personas distintas, leyendo la copia de Neon o una base local.
 
 ## Cliente
 

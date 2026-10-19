@@ -6,6 +6,7 @@ import { api, ensureOnline, net, onNet, refreshUser } from './net.js';
 import { flags } from './flags.js';
 import { cancelQueue, createRoom, getTc, joinRoom, onQueueChange, queueInfo, setTc, startQueue } from './online.js';
 import { circuitMine, circuitPublic, refreshCircuitPublic } from './circuit.js';
+import { onSocial, refreshSocial, socialData } from './social.js';
 import { historyHtml, openReplay, tcName } from './replay.js';
 import { seasonSummary } from './season.js';
 import { state } from './store.js';
@@ -47,6 +48,7 @@ function build() {
       <section class="lb-card" id="lbMissions"></section>
       <section class="lb-card" id="lbSeason"></section>
       <section class="lb-card" id="lbRank"></section>
+      ${flags.social ? '<section class="lb-card" id="lbSocial"></section>' : ''}
     </div>
     <section class="lb-card lb-live" id="lbLive"></section>
     ${flags.replays ? '<section class="lb-card lb-history" id="lbHistory"></section>' : ''}
@@ -208,6 +210,16 @@ function renderHistory() {
     ${rows ? `<ul class="live-list history-list">${rows}</ul>` : `<p class="muted">${online() ? 'Aquí aparecerán tus partidas online para que las revises o las compartas.' : 'Conéctate para ver tu historial.'}</p>`}`;
 }
 
+function renderSocial() {
+  if (!flags.social) return;
+  const d = socialData();
+  const onlineN = d ? d.friends.filter((f) => f.presence !== 'offline').length : 0;
+  const pending = d ? d.incoming.length : 0;
+  $('#lbSocial').innerHTML = `<div class="card-head"><p class="eyebrow">👥 Amigos</p>${pending ? `<span class="pill todo">${pending} solicitud${pending > 1 ? 'es' : ''}</span>` : ''}</div>
+    <p class="muted">${!d ? (online() ? 'Cargando…' : 'Conéctate para ver a tus amigos.') : d.friends.length ? `<b>${onlineN}</b> de ${d.friends.length} en línea` : 'Añade amigos con su código para retarlos.'}</p>
+    <button class="btn primary" data-lb="social">Abrir amigos</button>`;
+}
+
 function renderCircuit() {
   if (flags.circuit) {
     const pub = circuitPublic();
@@ -249,6 +261,7 @@ function renderAll() {
   renderRank();
   renderLive();
   renderHistory();
+  renderSocial();
   renderCircuit();
   renderPresence();
 }
@@ -274,6 +287,7 @@ async function refresh() {
   if (daily.ok) lb.data.daily = daily.json;
   if (history.ok) lb.data.history = history.json.games;
   if (flags.circuit) await refreshCircuitPublic();
+  if (flags.social) await refreshSocial();
   await refreshUser();
   if (app.screen === 'lobby') renderAll();
 }
@@ -293,6 +307,7 @@ export async function enterLobby() {
 export function initLobby() {
   build();
   onQueueChange(() => renderPlayBodyOnly());
+  if (flags.social) onSocial(() => app.screen === 'lobby' && renderSocial());
   onNet(() => {
     if (app.screen === 'lobby') {
       renderPlayer();
@@ -329,6 +344,7 @@ export function initLobby() {
     if (spec) return joinRoom(spec.dataset.spectate);
     const act = e.target.closest('[data-lb]')?.dataset.lb;
     if (act === 'circuit') return app.go('circuit');
+    if (act === 'social') return app.go('social');
     if (act === 'queue') return startQueue();
     if (act === 'cancel') return cancelQueue();
     if (act === 'create') return createRoom({ tc: getTc(), color: lb.color });

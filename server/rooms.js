@@ -132,6 +132,7 @@ export class Room {
         if (this.uci.length >= 2) this.end(other(role), 'desconexión');
         else this.end(null, 'abortada');
       }, DISCONNECT_GRACE_MS);
+      this.dcTimers[role].unref?.(); // no debe impedir que el proceso termine (apagado y pruebas)
     }
     this.broadcast();
   }
@@ -228,6 +229,7 @@ export class Room {
     if (!this.clocks || !this.running || this.status !== 'playing') return;
     const left = this.clocks[this.running] - (Date.now() - this.lastTick);
     this.flagTimer = setTimeout(() => this.checkFlag(), Math.max(0, left) + 30);
+    this.flagTimer.unref?.();
   }
 
   checkFlag() {
@@ -347,6 +349,12 @@ export class RoomManager {
       });
     }
     return list.sort((x, y) => y.w.rating + y.b.rating - (x.w.rating + x.b.rating)).slice(0, limit);
+  }
+
+  // ¿Comparten sala (en juego o recién terminada) estos dos jugadores? Permite pedir amistad o reportar desde la partida.
+  shareRoom(a, b) {
+    for (const room of this.rooms.values()) if (room.hasPlayer(a) && room.hasPlayer(b)) return true;
+    return false;
   }
 
   // Partidas abiertas (esperando o en juego) en las que participa el jugador.

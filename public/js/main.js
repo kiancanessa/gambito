@@ -20,6 +20,7 @@ import {
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
 import { enterCircuit, initCircuit } from './circuit.js';
+import { enterSocial, initSocial } from './social.js';
 import { initWallet } from './wallet.js';
 import { initTutorial, startTutorial } from './tutorial.js';
 import {
@@ -117,6 +118,10 @@ async function go(name) {
   }
   if (name === 'circuit') {
     await enterCircuit();
+    return;
+  }
+  if (name === 'social') {
+    await enterSocial();
     return;
   }
   if (name === 'daily') {
@@ -561,6 +566,7 @@ initTutorial();
 initProfile();
 initWallet();
 initCircuit();
+initSocial();
 initLobby();
 $('#lobbyBtn').hidden = !flags.lobby;
 buildAmbient();
