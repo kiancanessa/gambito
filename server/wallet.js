@@ -12,6 +12,10 @@ const KIND = { sets: 'set', boards: 'board', fx: 'fx' };
 const CATALOG = new Map();
 for (const [group, list] of Object.entries(SHOP)) for (const it of list) CATALOG.set(`${KIND[group]}:${it.id}`, it.price);
 
+// Objetos que solo se consiguen como premio: ni se compran ni se aceptan desde un guardado antiguo.
+const EXCLUSIVE = new Set();
+for (const [group, list] of Object.entries(SHOP)) for (const it of list) if (it.exclusive) EXCLUSIVE.add(`${KIND[group]}:${it.id}`);
+
 const DEFAULT_EQUIPPED = { set: 'classic', board: 'wood', fx: 'sparks' };
 const START_COINS = 100;
 const MIGRATION_MAX_COINS = 20_000; // tope al importar el guardado antiguo (que el cliente podía falsear)
@@ -45,7 +49,7 @@ function levelFrom(xp, level) {
 export function walletFromSave(save) {
   const s = save && typeof save === 'object' ? save : null;
   const owned = new Set(DEFAULT_OWNED);
-  if (s && Array.isArray(s.owned)) for (const id of s.owned) if (CATALOG.has(id)) owned.add(id);
+  if (s && Array.isArray(s.owned)) for (const id of s.owned) if (CATALOG.has(id) && !EXCLUSIVE.has(id)) owned.add(id);
   const equipped = { ...DEFAULT_EQUIPPED };
   if (s?.equipped && typeof s.equipped === 'object') {
     for (const kind of Object.keys(DEFAULT_EQUIPPED)) {
@@ -135,6 +139,12 @@ export function createWallets(db) {
         if (!Number.isInteger(day) || !db.dailyMine(day, userId)) return { reason: 'unverified' };
         return { ref: key, coins: int(op.coins, 60, 100), xp: 0 };
       }
+      case 'circuit': {
+        const tid = key?.startsWith('circuit:') ? key.slice(8) : null;
+        const prize = tid && db.tournamentResult(tid, userId);
+        if (!prize) return { reason: 'unverified' };
+        return { ref: key, coins: prize.coins, xp: prize.xp, grant: prize.item };
+      }
       case 'season': {
         const level = Number(key?.startsWith(`season:${SEASON.id}:`) ? key.split(':')[2] : NaN);
         if (!Number.isInteger(level) || level < 1 || level > SEASON.levels) return { reason: 'invalid' };
@@ -163,6 +173,7 @@ export function createWallets(db) {
         const id = `${op.kind}:${op.id}`;
         const price = CATALOG.get(id);
         if (price === undefined) return 'unknown';
+        if (EXCLUSIVE.has(id)) return 'exclusive';
         if (w.owned.includes(id)) return 'owned';
         if (w.coins < price) return 'coins';
         w.coins -= price;

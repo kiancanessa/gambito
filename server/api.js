@@ -6,7 +6,7 @@ import { createWallets } from './wallet.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
   const wallets = createWallets(db);
 
@@ -138,6 +138,8 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
         });
       }
 
+      if (pathname === '/api/circuit' && method === 'GET') return send(res, 200, circuit.publicView());
+
       if (pathname === '/api/live' && method === 'GET') return send(res, 200, { games: rooms.liveGames(6) });
 
       if (pathname === '/api/leaderboard' && method === 'GET') {
@@ -184,6 +186,8 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
         db.putSave(user.id, json, updatedAt);
         return send(res, 200, { updatedAt });
       }
+
+      if (pathname === '/api/circuit/me' && method === 'GET') return send(res, 200, { results: db.circuitResultsOf(user.id, 20) });
 
       // ----- Repeticiones: solo las ven quienes jugaron la partida -----
       if (pathname === '/api/me/games' && method === 'GET') {

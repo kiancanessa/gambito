@@ -95,6 +95,8 @@ export const SHOP = {
     { id: 'candy', name: 'Dulces', rarity: 'rare', price: 220 },
     { id: 'ice', name: 'Hielo y Fuego', rarity: 'rare', price: 260 },
     { id: 'dragon', name: 'Escamas de Dragón', rarity: 'legendary', price: 900 },
+    // Premio exclusivo del Royale Circuit: no se vende (el servidor rechaza comprarlo).
+    { id: 'royal', name: 'Corona del Circuito', rarity: 'legendary', price: 0, exclusive: 'circuit' },
   ],
   boards: [
     { id: 'wood', name: 'Madera', rarity: 'common', price: 0 },

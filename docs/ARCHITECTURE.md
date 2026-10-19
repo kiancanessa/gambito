@@ -39,6 +39,8 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `POST /api/wallet/ops` | sí | Lote de operaciones (`buy`, `equip`, `spend`, `earn`, `reset`) ≤ 50; devuelve la cartera y el resultado de cada una |
 | `GET /api/me/games` | sí | Tus últimas partidas online (`?limit=`, máx. 50): resultado, rival, control, jugadas |
 | `GET /api/games/:id` | sí | Partida completa para la repetición (jugadas UCI, jugadores). Solo la ven quienes la jugaron; si no, 404 |
+| `GET /api/circuit` | no | Royale Circuit: inscripción abierta, torneos en curso con sus partidas en directo y últimos campeones |
+| `GET /api/circuit/me` | sí | Tus premios del Circuit (placement, oros, objeto) |
 | `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
@@ -46,10 +48,10 @@ Hay límites de peticiones por IP y por usuario (`server/api.js`).
 
 ## Protocolo WebSocket (`/ws`, JSON)
 
-Cliente → servidor: `auth {token}`, `create {tc, color}`, `join {code}`, `queue {tc}`, `dequeue`,
+Cliente → servidor: `circuit_join`, `circuit_leave`, `circuit_sync` (Royale Circuit) y `auth {token}`, `create {tc, color}`, `join {code}`, `queue {tc}`, `dequeue`,
 `move {uci}`, `resign`, `draw {action: offer|accept|decline}`, `emote {id}`, `rematch`, `leave`.
 
-Servidor → cliente: `authed`, `created {code}`, `state {…}`, `queued`, `matched {code}`, `emote`, `error {message, code?}`.
+Servidor → cliente: `circuit_state {circuit}` (vista completa del torneo del jugador), `circuit_match {code, round, label, opponent}` (entrar a su partida) y `authed`, `created {code}`, `state {…}`, `queued`, `matched {code}`, `emote`, `error {message, code?}`.
 
 `state` es la **única fuente de verdad** de una sala: `fen`, `moves` (UCI), `turn`, `status` (`waiting|playing|over`),
 `result`, `clocks` (ms restantes + bando en marcha), `players`, `drawOffer`, `rematchCode`, `ratingDelta`, `you` (`w|b|s`).
@@ -102,6 +104,20 @@ Cada partida online terminada ya se guarda en `games` con sus jugadas; la Fase 3
 partida en modo espectador sin motor (`remote.send` vacío y `game.over = true`) y la gobierna con una barra: inicio/anterior/
 reproducir/siguiente/final, velocidad 0,5×–2× y deslizador. Avanzar de uno en uno anima la jugada; retroceder o saltar reconstruye
 la posición con `loadMoves`. **Compartir** reutiliza `share.js`: tarjeta o clip de las últimas jugadas hasta el punto que estés viendo.
+
+## Royale Circuit (Fase 4)
+
+`server/tournaments.js` (`CircuitManager`): eliminatoria de **8** jugadores, **bajo demanda**, Blitz 3+2. Se arranca al llegar a 8 inscritos o
+`fillAfterMs` (60 s) después de la primera inscripción, **rellenando con bots**. Cuadro cuartos → semifinal → final con cabezas de serie
+por rating (1v8, 4v5, 2v7, 3v6). Una partida con humanos es una `Room` normal (no clasificatoria) con asientos **reservados y estrictos**
+(un ajeno solo puede mirar); `circuit_match` hace que el cliente entre solo. Quien no se sienta en 60 s pierde; las partidas bot-bot se
+simulan por rating. Un empate se repite con los colores cambiados y, tras 3, pasa el mejor cabeza de serie. Los bots son sockets
+virtuales dentro de la sala (`chooseBotMove`: mate en 1, capturas, sin regalar mate en 1).
+
+Al terminar se guarda en `tournaments` y `tournament_results`; los premios (30/60/120 oros por ronda, 250 + el set exclusivo **Corona del
+Circuito** al campeón) se cobran por la cartera con la fuente `circuit` (clave `circuit:<id>`, solo para quien tiene resultado). El set
+exclusivo (`exclusive` en `SHOP`) no se compra ni se acepta desde un guardado antiguo. Los torneos en curso viven en memoria: un reinicio
+del servidor los pierde (los resultados ya guardados no). `CIRCUIT_FILL_MS` acorta la espera para probarlo a mano.
 
 ## Cliente
 

@@ -228,7 +228,7 @@ describe('copias de la base de datos', () => {
   test('fusionar una copia anterior sin tablas de cartera no falla y conserva las cuentas', () => {
     const oldFile = path.join(tmp, 'vieja.db');
     const old = openDb(oldFile);
-    old.raw.exec('DROP TABLE wallets; DROP TABLE ledger;');
+    old.raw.exec('DROP TABLE wallets; DROP TABLE ledger; DROP TABLE tournaments; DROP TABLE tournament_results;');
     old.createUser({ id: 'u-viejo', name: 'Viejo', tokenHash: sha256('t1'), recoveryHash: sha256('r1') });
     old.close();
 

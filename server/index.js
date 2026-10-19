@@ -10,6 +10,7 @@ import { PgStore, createPersistence } from './persist.js';
 import { RoomManager } from './rooms.js';
 import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
+import { CircuitManager } from './tournaments.js';
 
 // Persistencia opcional para alojamientos sin disco (Render Free): con DATABASE_URL (Postgres de Neon) la base de datos
 // SQLite se restaura al arrancar y se copia periódicamente (ver server/persist.js).
@@ -25,6 +26,8 @@ export async function startServer({
   // actividad, no gasta cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
   persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 3 * 60_000,
   persistOptions = {},
+  // Tiempos del Royale Circuit (pruebas). CIRCUIT_FILL_MS acorta la espera de inscripción para probarlo a mano.
+  circuitOptions = process.env.CIRCUIT_FILL_MS ? { fillAfterMs: Number(process.env.CIRCUIT_FILL_MS) } : {},
 } = {}) {
   let persistence = null;
   if (persistStore || databaseUrl) {
@@ -35,11 +38,13 @@ export async function startServer({
   persistence?.start(db);
   const rooms = new RoomManager(db);
   const matchmaker = new Matchmaker(rooms);
+  const circuit = new CircuitManager({ rooms, db, options: circuitOptions });
   let ws = null;
   const api = createApi({
     db,
     rooms,
     matchmaker,
+    circuit,
     onlineCount: () => ws?.count() ?? 0,
     puzzles: puzzles ?? loadPuzzles(),
     persistStatus: () => persistence?.status() ?? null,
@@ -56,7 +61,7 @@ export async function startServer({
     }
     await serveStatic(req, res, url);
   });
-  ws = attachWs(server, { db, rooms, matchmaker });
+  ws = attachWs(server, { db, rooms, matchmaker, circuit });
 
   return new Promise((resolve) => {
     server.listen(port, host, () => {
@@ -66,11 +71,13 @@ export async function startServer({
         db,
         rooms,
         matchmaker,
+        circuit,
         persistence,
         port: actual,
         url: `http://localhost:${actual}`,
         async close() {
           matchmaker.close();
+          circuit.close();
           rooms.close();
           ws.close();
           // Se dejan de aceptar conexiones y se cortan las que siguen abiertas (keep-alive de proxys y monitores):

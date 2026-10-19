@@ -12,4 +12,5 @@ window.GAMBITO_API = location.hostname.endsWith('.vercel.app') ? BACKEND_URL : '
 // lobby: lobby competitivo (Fase 1). Ponlo en false para volver a la pantalla de inicio anterior.
 // wallet: cartera verificada en el servidor (Fase 2). Ponlo en false para volver al guardado solo local.
 // replays: historial y repeticiones de tus partidas online (Fase 3).
-window.GAMBITO_FLAGS = { lobby: true, wallet: true, replays: true };
+// circuit: Royale Circuit, torneo eliminatorio de 8 (Fase 4). Necesita wallet para cobrar los premios.
+window.GAMBITO_FLAGS = { lobby: true, wallet: true, replays: true, circuit: true };

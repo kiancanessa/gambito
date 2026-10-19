@@ -21,7 +21,7 @@ function originAllowed(req) {
   return allowedOrigins().includes(origin.replace(/\/$/, ''));
 }
 
-export function attachWs(server, { db, rooms, matchmaker }) {
+export function attachWs(server, { db, rooms, matchmaker, circuit }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048 });
   const perIp = new Map();
 
@@ -145,6 +145,18 @@ export function attachWs(server, { db, rooms, matchmaker }) {
       case 'leave':
         leaveRoom(ws, true);
         break;
+      // ----- Royale Circuit -----
+      case 'circuit_join':
+        meta.user = db.userById(meta.user.id) ?? meta.user;
+        circuit.join(meta.user, ws);
+        break;
+      case 'circuit_leave':
+        circuit.leave(meta.user.id);
+        send(ws, { t: 'circuit_state', circuit: null });
+        break;
+      case 'circuit_sync':
+        if (!circuit.sync(meta.user, ws)) send(ws, { t: 'circuit_state', circuit: null });
+        break;
       default:
     }
   }
@@ -165,6 +177,7 @@ export function attachWs(server, { db, rooms, matchmaker }) {
       if (n <= 0) perIp.delete(ws.ip);
       else perIp.set(ws.ip, n);
       matchmaker.removeSocket(ws);
+      circuit.detachSocket(ws);
       leaveRoom(ws);
     });
     ws.on('error', () => {});

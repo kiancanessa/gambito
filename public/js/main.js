@@ -19,6 +19,7 @@ import {
 } from './store.js';
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
+import { enterCircuit, initCircuit } from './circuit.js';
 import { initWallet } from './wallet.js';
 import { initTutorial, startTutorial } from './tutorial.js';
 import {
@@ -112,6 +113,10 @@ async function go(name) {
   }
   if (name === 'lobby') {
     await enterLobby();
+    return;
+  }
+  if (name === 'circuit') {
+    await enterCircuit();
     return;
   }
   if (name === 'daily') {
@@ -443,7 +448,8 @@ function previewHtml(tab, item) {
 function renderShop() {
   $$('#shopTabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === shopTab));
   const kind = KIND[shopTab];
-  $('#shopGrid').innerHTML = SHOP[shopTab].map((item) => {
+  // Los objetos exclusivos (premios del Circuit) solo aparecen cuando los tienes.
+  $('#shopGrid').innerHTML = SHOP[shopTab].filter((i) => !i.exclusive || owns(kind, i.id)).map((item) => {
     const own = owns(kind, item.id);
     const eq = state.equipped[kind] === item.id;
     const r = RARITY[item.rarity];
@@ -554,6 +560,7 @@ initSeason();
 initTutorial();
 initProfile();
 initWallet();
+initCircuit();
 initLobby();
 $('#lobbyBtn').hidden = !flags.lobby;
 buildAmbient();

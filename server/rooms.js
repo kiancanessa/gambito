@@ -44,13 +44,16 @@ export function hasMatingMaterial(chess, color) {
 }
 
 export class Room {
-  constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null }) {
+  constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null, strict = false, circuit = null }) {
     this.m = manager;
     this.code = code;
     this.tc = TIME_CONTROLS[tcId] ?? TIME_CONTROLS.none;
     this.rated = rated;
     this.hostColor = colorPref === 'w' || colorPref === 'b' ? colorPref : Math.random() < 0.5 ? 'w' : 'b';
     this.reserved = reserved; // { w: userId, b: userId } para revanchas
+    this.strict = strict; // con `reserved`, solo esos usuarios pueden sentarse (torneos); el resto entra como espectador
+    this.circuit = circuit; // { id, round, label } si es una partida del Royale Circuit
+    this.onOver = null; // gancho al terminar la partida (lo usan los torneos)
     this.players = { w: null, b: null };
     this.sockets = new Set();
     this.chess = new Chess();
@@ -91,6 +94,7 @@ export class Room {
       const reservedRole = this.reserved && ['w', 'b'].find((c) => this.reserved[c] === user.id && !this.players[c]);
       const free = ['w', 'b'].filter((c) => !this.players[c]);
       if (reservedRole) role = reservedRole;
+      else if (this.strict) role = 's';
       else if (free.length) role = !this.players.w && !this.players.b ? this.hostColor : free[0];
       else role = 's';
       if (role !== 's') this.players[role] = { id: user.id, name: user.name, rating: user.rating, games: user.games ?? 0, socks: new Set() };
@@ -161,6 +165,7 @@ export class Room {
       rematch: [...this.rematchVotes],
       rematchCode: this.rematchCode,
       spectators: this.spectatorCount(),
+      circuit: this.circuit,
     };
   }
 
@@ -290,6 +295,7 @@ export class Room {
     this.touched = Date.now();
     this.ratingDelta = this.m.onGameEnd(this);
     this.broadcast();
+    this.onOver?.(this);
   }
 
   dispose() {
@@ -307,11 +313,11 @@ export class RoomManager {
     this.sweeper.unref?.();
   }
 
-  create({ tcId, rated = false, colorPref = 'r', reserved = null }) {
+  create({ tcId, rated = false, colorPref = 'r', reserved = null, strict = false, circuit = null }) {
     let code;
     do code = genCode();
     while (this.rooms.has(code));
-    const room = new Room(this, { code, tcId, rated, colorPref, reserved });
+    const room = new Room(this, { code, tcId, rated, colorPref, reserved, strict, circuit });
     this.rooms.set(code, room);
     return room;
   }

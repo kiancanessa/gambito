@@ -70,6 +70,25 @@ export function openDb(file) {
       created_at INTEGER NOT NULL,
       PRIMARY KEY (user_id, ref)
     );
+    CREATE TABLE IF NOT EXISTS tournaments (
+      id TEXT PRIMARY KEY,
+      tc TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      champion TEXT NOT NULL,
+      bracket TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      finished_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS tournament_results (
+      tournament_id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      placement TEXT NOT NULL,
+      coins INTEGER NOT NULL,
+      xp INTEGER NOT NULL,
+      item TEXT,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (tournament_id, user_id)
+    );
     CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_day ON daily_results(day, seconds);
   `);
@@ -109,6 +128,11 @@ export function openDb(file) {
       `SELECT g.*, w.name AS white_name, w.rating AS white_rating, b.name AS black_name, b.rating AS black_rating
        FROM games g LEFT JOIN users w ON w.id = g.white_id LEFT JOIN users b ON b.id = g.black_id WHERE g.id = ?`,
     ),
+    insertTournament: db.prepare('INSERT OR IGNORE INTO tournaments (id,tc,size,champion,bracket,created_at,finished_at) VALUES (?,?,?,?,?,?,?)'),
+    insertResult: db.prepare('INSERT OR IGNORE INTO tournament_results (tournament_id,user_id,placement,coins,xp,item,created_at) VALUES (?,?,?,?,?,?,?)'),
+    resultOf: db.prepare('SELECT placement, coins, xp, item FROM tournament_results WHERE tournament_id = ? AND user_id = ?'),
+    resultsOf: db.prepare('SELECT tournament_id AS id, placement, coins, xp, item, created_at AS at FROM tournament_results WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'),
+    champions: db.prepare('SELECT champion AS name, finished_at AS at FROM tournaments ORDER BY finished_at DESC LIMIT ?'),
     gameByCode: db.prepare('SELECT * FROM games WHERE code = ? AND (white_id = ? OR black_id = ?) ORDER BY created_at DESC LIMIT 1'),
     dailyCount: db.prepare('SELECT COUNT(*) AS n FROM daily_results WHERE day = ?'),
     counts: db.prepare('SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM games WHERE created_at > ?) AS gamesToday'),
@@ -146,6 +170,20 @@ export function openDb(file) {
     ratingRank: (rating) => q.rankOf.get(rating).rank,
     dailySubmit: (day, userId, seconds, attempts) => q.dailyInsert.run(day, userId, seconds, attempts, Date.now()),
     dailyTop: (day, limit = 20) => q.dailyTop.all(day, limit),
+    saveTournament(t) {
+      db.exec('BEGIN');
+      try {
+        q.insertTournament.run(t.id, t.tc, t.size, t.champion, t.bracket, t.createdAt, t.finishedAt);
+        for (const r of t.results) q.insertResult.run(t.id, r.userId, r.placement, r.coins ?? 0, r.xp ?? 0, r.item ?? null, t.finishedAt);
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    },
+    tournamentResult: (id, userId) => q.resultOf.get(id, userId) ?? null,
+    circuitResultsOf: (userId, limit = 20) => q.resultsOf.all(userId, limit),
+    recentChampions: (limit = 5) => q.champions.all(limit),
     gamesOf: (userId, limit = 20) => q.gamesOf.all(userId, userId, limit),
     gameById: (id) => q.gameById.get(id) ?? null,
     gameByCode: (code, userId) => q.gameByCode.get(code, userId, userId) ?? null,

@@ -44,6 +44,10 @@ const SETS = {
     w: { color: '#d3f1ff', roughness: 0.06, metalness: 0.1, emissive: '#4aa8e0', emissiveIntensity: 0.25, opacity: 0.88, clearcoat: 1 },
     b: { color: '#ff7a1f', roughness: 0.4, metalness: 0.1, emissive: '#ff3a00', emissiveIntensity: 0.9 },
   },
+  royal: {
+    w: { color: '#fff1b8', roughness: 0.15, metalness: 1, emissive: '#b8860b', emissiveIntensity: 0.3 },
+    b: { color: '#3b1670', roughness: 0.2, metalness: 0.9, emissive: '#7a3cff', emissiveIntensity: 0.55 },
+  },
   dragon: {
     w: { color: '#12b255', roughness: 0.3, metalness: 0.85, emissive: '#0a7a38', emissiveIntensity: 0.35 },
     b: { color: '#a30f1f', roughness: 0.3, metalness: 0.85, emissive: '#6a0510', emissiveIntensity: 0.4 },

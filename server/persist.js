@@ -136,6 +136,12 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            SELECT o.user_id, o.ref, o.source, o.coins, o.xp, o.created_at FROM old.ledger o
            WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id);`
       : '';
+    const circuit = oldTables.has('tournaments')
+      ? `INSERT OR IGNORE INTO tournaments SELECT * FROM old.tournaments;
+         INSERT OR IGNORE INTO tournament_results (tournament_id, user_id, placement, coins, xp, item, created_at)
+           SELECT o.tournament_id, o.user_id, o.placement, o.coins, o.xp, o.item, o.created_at FROM old.tournament_results o
+           WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id);`
+      : '';
     db.raw.exec(`
       BEGIN;
       INSERT OR IGNORE INTO users SELECT * FROM old.users;
@@ -148,6 +154,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       INSERT OR IGNORE INTO games SELECT * FROM old.games;
       INSERT OR IGNORE INTO daily_results SELECT * FROM old.daily_results;
       ${wallet}
+      ${circuit}
       COMMIT;
     `);
   } catch (err) {

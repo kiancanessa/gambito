@@ -16,6 +16,7 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/campaña, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
 | **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
+| **Royale Circuit** | Torneo eliminatorio de 8 (cuartos, semifinal, final) en Blitz 3+2, bajo demanda y con bots que rellenan. Premios en oros y un set de piezas exclusivo para el campeón (flag `circuit`). |
 | **Repeticiones** | Historial de tus partidas online en el lobby y visor 3D con reproducción automática, saltos, velocidad y clip para compartir (flag `replays`). Solo quienes jugaron la partida pueden verla. |
 | **Cartera segura** | Oros, XP e inventario se validan en el servidor (flag `wallet`): compras con precio del catálogo, recompensas online calculadas con la partida real y topes en lo que no se puede comprobar. |
 | **Skins** | 6 sets de piezas, 6 tableros y 4 efectos de captura (materiales y texturas procedurales, sin imágenes). |
@@ -52,6 +53,7 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/game.js         controlador de partida (IA local, online, tutorial, puzzles)
   js/session.js      prepara la pantalla de partida para cada modo
   js/online.js       multijugador (hub, sala, relojes, emotes, revancha)
+  js/circuit.js      Royale Circuit (inscripción, cuadro, entrada a partidas, premios)
   js/replay.js       historial y visor de repeticiones
   js/wallet.js       cartera verificada (cola de operaciones y espejo del servidor)
   js/lobby.js        lobby competitivo (agrega online, diario, misiones, temporada)

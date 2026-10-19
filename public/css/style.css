@@ -261,7 +261,11 @@ main { max-width: 1180px; margin: 0 auto; padding: 16px; }
 
 /* ===== Skins de piezas ===== */
 /* Los sets con degradado usan background-clip:text, así que anulan el text-shadow de contorno. */
-.set-gold .piece, .set-neon .piece, .set-ice .piece, .set-dragon .piece { text-shadow: none; }
+.set-gold .piece, .set-neon .piece, .set-ice .piece, .set-dragon .piece, .set-royal .piece { text-shadow: none; }
+.set-royal .piece.w { color: transparent; background: linear-gradient(180deg, #fffbe0, #ffd54f 60%, #b8860b); -webkit-background-clip: text; background-clip: text; -webkit-text-stroke: 0.8px #5a3b00; filter: drop-shadow(0 0 6px rgba(255, 210, 90, 0.7)); animation: glowY 3s infinite; }
+.set-royal .piece.b { color: transparent; background: linear-gradient(180deg, #b38bff, #5b2bd1 60%, #1d0a4d); -webkit-background-clip: text; background-clip: text; -webkit-text-stroke: 0.8px #ffd54f; filter: drop-shadow(0 0 6px rgba(140, 90, 255, 0.8)); animation: glowP 3s infinite; }
+@keyframes glowY { 50% { filter: drop-shadow(0 0 12px rgba(255, 220, 100, 1)); } }
+@keyframes glowP { 50% { filter: drop-shadow(0 0 12px rgba(160, 110, 255, 1)); } }
 .set-gold .piece.w { color: transparent; background: linear-gradient(180deg, #fff6c8, #f2b705 70%, #b57800); -webkit-background-clip: text; background-clip: text; -webkit-text-stroke: 0.7px #5a3b00; }
 .set-gold .piece.b { color: transparent; background: linear-gradient(180deg, #6d58b0, #120c28 80%); -webkit-background-clip: text; background-clip: text; -webkit-text-stroke: 0.7px #c4adff; filter: drop-shadow(0 0 4px rgba(150, 110, 255, 0.6)); }
 .set-neon .piece.w { color: rgba(0, 245, 255, 0.28); -webkit-text-stroke: 1.1px #00f5ff; filter: drop-shadow(0 0 5px #00f5ff); }
@@ -914,3 +918,34 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, .big-btn:focus-vi
 .rp-buttons .rp-play { background: linear-gradient(180deg, #a48bff, #6f50e8); color: #fff; min-width: 56px; }
 .replay-bar input[type='range'] { width: min(100%, 520px); accent-color: #a48bff; }
 .replay-bar small { color: var(--muted); }
+
+/* =====================================================================
+   Royale Circuit (Fase 4)
+   ===================================================================== */
+.circuit-body { display: grid; gap: 16px; max-width: 1100px; margin: 0 auto; }
+.circuit-hero h3 { font-size: 1.5rem; }
+.prize-row { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.prize-row li { padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.07); display: grid; text-align: center; font-size: 0.82rem; color: var(--muted); }
+.prize-row b { color: var(--gold); font-size: 0.98rem; }
+.slots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.slots li { padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.slots li.free { background: transparent; border: 1px dashed var(--line); color: var(--muted); justify-content: center; }
+.slots li.bot { opacity: 0.7; }
+.slots em { font-style: normal; color: var(--gold); font-size: 0.8rem; }
+.circuit-end { background: linear-gradient(135deg, rgba(255, 190, 60, 0.28), rgba(30, 23, 62, 0.75)); }
+.bracket { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: center; }
+@media (max-width: 760px) { .bracket { grid-template-columns: minmax(0, 1fr); } }
+.cm-col { display: grid; gap: 12px; align-content: center; }
+.cm-col h4 { margin: 0; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.cm { padding: 8px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); display: grid; gap: 4px; border: 1px solid var(--line); }
+.cm.playing { border-color: #ff3b5c; box-shadow: 0 0 14px rgba(255, 59, 92, 0.35); }
+.cm-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; background: rgba(0, 0, 0, 0.22); }
+.cm-row i { font-style: normal; font-size: 0.72rem; color: var(--muted); text-align: center; }
+.cm-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.92rem; }
+.cm-row.win { background: rgba(47, 191, 113, 0.22); }
+.cm-row.lose { opacity: 0.45; text-decoration: line-through; }
+.cm-row.me { outline: 2px solid var(--gold); }
+.cm-row.empty { color: var(--muted); font-style: italic; }
+.cm .btn { justify-self: stretch; }
+.circuit-cta { display: grid; gap: 8px; justify-items: end; }
+.champs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

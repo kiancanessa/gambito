@@ -5,6 +5,7 @@ import { missionsSummary } from './missions.js';
 import { api, ensureOnline, net, onNet, refreshUser } from './net.js';
 import { flags } from './flags.js';
 import { cancelQueue, createRoom, getTc, joinRoom, onQueueChange, queueInfo, setTc, startQueue } from './online.js';
+import { circuitMine, circuitPublic, refreshCircuitPublic } from './circuit.js';
 import { historyHtml, openReplay, tcName } from './replay.js';
 import { seasonSummary } from './season.js';
 import { state } from './store.js';
@@ -208,6 +209,24 @@ function renderHistory() {
 }
 
 function renderCircuit() {
+  if (flags.circuit) {
+    const pub = circuitPublic();
+    const mine = circuitMine();
+    const joined = mine && mine.status === 'registering';
+    const state = joined
+      ? `<span class="pill todo">Inscrito ${mine.entrants.length}/${mine.size}</span>`
+      : mine?.status === 'running' && !mine.you?.out
+        ? '<span class="pill live">¡Estás compitiendo!</span>'
+        : pub?.open
+          ? `<span class="pill todo">${pub.open.joined}/${pub.size} inscritos</span>`
+          : '<span class="pill ok">Abierto</span>';
+    $('#lbCircuit').innerHTML = `
+      <div class="circuit-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div><p class="eyebrow">Royale Circuit</p><h3>Torneo eliminatorio de 8</h3>
+      <p class="muted">Blitz 3+2 · cuartos, semifinales y final · gana la Corona del Circuito, un set exclusivo.</p></div>
+      <div class="circuit-cta">${state}<button class="btn primary" data-lb="circuit">${joined ? 'Ver torneo' : 'Entrar'}</button></div>`;
+    return;
+  }
   $('#lbCircuit').innerHTML = `
     <div class="circuit-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div><p class="eyebrow">Royale Circuit</p><h3>Torneos eliminatorios en vivo</h3>
@@ -254,6 +273,7 @@ async function refresh() {
   if (live.ok) lb.data.live = live.json.games;
   if (daily.ok) lb.data.daily = daily.json;
   if (history.ok) lb.data.history = history.json.games;
+  if (flags.circuit) await refreshCircuitPublic();
   await refreshUser();
   if (app.screen === 'lobby') renderAll();
 }
@@ -308,6 +328,7 @@ export function initLobby() {
     const spec = e.target.closest('[data-spectate]');
     if (spec) return joinRoom(spec.dataset.spectate);
     const act = e.target.closest('[data-lb]')?.dataset.lb;
+    if (act === 'circuit') return app.go('circuit');
     if (act === 'queue') return startQueue();
     if (act === 'cancel') return cancelQueue();
     if (act === 'create') return createRoom({ tc: getTc(), color: lb.color });

@@ -187,7 +187,7 @@ function openGame(s) {
       hint: false,
       undo: false,
       resign: !on.spectator,
-      draw: !on.spectator,
+      draw: !on.spectator && !s.circuit,
       emotes: !on.spectator,
       clocks: !!s.clocks,
       meName: net.user?.name ?? 'Tú',
@@ -228,7 +228,7 @@ function handleState(s) {
   $('#oppAvatar').textContent = GLYPH[oi.glyph] + VS;
   if (on.spectator) $('#meName').textContent = s.players.w?.name ?? 'Blancas';
   if (me) $('#meSub').textContent = `${on.spectator ? 'Espectador' : on.pc === 'w' ? 'Blancas' : 'Negras'} · ${me.rating} pts`;
-  setBanner(`<span>🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'} · ${esc(tcLabel(s.tc))}</span>
+  setBanner(`<span>${s.circuit ? `🏆 Royale Circuit · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>
     ${s.spectators ? `<span>👀 ${s.spectators}</span>` : ''}${s.status === 'playing' && !s.clocks ? '' : ''}`);
   on.clock = s.clocks ? { ...s.clocks, at: Date.now() } : null;
 
@@ -281,9 +281,23 @@ function startClockTicker() {
   }, 200);
 }
 
+// Partida del Royale Circuit: sin recompensas sueltas ni revancha; el servidor lleva el cuadro y los premios.
+async function finishCircuitGame(summary) {
+  const game = on.game;
+  const msg = summary.result === 'win' ? '🏆 ¡Pasas de ronda!' : summary.result === 'loss' ? 'Has caído en el Circuit' : '🤝 Tablas: se repite con los colores cambiados';
+  if (summary.result === 'win') celebrate();
+  toast(msg, 4500);
+  // Si en unos segundos llega otra partida del torneo (empate o siguiente ronda), el jugador ya está dentro de ella.
+  await wait(4500);
+  if (on.game !== game || app.screen !== 'game') return;
+  leaveGame();
+  await app.go('circuit');
+}
+
 async function finishOnline(summary) {
   const s = on.last;
   if (on.spectator) return;
+  if (s?.circuit) return finishCircuitGame(summary);
   if (summary.reason === 'Abortada') {
     toast('Partida abortada: no cuenta para el ranking');
     await leaveToHub();
