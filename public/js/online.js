@@ -310,7 +310,8 @@ async function finishOnline(summary) {
   st.checks += summary.checks;
   st.captures += summary.captures;
   st.promotions += summary.promotions;
-  addCoins(total);
+  // Con el flag `wallet` el servidor calcula esta recompensa con la partida que vio; el cliente solo la anuncia.
+  addCoins(total, { source: 'online', key: `game:${s.code}` });
   const levelUps = addXp(Math.max(10, total));
   if (minMoves) {
     track('game');

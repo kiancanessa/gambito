@@ -19,6 +19,7 @@ import {
 } from './store.js';
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
+import { initWallet } from './wallet.js';
 import { initTutorial, startTutorial } from './tutorial.js';
 import {
   $, $$, app, avatar, celebrate, choice, confirmModal, esc, showScreen, stars as starsHtml, toast, VS,
@@ -333,8 +334,8 @@ async function finishGame(cfg, s) {
     firstClear = true;
     chapterDone = state.campaign.cleared >= CAMPAIGN.length;
   }
-  addCoins(total);
-  const levelUps = addXp(Math.max(10, total));
+  addCoins(total, { source: 'game' });
+  const levelUps = addXp(Math.max(10, total), { source: 'game' });
   // Misiones y temporada
   track('game');
   if (s.result === 'win') {
@@ -403,7 +404,7 @@ $('#hintBtn').addEventListener('click', async () => {
   const ok = await game.hint();
   btn.disabled = false;
   if (ok) {
-    addCoins(-10);
+    addCoins(-10, { source: 'hint' });
     toast('💡 Pista: mira las casillas resaltadas');
   }
 });
@@ -552,6 +553,7 @@ initMissions();
 initSeason();
 initTutorial();
 initProfile();
+initWallet();
 initLobby();
 $('#lobbyBtn').hidden = !flags.lobby;
 buildAmbient();

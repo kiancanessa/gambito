@@ -121,7 +121,7 @@ async function onFinish(summary) {
     dp.lastDay = d.day;
     state.stats.dailySolved += 1;
     reward = 60 + Math.min(40, dp.streak * 5);
-    addCoins(reward);
+    addCoins(reward, { source: 'puzzle', key: `daily:${d.day}` });
     addSeasonXp(80);
     track('daily');
     save();

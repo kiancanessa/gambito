@@ -60,6 +60,19 @@ export function save({ touch = true } = {}) {
 
 export const onChange = (fn) => listeners.add(fn);
 
+// Con el flag `wallet`, cada cambio de oros/XP/inventario se envía también al servidor como operación.
+let opSink = null;
+export const setOpSink = (fn) => {
+  opSink = fn;
+};
+export const queueOp = (op) => opSink?.(op);
+
+// Sustituye oros, XP e inventario por la cartera verificada del servidor (sin marcarlo como cambio local).
+export function applyWallet(w) {
+  Object.assign(state, { coins: w.coins, xp: w.xp, level: w.level, owned: [...w.owned], equipped: { ...w.equipped } });
+  save({ touch: false });
+}
+
 // Sustituye el estado por el recibido de la nube (sin marcarlo como cambio local).
 export function replaceState(data, rev) {
   const next = merge(fresh(), data);
@@ -86,6 +99,7 @@ export function buy(kind, item) {
   state.coins -= item.price;
   state.owned.push(`${kind}:${item.id}`);
   save();
+  queueOp({ t: 'buy', kind, id: item.id });
   return { ok: true };
 }
 
@@ -93,16 +107,20 @@ export function equip(kind, id) {
   if (!owns(kind, id)) return false;
   state.equipped[kind] = id;
   save();
+  queueOp({ t: 'equip', kind, id });
   return true;
 }
 
-export function addCoins(n) {
+// `src` ({ source, key? }) indica de dónde viene el cambio para que el servidor lo valide (ver server/wallet.js).
+export function addCoins(n, src) {
   state.coins += n;
   save();
+  if (src) queueOp(n < 0 ? { t: 'spend', source: src.source, amount: -n } : { t: 'earn', source: src.source, key: src.key, coins: n });
 }
 
 // Suma XP y devuelve cuántos niveles se subieron.
-export function addXp(n) {
+export function addXp(n, src) {
+  if (src) queueOp({ t: 'earn', source: src.source, xp: n });
   state.xp += n;
   let ups = 0;
   while (state.xp >= XP_PER_LEVEL(state.level)) {
@@ -134,6 +152,7 @@ export function claimDaily() {
   const amount = DAILY_REWARDS[(state.daily.streak - 1) % DAILY_REWARDS.length];
   state.coins += amount;
   save();
+  queueOp({ t: 'earn', source: 'login', key: `login:${dayKey()}`, coins: amount });
   return { amount, streak: state.daily.streak };
 }
 
@@ -143,4 +162,5 @@ export function resetAll() {
   Object.assign(state, fresh());
   state.cloud = cloud;
   save();
+  queueOp({ t: 'reset' });
 }

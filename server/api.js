@@ -2,11 +2,13 @@
 import { bearer, cleanName, defaultName, newId, newRecoveryCode, newToken, normalizeCode, sha256 } from './auth.js';
 import { SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
+import { createWallets } from './wallet.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
 export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
+  const wallets = createWallets(db);
 
   // Limitador sencillo en memoria: `max` peticiones por `windowMs` y clave.
   function limited(key, max, windowMs) {
@@ -181,6 +183,14 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
         const updatedAt = Date.now();
         db.putSave(user.id, json, updatedAt);
         return send(res, 200, { updatedAt });
+      }
+
+      if (pathname === '/api/wallet' && method === 'GET') return send(res, 200, { wallet: wallets.ensure(user.id) });
+
+      if (pathname === '/api/wallet/ops' && method === 'POST') {
+        const body = await readJson(req, 16 * 1024);
+        if (!Array.isArray(body.ops)) return send(res, 400, { error: 'Operaciones no válidas' });
+        return send(res, 200, wallets.apply(user.id, body.ops));
       }
 
       if (pathname === '/api/daily/submit' && method === 'POST') {

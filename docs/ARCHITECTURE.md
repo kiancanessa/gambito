@@ -35,6 +35,8 @@ Un solo proceso sirve estáticos, API y WebSocket en el mismo puerto. Las salas 
 | `GET /api/daily` | opcional | Puzzle del día, ranking y mi resultado |
 | `POST /api/daily/submit` | sí | Envía solución (se verifica con chess.js) |
 | `GET /api/leaderboard` | opcional | Top 20 por rating |
+| `GET /api/wallet` | sí | Cartera verificada (oros, XP, nivel, inventario, equipado); se crea desde el guardado la primera vez |
+| `POST /api/wallet/ops` | sí | Lote de operaciones (`buy`, `equip`, `spend`, `earn`, `reset`) ≤ 50; devuelve la cartera y el resultado de cada una |
 | `GET /api/live` | no | Hasta 6 partidas clasificatorias en curso (solo lectura; las de amigos no se listan) |
 | `GET /api/stats`, `GET /healthz` | no | Estadísticas públicas / salud |
 
@@ -72,13 +74,33 @@ hasta el **relevo**: la antigua sube su copia `final` al apagarse, la nueva la f
 en conflicto gana la más reciente o con más partidas) y toma la propiedad. Si no se puede leer la copia al arrancar, el servidor
 entra en **modo degradado** (sin copias, sin pisar la buena) en vez de caerse.
 
+## Cartera verificada (Fase 2)
+
+`server/wallet.js` guarda oros, XP, inventario y equipado en las tablas `wallets` y `ledger` (libro de movimientos con clave única
+`(user_id, ref)`, que hace idempotentes los reintentos). El cliente aplica los cambios al instante y los envía como operaciones
+(`public/js/wallet.js`, flag `wallet`); cuando el servidor responde, **su cartera manda** y el estado local pasa a ser un espejo.
+Las operaciones pendientes se guardan en `localStorage` y se reenvían al volver la conexión.
+
+| Origen (`source`) | Cómo se valida |
+|---|---|
+| `buy`, `equip` | Precio y existencia según el catálogo (`SHOP` de `public/js/data.js`); saldo suficiente |
+| `online` | El servidor busca la partida en `games` (el jugador debe haber participado) y calcula victoria/jaques él mismo |
+| `puzzle` | Solo si existe el resultado en `daily_results` para ese día |
+| `season` | El premio lo decide `SEASON` por nivel; una sola vez por nivel |
+| `game`, `mission`, `tutorial`, `login` | No se pueden comprobar (la IA corre en el cliente): tope por evento y por 24 h |
+| `spend` (pistas) | Importe máximo fijo y saldo suficiente |
+
+Migración idempotente: la primera vez que se pide la cartera se crea desde el guardado antiguo, recortado (máx. 20 000 oros, solo
+objetos del catálogo). Después, el guardado en la nube ya no decide estos campos. `mergeSnapshot` también fusiona estas tablas y
+tolera copias de versiones sin ellas. Lo que sigue en el cliente: temporada (XP), misiones, campaña y estadísticas.
+
 ## Cliente
 
 - `session.js` prepara la pantalla de partida y crea un `Game` por modo (IA local, online, desafío diario con
   `limitMoves`, tutorial con `scripted`).
 - `game.js` aplica las reglas con chess.js, gestiona la IA (Stockfish en un Worker) y delega el dibujo en `board3d.js`
   (o en el tablero DOM de respaldo).
-- `store.js` guarda el progreso en `localStorage`; `net.js` lo sincroniza con la nube (gana el guardado con más progreso
+- `store.js` guarda el progreso en `localStorage` (con `wallet` activo, `wallet.js` lo concilia con el servidor); `net.js` lo sincroniza con la nube (gana el guardado con más progreso
   si hay conflicto entre dispositivos).
 
 ## Escalado (siguiente paso)

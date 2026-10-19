@@ -16,6 +16,7 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/campaña, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
 | **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
+| **Cartera segura** | Oros, XP e inventario se validan en el servidor (flag `wallet`): compras con precio del catálogo, recompensas online calculadas con la partida real y topes en lo que no se puede comprobar. |
 | **Skins** | 6 sets de piezas, 6 tableros y 4 efectos de captura (materiales y texturas procedurales, sin imágenes). |
 | **Compartir** | Tarjeta de imagen con tu tablero 3D y clip de las últimas jugadas (WebM grabado del canvas). |
 | **Cuentas** | Cuentas de invitado automáticas + código de recuperación; progreso sincronizado en la nube. Sin email ni contraseñas. |
@@ -50,6 +51,7 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/game.js         controlador de partida (IA local, online, tutorial, puzzles)
   js/session.js      prepara la pantalla de partida para cada modo
   js/online.js       multijugador (hub, sala, relojes, emotes, revancha)
+  js/wallet.js       cartera verificada (cola de operaciones y espejo del servidor)
   js/lobby.js        lobby competitivo (agrega online, diario, misiones, temporada)
   js/net.js          API REST, sesión de invitado, nube y WebSocket
   js/daily.js        desafío diario    js/missions.js · js/season.js   progreso

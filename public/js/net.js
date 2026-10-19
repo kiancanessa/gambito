@@ -55,6 +55,9 @@ export async function api(path, { method = 'GET', body, auth = true } = {}) {
 
 const listeners = new Set();
 export const onNet = (fn) => listeners.add(fn);
+// Se ejecutan tras conectar y sincronizar el guardado (p. ej. la cartera del servidor).
+const readyHooks = new Set();
+export const onReady = (fn) => readyHooks.add(fn);
 const emit = () => listeners.forEach((fn) => fn(net));
 
 async function createGuest() {
@@ -82,6 +85,7 @@ export async function bootstrap() {
     return false;
   }
   await syncDown();
+  for (const fn of readyHooks) await fn();
   emit();
   return true;
 }

@@ -51,6 +51,25 @@ export function openDb(file) {
       created_at INTEGER NOT NULL,
       PRIMARY KEY (day, user_id)
     );
+    CREATE TABLE IF NOT EXISTS wallets (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      coins INTEGER NOT NULL,
+      xp INTEGER NOT NULL,
+      level INTEGER NOT NULL,
+      owned TEXT NOT NULL,
+      equipped TEXT NOT NULL,
+      rev INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ledger (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ref TEXT NOT NULL,
+      source TEXT NOT NULL,
+      coins INTEGER NOT NULL,
+      xp INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, ref)
+    );
     CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_day ON daily_results(day, seconds);
   `);
@@ -80,6 +99,7 @@ export function openDb(file) {
     ),
     dailyMine: db.prepare('SELECT seconds, attempts FROM daily_results WHERE day = ? AND user_id = ?'),
     dailyRank: db.prepare('SELECT COUNT(*) + 1 AS rank FROM daily_results WHERE day = ? AND seconds < ?'),
+    gameByCode: db.prepare('SELECT * FROM games WHERE code = ? AND (white_id = ? OR black_id = ?) ORDER BY created_at DESC LIMIT 1'),
     dailyCount: db.prepare('SELECT COUNT(*) AS n FROM daily_results WHERE day = ?'),
     counts: db.prepare('SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM games WHERE created_at > ?) AS gamesToday'),
   };
@@ -116,6 +136,7 @@ export function openDb(file) {
     ratingRank: (rating) => q.rankOf.get(rating).rank,
     dailySubmit: (day, userId, seconds, attempts) => q.dailyInsert.run(day, userId, seconds, attempts, Date.now()),
     dailyTop: (day, limit = 20) => q.dailyTop.all(day, limit),
+    gameByCode: (code, userId) => q.gameByCode.get(code, userId, userId) ?? null,
     dailyMine: (day, userId) => q.dailyMine.get(day, userId) ?? null,
     dailyRank: (day, seconds) => q.dailyRank.get(day, seconds).rank,
     dailyCount: (day) => q.dailyCount.get(day).n,

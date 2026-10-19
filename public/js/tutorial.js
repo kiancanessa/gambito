@@ -29,7 +29,7 @@ async function finish(completed) {
   active = false;
   if (completed && !state.tutorialDone) {
     state.tutorialDone = true;
-    addCoins(100);
+    addCoins(100, { source: 'tutorial', key: 'tutorial' });
     save();
     sfx.win();
     celebrate();

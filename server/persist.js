@@ -125,6 +125,17 @@ export function mergeSnapshot(db, buffer, tmpFile) {
   const esc = tmpFile.replace(/'/g, "''");
   db.raw.exec(`ATTACH DATABASE '${esc}' AS old`);
   try {
+    // La copia puede venir de una versión anterior sin las tablas de la cartera (Fase 2).
+    const oldTables = new Set(db.raw.prepare("SELECT name FROM old.sqlite_master WHERE type = 'table'").all().map((r) => r.name));
+    const wallet = oldTables.has('wallets')
+      ? `INSERT OR REPLACE INTO wallets (user_id, coins, xp, level, owned, equipped, rev, updated_at)
+           SELECT o.user_id, o.coins, o.xp, o.level, o.owned, o.equipped, o.rev, o.updated_at FROM old.wallets o
+           WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id)
+             AND NOT EXISTS (SELECT 1 FROM main.wallets w WHERE w.user_id = o.user_id AND w.rev >= o.rev);
+         INSERT OR IGNORE INTO ledger (user_id, ref, source, coins, xp, created_at)
+           SELECT o.user_id, o.ref, o.source, o.coins, o.xp, o.created_at FROM old.ledger o
+           WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id);`
+      : '';
     db.raw.exec(`
       BEGIN;
       INSERT OR IGNORE INTO users SELECT * FROM old.users;
@@ -136,6 +147,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
         WHERE NOT EXISTS (SELECT 1 FROM main.saves s WHERE s.user_id = o.user_id AND s.updated_at >= o.updated_at);
       INSERT OR IGNORE INTO games SELECT * FROM old.games;
       INSERT OR IGNORE INTO daily_results SELECT * FROM old.daily_results;
+      ${wallet}
       COMMIT;
     `);
   } catch (err) {

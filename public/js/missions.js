@@ -74,7 +74,7 @@ function claim(kind, id) {
   const def = defOf(kind, id);
   if (!m || !def || m.claimed || m.progress < def.target) return false;
   m.claimed = true;
-  addCoins(def.coins);
+  addCoins(def.coins, { source: 'mission', key: `mission:${state.missions[kind === 'daily' ? 'dayKey' : 'weekKey']}:${id}` });
   addSeasonXp(def.xp);
   save();
   return true;

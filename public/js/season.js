@@ -1,7 +1,7 @@
 // Pase de temporada: XP compartida por partidas, misiones y desafíos; recompensas gratuitas por nivel.
 import { SEASON } from './data.js';
 import { sfx } from './fx.js';
-import { addCoins, grantItem, save, state } from './store.js';
+import { addCoins, grantItem, queueOp, save, state } from './store.js';
 import { $, esc, fmtCountdown, toast } from './ui.js';
 
 function ensureSeason() {
@@ -50,6 +50,7 @@ function claim(level) {
   if (r.item) grantItem(r.item[0], r.item[1]);
   state.season.claimed.push(level);
   save();
+  queueOp({ t: 'earn', source: 'season', key: `season:${SEASON.id}:${level}` }); // el servidor decide el premio
   return true;
 }
 
