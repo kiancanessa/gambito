@@ -53,6 +53,15 @@ El cliente aplica las jugadas nuevas con animación; si detecta un desajuste (ju
 Reglas de sala: el reloj de cada bando empieza tras su primera jugada; el incremento se suma desde la 3ª jugada;
 rendirse antes de que ambos muevan aborta la partida sin tocar el ranking; 45 s sin conexión pierden la partida.
 
+## Protecciones
+
+- **Topes** (`server/config.js`, objeto `LIMITS`): 3 partidas abiertas por jugador, 8 salas nuevas por minuto, 20 WebSockets por
+  IP, 6 conexiones por cuenta, 200 espectadores por sala, 5000 salas en total. Cancelar una sala vacía en espera la elimina al instante.
+- **Final por tiempo:** si el rival no puede dar mate con su material (`hasMatingMaterial` en `rooms.js`), son tablas.
+- **Cliente alojado aparte:** `ALLOWED_ORIGINS` activa CORS en la API y permite el origen en el WebSocket. El cliente toma la URL del
+  servidor de `window.GAMBITO_API` (`public/config.js`). La sesión va en `Authorization: Bearer`, sin cookies.
+- **CSP:** el importmap se autoriza por hash (con finales de línea normalizados a LF, igual que el navegador).
+
 ## Cliente
 
 - `session.js` prepara la pantalla de partida y crea un `Game` por modo (IA local, online, desafío diario con

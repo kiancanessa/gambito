@@ -31,7 +31,8 @@ npm start            # http://localhost:5173
 ```
 
 - `npm run dev` reinicia el servidor al cambiar archivos del servidor.
-- `npm test` ejecuta las pruebas (servidor, WebSocket, Elo, puzzles).
+- `npm test` ejecuta las pruebas (servidor, WebSocket, límites, Elo, puzzles).
+- `npm run smoke -- https://TU-SERVIDOR` prueba un servidor desplegado (cuentas, WebSocket y una jugada real).
 - `npm run puzzles -- 365 10 --append` amplía `server/puzzles.json` con Stockfish (objetivo, procesos; sin `--append` lo regenera).
 - `node scripts/dev-bot.js CODIGO` mete un bot en una sala para probar el online tú solo
   (o `queue:blitz5` para probar el emparejamiento).

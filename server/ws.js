@@ -1,26 +1,54 @@
 // WebSocket: partidas con amigos, emparejamiento clasificatorio, espectadores y emotes.
 import { WebSocketServer } from 'ws';
 import { sha256 } from './auth.js';
+import { LIMITS, TRUST_PROXY, allowedOrigins } from './config.js';
 import { TIME_CONTROLS } from './rooms.js';
+
+const clientIp = (req) => {
+  const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
+  return fwd || req.socket.remoteAddress || 'unknown';
+};
+
+// ¿Puede este origen abrir sockets? Mismo origen, o uno de ALLOWED_ORIGINS (cliente alojado aparte).
+function originAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true; // clientes que no son navegadores (bots, pruebas)
+  try {
+    if (new URL(origin).host === req.headers.host) return true;
+  } catch {
+    return false;
+  }
+  return allowedOrigins().includes(origin.replace(/\/$/, ''));
+}
 
 export function attachWs(server, { db, rooms, matchmaker }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048 });
+  const perIp = new Map();
 
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url, 'http://localhost');
-    const origin = req.headers.origin;
-    // Solo mismo origen (evita que otras webs abran sockets con tu sesión).
-    if (url.pathname !== '/ws' || (origin && new URL(origin).host !== req.headers.host)) {
+    if (url.pathname !== '/ws' || !originAllowed(req)) {
       socket.destroy();
       return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+    const ip = clientIp(req);
+    if ((perIp.get(ip) ?? 0) >= LIMITS.wsPerIp) {
+      socket.write('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.ip = ip;
+      perIp.set(ip, (perIp.get(ip) ?? 0) + 1);
+      wss.emit('connection', ws, req);
+    });
   });
 
   const send = (ws, msg) => ws.readyState === 1 && ws.send(JSON.stringify(msg));
-  const leaveRoom = (ws) => {
+  // `explicit`: el jugador decide salir (no es una desconexión): una sala vacía en espera se borra al instante.
+  const leaveRoom = (ws, explicit = false) => {
     const room = ws.meta.room && rooms.get(ws.meta.room);
-    room?.detach(ws);
+    room?.detach(ws, { explicit });
   };
 
   function onMessage(ws, raw) {
@@ -43,6 +71,12 @@ export function attachWs(server, { db, rooms, matchmaker }) {
     if (msg.t === 'auth') {
       const user = typeof msg.token === 'string' ? db.userByToken(sha256(msg.token)) : null;
       if (!user) return send(ws, { t: 'error', code: 'auth', message: 'Sesión no válida' });
+      let sameUser = 0;
+      for (const c of wss.clients) if (c !== ws && c.meta?.user?.id === user.id) sameUser += 1;
+      if (sameUser >= LIMITS.socketsPerUser) {
+        send(ws, { t: 'error', code: 'limit', message: 'Demasiadas conexiones abiertas con esta cuenta' });
+        return ws.close();
+      }
       meta.user = user;
       return send(ws, { t: 'authed', user });
     }
@@ -51,8 +85,13 @@ export function attachWs(server, { db, rooms, matchmaker }) {
     const room = meta.room ? rooms.get(meta.room) : null;
     switch (msg.t) {
       case 'create': {
-        leaveRoom(ws);
+        meta.creates = (meta.creates ?? []).filter((t) => now - t < 60_000);
+        if (meta.creates.length >= LIMITS.createsPerMinute) return send(ws, { t: 'error', code: 'limit', message: 'Vas muy rápido: espera un momento para crear otra partida' });
+        leaveRoom(ws, true);
         matchmaker.dequeue(meta.user.id);
+        if (rooms.rooms.size >= LIMITS.totalRooms) return send(ws, { t: 'error', code: 'full', message: 'El servidor está lleno, inténtalo en unos minutos' });
+        if (rooms.activeCountFor(meta.user.id) >= LIMITS.roomsPerUser) return send(ws, { t: 'error', code: 'limit', message: 'Ya tienes varias partidas abiertas. Termina o abandona alguna antes de crear otra' });
+        meta.creates.push(now);
         meta.user = db.userById(meta.user.id) ?? meta.user;
         const tcId = TIME_CONTROLS[msg.tc] ? msg.tc : 'none';
         const created = rooms.create({ tcId, rated: false, colorPref: msg.color });
@@ -65,7 +104,10 @@ export function attachWs(server, { db, rooms, matchmaker }) {
         const target = rooms.get(msg.code);
         if (!target) return send(ws, { t: 'error', code: 'nogame', message: 'Esa partida no existe o ya terminó' });
         if (target === room) return target.broadcast();
-        leaveRoom(ws);
+        if (!target.hasPlayer(meta.user.id) && target.isFull() && target.spectatorCount() >= LIMITS.spectatorsPerRoom) {
+          return send(ws, { t: 'error', code: 'full', message: 'La sala de espectadores está llena' });
+        }
+        leaveRoom(ws, true);
         matchmaker.dequeue(meta.user.id);
         meta.user = db.userById(meta.user.id) ?? meta.user;
         target.seat(meta.user, ws);
@@ -75,7 +117,7 @@ export function attachWs(server, { db, rooms, matchmaker }) {
       case 'queue': {
         const tcId = msg.tc;
         if (!TIME_CONTROLS[tcId] || tcId === 'none') return send(ws, { t: 'error', message: 'Elige un control de tiempo' });
-        leaveRoom(ws);
+        leaveRoom(ws, true);
         meta.user = db.userById(meta.user.id) ?? meta.user;
         matchmaker.enqueue(meta.user, ws, tcId);
         send(ws, { t: 'queued', size: matchmaker.size() });
@@ -101,7 +143,7 @@ export function attachWs(server, { db, rooms, matchmaker }) {
         room?.rematch(ws);
         break;
       case 'leave':
-        leaveRoom(ws);
+        leaveRoom(ws, true);
         break;
       default:
     }
@@ -119,6 +161,9 @@ export function attachWs(server, { db, rooms, matchmaker }) {
       }
     });
     ws.on('close', () => {
+      const n = (perIp.get(ws.ip) ?? 1) - 1;
+      if (n <= 0) perIp.delete(ws.ip);
+      else perIp.set(ws.ip, n);
       matchmaker.removeSocket(ws);
       leaveRoom(ws);
     });

@@ -1,18 +1,24 @@
-# Despliegue en Render (Blueprint). Los discos persistentes requieren un plan de pago; en el plan gratuito
-# la base de datos (cuentas, guardados, ranking) se reinicia en cada despliegue: úsalo solo para probar.
+# Despliegue en Render (Blueprint): New + → Blueprint → elige este repositorio.
+# Usa el plan "starter" (siempre encendido + disco persistente). El plan gratuito se duerme a los 15 minutos
+# (cortaría las partidas en curso) y borraría la base de datos en cada despliegue.
+# Guía completa en docs/DEPLOY.md.
 services:
   - type: web
     name: gambito
     runtime: docker
     plan: starter
+    region: oregon # cerca de México y EE. UU.; otras: ohio, virginia, frankfurt, singapore
+    numInstances: 1 # las salas de partida viven en memoria: no escales a más de una instancia
+    autoDeploy: true
     healthCheckPath: /healthz
     envVars:
-      - key: PORT
-        value: 8080
-      - key: DATA_DIR
-        value: /data
       - key: NODE_ENV
         value: production
+      - key: DATA_DIR
+        value: /data
+      # Cliente alojado en Vercel autorizado a usar la API y el WebSocket (separa varios con comas).
+      - key: ALLOWED_ORIGINS
+        value: https://gambito-five.vercel.app
     disk:
       name: gambito-data
       mountPath: /data

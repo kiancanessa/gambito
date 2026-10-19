@@ -11,8 +11,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const hashes = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
-  (m) => `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`,
+  (m) => `'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n/g, '\n')).digest('base64')}'`,
 );
+
+// Si el cliente usa un servidor aparte (BACKEND_URL en public/config.js), la CSP debe permitir conectarse a él.
+const configJs = readFileSync(path.join(ROOT, 'public', 'config.js'), 'utf8');
+const backend = configJs.match(/BACKEND_URL\s*=\s*'([^']*)'/)?.[1]?.replace(/\/$/, '') ?? '';
 
 const csp = [
   "default-src 'self'",
@@ -20,7 +24,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
-  "connect-src 'self' ws: wss:",
+  `connect-src 'self' ws: wss: ${backend}`.trim(),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
@@ -50,4 +54,4 @@ const config = {
 };
 
 writeFileSync(path.join(ROOT, 'vercel.json'), `${JSON.stringify(config, null, 2)}\n`);
-console.log('vercel.json generado con', hashes.length, 'hash(es) de script en línea');
+console.log('vercel.json generado con', hashes.length, 'hash(es) de script en línea', backend ? `y servidor ${backend}` : '(sin servidor remoto)');

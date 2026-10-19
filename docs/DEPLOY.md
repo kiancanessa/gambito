@@ -16,6 +16,20 @@ Gambito es **un único servicio Node** (estáticos + API + WebSocket) con una ba
 | `DB_FILE` | `$DATA_DIR/gambito.db` | Ruta del archivo de base de datos |
 | `HOST` | `0.0.0.0` | Interfaz de escucha |
 | `TRUST_PROXY` | `1` si `NODE_ENV=production` | Usa `X-Forwarded-For` como IP real (límites de peticiones) |
+| `ALLOWED_ORIGINS` | *(vacío)* | Otras webs autorizadas a usar la API y el WebSocket (cliente en Vercel), separadas por comas |
+| `CSP_CONNECT_EXTRA` | *(vacío)* | Orígenes extra permitidos en `connect-src` de la CSP (solo si el cliente se sirve desde este servidor pero usa otra API) |
+
+Límites anti-abuso (en `server/config.js`): 3 partidas abiertas por jugador, 8 salas nuevas por minuto, 20 WebSockets por IP,
+6 conexiones por cuenta, 200 espectadores por sala y 5000 salas en total.
+
+## Comprobar un despliegue
+
+Tras cada despliegue ejecuta la prueba de humo (crea dos cuentas "Smoke ..." y juega una jugada de verdad):
+
+```bash
+npm run smoke -- https://TU-SERVIDOR
+npm run smoke -- https://TU-SERVIDOR --origin=https://tu-cliente.vercel.app   # simula el cliente en Vercel
+```
 
 ## Opción A · Fly.io (recomendada)
 
@@ -29,10 +43,17 @@ fly scale count 1                         # ¡una sola máquina!
 `fly.toml` ya trae el puerto, el volumen, la comprobación de salud `/healthz` y `auto_stop_machines = "off"`.
 Dominio propio: `fly certs add tudominio.com` y apunta el DNS donde indique Fly.
 
-## Opción B · Render
+## Opción B · Render (la más sencilla, sin instalar nada)
 
-Conecta el repositorio, elige "Blueprint" y usa `render.yaml`. **Los discos persistentes requieren plan de pago**;
-en el plan gratuito la base de datos se borra en cada despliegue (sirve para probar, no para lanzar).
+1. En [render.com](https://render.com) inicia sesión con GitHub → **New +** → **Blueprint** → elige el repositorio `gambito`.
+2. Render lee `render.yaml` (servicio Docker, disco de 1 GB en `/data`, región Oregon). Confirma el plan **Starter**
+   (≈ 7 USD/mes; hace falta tarjeta). **No uses el plan gratuito**: se duerme a los 15 min (corta las partidas) y borra la
+   base de datos en cada despliegue.
+3. Espera a que termine el despliegue y copia la URL (`https://gambito-xxxx.onrender.com`).
+4. Comprueba: `npm run smoke -- https://gambito-xxxx.onrender.com`.
+
+Esa misma URL ya sirve **el juego completo** (cliente + servidor, mismo origen). Los despliegues son automáticos con cada
+`git push` a `main`. Los discos de Render son propiedad de root, por eso el contenedor no usa un usuario sin privilegios.
 
 ## Opción C · VPS con Docker
 
@@ -60,8 +81,16 @@ node scripts/make-vercel-config.js   # regenera vercel.json (hash de CSP) si edi
 vercel deploy --prod
 ```
 
-Para tener todo junto en Vercel haría falta separar el backend (API + WebSocket en otro host) y configurar en el cliente
-la URL del servidor; hoy el cliente asume el mismo origen.
+### Cliente en Vercel + servidor en Render/Fly
+
+Para que el cliente de Vercel use un servidor remoto:
+
+1. En `public/config.js` pon `BACKEND_URL = 'https://TU-SERVIDOR'` (solo se usa en dominios `*.vercel.app`).
+2. Ejecuta `node scripts/make-vercel-config.js`: añade el servidor a la CSP (`connect-src`) de `vercel.json`.
+3. En el servidor define `ALLOWED_ORIGINS=https://tu-cliente.vercel.app` (CORS y WebSocket).
+4. `git push` (Vercel y Render se redespliegan solos) y comprueba con `npm run smoke -- https://TU-SERVIDOR --origin=https://tu-cliente.vercel.app`.
+
+Si prefieres un solo sitio, usa directamente la URL del servidor: ya sirve el cliente.
 
 ## Copias de seguridad
 

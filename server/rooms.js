@@ -21,6 +21,28 @@ const genCode = () => Array.from(crypto.randomBytes(6), (b) => CODE_ALPHABET[b %
 const other = (c) => (c === 'w' ? 'b' : 'w');
 const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 
+/**
+ * ¿Puede `color` dar mate con el material que tiene? Se usa al caer la bandera del rival: si no puede,
+ * la partida es tablas (reglas FIDE/lichess) en vez de victoria por tiempo.
+ * Suficiente = algún peón/torre/dama, dos o más piezas menores, o una menor si el rival conserva piezas.
+ */
+export function hasMatingMaterial(chess, color) {
+  let minors = 0;
+  let others = 0;
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.type === 'k') continue;
+      if (p.color === color) {
+        if (p.type === 'n' || p.type === 'b') minors += 1;
+        else return true;
+      } else {
+        others += 1;
+      }
+    }
+  }
+  return minors >= 2 || (minors === 1 && others > 0);
+}
+
 export class Room {
   constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null }) {
     this.m = manager;
@@ -50,6 +72,18 @@ export class Room {
   }
 
   // ----- Asientos -----
+  hasPlayer(userId) {
+    return ['w', 'b'].some((c) => this.players[c]?.id === userId);
+  }
+
+  isFull() {
+    return !!(this.players.w && this.players.b);
+  }
+
+  spectatorCount() {
+    return Math.max(0, this.sockets.size - ['w', 'b'].reduce((n, c) => n + (this.players[c]?.socks.size ?? 0), 0));
+  }
+
   seat(user, ws) {
     this.touched = Date.now();
     let role = ['w', 'b'].find((c) => this.players[c]?.id === user.id);
@@ -74,11 +108,16 @@ export class Room {
     return role;
   }
 
-  detach(ws) {
+  detach(ws, { explicit = false } = {}) {
     this.sockets.delete(ws);
     const role = ws.meta.role;
     ws.meta.room = null;
     ws.meta.role = null;
+    // El anfitrión cancela su sala vacía: se borra ya (así no cuenta para su tope de partidas abiertas).
+    if (explicit && this.status === 'waiting' && this.sockets.size === 0) {
+      this.m.remove(this);
+      return;
+    }
     if (!role || role === 's') return;
     const p = this.players[role];
     p?.socks.delete(ws);
@@ -121,7 +160,7 @@ export class Room {
       drawOffer: this.drawOffer,
       rematch: [...this.rematchVotes],
       rematchCode: this.rematchCode,
-      spectators: Math.max(0, this.sockets.size - ['w', 'b'].reduce((n, c) => n + (this.players[c]?.socks.size ?? 0), 0)),
+      spectators: this.spectatorCount(),
     };
   }
 
@@ -150,7 +189,7 @@ export class Room {
       this.clocks[role] -= now - this.lastTick;
       if (this.clocks[role] <= 0) {
         this.clocks[role] = 0;
-        this.end(other(role), 'tiempo');
+        this.timeout(role);
         return;
       }
     }
@@ -189,8 +228,15 @@ export class Room {
   checkFlag() {
     if (this.status !== 'playing' || !this.running) return;
     const left = this.clocks[this.running] - (Date.now() - this.lastTick);
-    if (left <= 0) this.end(other(this.running), 'tiempo');
+    if (left <= 0) this.timeout(this.running);
     else this.scheduleFlag();
+  }
+
+  // `loser` se quedó sin tiempo: pierde, salvo que el rival no pueda dar mate con su material.
+  timeout(loser) {
+    const winner = other(loser);
+    if (!hasMatingMaterial(this.chess, winner)) this.end(null, 'tiempo con material insuficiente');
+    else this.end(winner, 'tiempo');
   }
 
   resign(ws) {
@@ -274,6 +320,18 @@ export class RoomManager {
     return this.rooms.get(String(code ?? '').toUpperCase());
   }
 
+  remove(room) {
+    room.dispose();
+    this.rooms.delete(room.code);
+  }
+
+  // Partidas abiertas (esperando o en juego) en las que participa el jugador.
+  activeCountFor(userId) {
+    let n = 0;
+    for (const room of this.rooms.values()) if (room.status !== 'over' && room.hasPlayer(userId)) n += 1;
+    return n;
+  }
+
   createRematch(old) {
     // Colores intercambiados: quien jugó con negras ahora lleva blancas.
     const room = this.create({ tcId: old.tc.id, rated: old.rated, reserved: { w: old.players.b.id, b: old.players.w.id } });
@@ -314,7 +372,7 @@ export class RoomManager {
     for (const [code, room] of this.rooms) {
       const idle = now - room.touched;
       const empty = room.sockets.size === 0;
-      if ((room.status === 'over' && idle > 20 * 60_000) || (room.status === 'waiting' && empty && idle > 30 * 60_000) || (empty && idle > 2 * 3600_000)) {
+      if ((room.status === 'over' && idle > 20 * 60_000) || (room.status === 'waiting' && empty && idle > 3 * 60_000) || (empty && idle > 2 * 3600_000)) {
         room.dispose();
         this.rooms.delete(code);
       }

@@ -1,6 +1,6 @@
 // API HTTP/JSON: cuentas de invitado, guardado en la nube, desafío diario, clasificación y estadísticas.
 import { bearer, cleanName, defaultName, newId, newRecoveryCode, newToken, normalizeCode, sha256 } from './auth.js';
-import { SAVE_LIMIT_BYTES } from './config.js';
+import { SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
@@ -77,6 +77,21 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles }) {
   return async function handle(req, res, url, ip) {
     const { pathname } = url;
     const method = req.method;
+    // CORS: solo para los orígenes de ALLOWED_ORIGINS (p. ej. el cliente en Vercel). La sesión va en
+    // `Authorization: Bearer`, sin cookies, así que no hace falta `Allow-Credentials`.
+    const origin = req.headers.origin;
+    const corsOk = !!origin && allowedOrigins().includes(origin.replace(/\/$/, ''));
+    if (corsOk) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Max-Age', '600');
+    }
+    if (method === 'OPTIONS') {
+      res.writeHead(corsOk ? 204 : 403).end();
+      return true;
+    }
     try {
       if (pathname === '/healthz') return send(res, 200, { ok: true });
       if (limited(`all:${ip}`, 240, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });

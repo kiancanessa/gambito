@@ -3,6 +3,15 @@ import { onChange, progressScore, replaceState, save, state } from './store.js';
 
 const AUTH_KEY = 'gambito.auth.v1';
 
+// URL base del servidor. Vacía = mismo origen que la página. Si el cliente se sirve aparte (Vercel),
+// `public/config.js` define `window.GAMBITO_API` con la URL del servidor.
+const apiBase = () => String(window.GAMBITO_API || '').replace(/\/$/, '');
+export const apiUrl = (path) => `${apiBase()}${path}`;
+const wsUrl = () => {
+  const u = apiBase() ? new URL(apiBase()) : location;
+  return `${u.protocol === 'https:' ? 'wss' : 'ws'}://${u.host}/ws`;
+};
+
 export const net = {
   auth: null, // { token, recovery }
   user: null, // { id, name, rating, games, wins, ... }
@@ -30,7 +39,7 @@ const writeAuth = (auth) => {
 
 export async function api(path, { method = 'GET', body, auth = true } = {}) {
   try {
-    const res = await fetch(path, {
+    const res = await fetch(apiUrl(path), {
       method,
       headers: { 'Content-Type': 'application/json', ...(auth && net.auth ? { Authorization: `Bearer ${net.auth.token}` } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -192,8 +201,7 @@ export class Socket {
     this.wanted = true;
     if (this.ws && this.ws.readyState <= 1 && this.ready) return this.ready;
     this.ready = new Promise((resolve, reject) => {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws`);
+      const ws = new WebSocket(wsUrl());
       this.ws = ws;
       let authed = false;
       ws.onopen = () => ws.send(JSON.stringify({ t: 'auth', token: net.auth?.token }));

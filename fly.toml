@@ -10,6 +10,7 @@ primary_region = "mad"
   PORT = "8080"
   DATA_DIR = "/data"
   NODE_ENV = "production"
+  ALLOWED_ORIGINS = "https://gambito-five.vercel.app"
 
 [mounts]
   source = "gambito_data"

@@ -27,10 +27,14 @@ const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.webmani
 function inlineScriptHashes(html) {
   const out = [];
   for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
-    out.push(`'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
+    out.push(`'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n/g, '\n')).digest('base64')}'`);
   }
   return out;
 }
+
+// Orígenes extra a los que el cliente puede conectarse por fetch (p. ej. otro servidor de API):
+//   CSP_CONNECT_EXTRA=https://api.ejemplo.com
+const extraConnect = () => (process.env.CSP_CONNECT_EXTRA || '').split(/[\s,]+/).filter(Boolean).join(' ');
 
 export function createStatic(publicDir) {
   const root = path.resolve(publicDir);
@@ -50,7 +54,7 @@ export function createStatic(publicDir) {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "media-src 'self' blob:",
-      "connect-src 'self' ws: wss:",
+      `connect-src 'self' ws: wss: ${extraConnect()}`.trim(),
       "worker-src 'self' blob:",
       "manifest-src 'self'",
       "object-src 'none'",
