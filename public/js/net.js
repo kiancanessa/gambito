@@ -197,8 +197,22 @@ export class Socket {
     this.handlers.get(type)?.forEach((fn) => fn(msg));
   }
 
-  connect() {
+  // Abre el socket. Si el servidor no reconoce la sesión (p. ej. perdió su base de datos tras un reinicio) se crea una
+  // cuenta nueva con `bootstrap()` y se reintenta una vez, en vez de quedarse esperando para siempre.
+  async connect() {
     this.wanted = true;
+    try {
+      return await this.open();
+    } catch (err) {
+      if (err.code !== 'auth') throw err;
+      writeAuth(null);
+      net.user = null;
+      if (!(await bootstrap())) throw err;
+      return this.open();
+    }
+  }
+
+  open() {
     if (this.ws && this.ws.readyState <= 1 && this.ready) return this.ready;
     this.ready = new Promise((resolve, reject) => {
       const ws = new WebSocket(wsUrl());
@@ -210,6 +224,12 @@ export class Socket {
         try {
           msg = JSON.parse(e.data);
         } catch {
+          return;
+        }
+        if (msg.t === 'error' && msg.code === 'auth' && !authed) {
+          this.ready = null;
+          ws.close();
+          reject(Object.assign(new Error('Sesión no válida'), { code: 'auth' }));
           return;
         }
         if (msg.t === 'authed') {
