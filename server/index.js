@@ -21,13 +21,14 @@ export async function startServer({
   puzzles = null,
   databaseUrl = process.env.DATABASE_URL,
   persistStore = null,
-  // 15 min: el plan gratuito de Neon (100 CU-h/mes) se suspende a los 5 min de inactividad; guardar más a menudo lo mantendría
-  // despierto y agotaría la cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
-  persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 15 * 60_000,
+  // 3 min, y solo si hubo cambios: Neon gratis (100 CU-h/mes) se suspende a los 5 min sin consultas, así que de noche, sin
+  // actividad, no gasta cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
+  persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 3 * 60_000,
+  persistOptions = {},
 } = {}) {
   let persistence = null;
   if (persistStore || databaseUrl) {
-    persistence = createPersistence({ dbFile, store: persistStore ?? new PgStore(databaseUrl), intervalMs: persistIntervalMs });
+    persistence = createPersistence({ dbFile, store: persistStore ?? new PgStore(databaseUrl), intervalMs: persistIntervalMs, ...persistOptions });
     await persistence.restore();
   }
   const db = openDb(dbFile);
@@ -72,8 +73,11 @@ export async function startServer({
           matchmaker.close();
           rooms.close();
           ws.close();
-          await new Promise((r) => server.close(r));
+          // Se dejan de aceptar conexiones y se cortan las que siguen abiertas (keep-alive de proxys y monitores):
+          // esperar a que se cierren solas bloqueaba el apagado y la copia final nunca se hacía.
+          const closed = new Promise((r) => server.close(r));
           server.closeAllConnections?.();
+          await closed;
           await persistence?.stop(); // copia final antes de cerrar la base de datos
           db.close();
         },

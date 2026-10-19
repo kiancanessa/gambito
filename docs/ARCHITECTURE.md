@@ -65,9 +65,11 @@ rendirse antes de que ambos muevan aborta la partida sin tocar el ranking; 45 s 
 ## Persistencia en alojamientos gratuitos
 
 `server/persist.js` permite desplegar donde el disco es efímero (Render Free): con `DATABASE_URL` (Postgres de Neon) la base de datos
-SQLite se restaura al arrancar y se copia con `VACUUM INTO` cada 15 min si hubo cambios (`total_changes()`) y al recibir SIGTERM.
-Una instancia solo escribe la copia mientras es su "propietaria" (columna `owner`): si arranca otra, la antigua deja de escribir.
-Si no se puede leer la copia, el servidor **no arranca** (así nunca se sube una base vacía encima de la buena).
+SQLite se restaura al arrancar y se copia con `VACUUM INTO` cada 3 min si hubo cambios (`total_changes()`) y al recibir SIGTERM.
+Solo la instancia "propietaria" (columna `owner`) escribe la copia. En un despliegue solapado la nueva restaura pero no escribe
+hasta el **relevo**: la antigua sube su copia `final` al apagarse, la nueva la fusiona (`mergeSnapshot`: filas nuevas se añaden;
+en conflicto gana la más reciente o con más partidas) y toma la propiedad. Si no se puede leer la copia al arrancar, el servidor
+entra en **modo degradado** (sin copias, sin pisar la buena) en vez de caerse.
 
 ## Cliente
 

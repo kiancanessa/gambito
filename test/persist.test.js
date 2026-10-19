@@ -1,6 +1,7 @@
 // Copia de la base de datos a un almacén externo (Neon) para alojamientos gratuitos sin disco.
 // Se prueba con un almacén en memoria que implementa la misma interfaz que PgStore.
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,95 +13,141 @@ import { MemoryStore, createPersistence } from '../server/persist.js';
 
 const quiet = { log() {}, warn() {}, error() {} };
 const PUZZLES = [{ id: 1, fen: '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', mateIn: 1, solution: ['a1a8'] }];
+const FAST = { handoffPollMs: 5, retryDelayMs: 1 };
 let dir;
 
 before(() => {
   dir = mkdtempSync(path.join(tmpdir(), 'gambito-persist-'));
 });
-after(() => rmSync(dir, { recursive: true, force: true }));
+after(() => {
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    /* en Windows puede quedar algún archivo bloqueado un instante: es una carpeta temporal */
+  }
+});
 
-const wipe = (file) => ['', '-wal', '-shm', '.snap'].forEach((s) => rmSync(file + s, { force: true }));
+const wipe = (file) => ['', '-wal', '-shm', '.snap', '.merge'].forEach((s) => rmSync(file + s, { force: true }));
+const addUser = (db, id, name = id) => db.createUser({ id, name, tokenHash: sha256(`t-${id}`), recoveryHash: sha256(`r-${id}`) });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Arranca una "instancia": restaura, abre la base de datos y empieza a copiar.
+async function boot(name, store, opts = {}) {
+  const file = path.join(dir, `${name}.db`);
+  const p = createPersistence({ dbFile: file, store, log: quiet, ...FAST, ...opts });
+  await p.restore();
+  const db = openDb(file);
+  p.start(db);
+  return { p, db, file };
+}
 
 describe('persistencia', () => {
-  test('la base de datos sobrevive a la pérdida del disco: copia y restauración', async () => {
-    const file = path.join(dir, 'a.db');
+  test('la base de datos sobrevive a la pérdida del disco', async () => {
     const store = new MemoryStore();
-    const p1 = createPersistence({ dbFile: file, store, log: quiet });
-    assert.equal(await p1.restore(), false, 'primer arranque: sin copia previa');
-    const db1 = openDb(file);
-    p1.start(db1);
-    db1.createUser({ id: 'u1', name: 'Ana', tokenHash: sha256('t'), recoveryHash: sha256('r') });
-    assert.equal(await p1.snapshot(), true);
-    assert.equal(store.saves, 1);
-    await p1.stop();
-    db1.close();
+    const a = await boot('a', store);
+    assert.equal(a.p.status().claimed, true, 'primer arranque: se hace propietaria sin esperar');
+    addUser(a.db, 'u1', 'Ana');
+    assert.equal(await a.p.snapshot(), true);
+    await a.p.stop();
+    a.db.close();
 
-    wipe(file); // el disco efímero desaparece (reinicio de Render Free)
-
-    const p2 = createPersistence({ dbFile: file, store, log: quiet });
-    assert.equal(await p2.restore(), true);
-    const db2 = openDb(file);
-    assert.equal(db2.userById('u1').name, 'Ana');
-    p2.start(db2);
-    await p2.stop();
-    db2.close();
+    wipe(a.file); // el disco efímero desaparece (reinicio de Render Free)
+    const b = await boot('a', store);
+    assert.equal(b.p.status().restoredBytes > 0, true);
+    assert.equal(b.db.userById('u1').name, 'Ana');
+    await b.p.stop();
+    b.db.close();
   });
 
   test('solo se sube la copia cuando hubo cambios', async () => {
-    const file = path.join(dir, 'b.db');
     const store = new MemoryStore();
-    const p = createPersistence({ dbFile: file, store, log: quiet });
-    await p.restore();
+    const a = await boot('b', store);
+    await a.p.snapshot();
+    await a.p.snapshot();
+    assert.equal(store.saves, 0);
+    addUser(a.db, 'u2');
+    await a.p.snapshot();
+    await a.p.snapshot();
+    assert.equal(store.saves, 1);
+    await a.p.stop();
+    a.db.close();
+  });
+
+  test('despliegue solapado: la nueva instancia fusiona la copia final de la antigua y no se pierde nada', async () => {
+    const store = new MemoryStore();
+    const old = await boot('old', store);
+    addUser(old.db, 'A');
+    await old.p.snapshot(); // copia periódica con A
+
+    const fresh = await boot('new', store); // arranca la nueva mientras la antigua sigue sirviendo
+    assert.equal(fresh.p.status().claimed, false, 'no es propietaria hasta el relevo');
+    assert.equal(fresh.db.userById('A').id, 'A');
+    addUser(fresh.db, 'B'); // cuenta creada en la nueva
+    assert.equal(await fresh.p.snapshot(), false, 'sin ser propietaria no escribe');
+
+    addUser(old.db, 'C'); // cuenta creada en la antigua después de que arrancara la nueva
+    await old.p.stop(); // SIGTERM: copia final (A, C)
+    assert.equal(store.final, true);
+
+    await fresh.p.handoffTick(); // detecta la copia final, fusiona y toma la propiedad
+    assert.equal(fresh.p.status().claimed, true);
+    for (const id of ['A', 'B', 'C']) assert.ok(fresh.db.userById(id), `falta ${id} tras la fusión`);
+
+    // La copia publicada contiene todo: una tercera instancia arranca desde cero con A, B y C.
+    await fresh.p.stop();
+    fresh.db.close();
+    old.db.close();
+    wipe(fresh.file);
+    const third = await boot('third', store);
+    for (const id of ['A', 'B', 'C']) assert.ok(third.db.userById(id), `falta ${id} en la copia final`);
+    await third.p.stop();
+    third.db.close();
+  });
+
+  test('si la antigua no llega a subir su copia final, la nueva toma el control pasado el máximo de espera', async () => {
+    const store = new MemoryStore();
+    const old = await boot('crash-old', store);
+    addUser(old.db, 'X');
+    await old.p.snapshot();
+    const fresh = await boot('crash-new', store, { handoffMaxMs: 20 });
+    addUser(fresh.db, 'Y');
+    await sleep(40);
+    await fresh.p.handoffTick();
+    assert.equal(fresh.p.status().claimed, true);
+    addUser(old.db, 'W'); // un cambio nuevo en la antigua obliga a intentar escribir
+    assert.equal(await old.p.snapshot(), false, 'la antigua ya no es propietaria');
+    assert.equal(old.p.status().lostOwnership, true);
+    await Promise.all([old.p.stop(), fresh.p.stop()]);
+    old.db.close();
+    fresh.db.close();
+  });
+
+  test('si no se puede leer la copia: modo degradado, el servicio arranca pero NUNCA escribe la copia', async () => {
+    const store = new MemoryStore();
+    store.hasRow = true;
+    store.owner = 'otro';
+    store.data = Buffer.from('copia-buena');
+    store.failLoad = 99;
+    const file = path.join(dir, 'deg.db');
+    const p = createPersistence({ dbFile: file, store, restoreRetries: 3, retryDelayMs: 1, log: quiet });
+    const res = await p.restore();
+    assert.deepEqual(res, { restored: false, degraded: true });
     const db = openDb(file);
     p.start(db);
-    await p.snapshot();
-    await p.snapshot();
-    assert.equal(store.saves, 0, 'sin cambios no se guarda nada');
-    db.createUser({ id: 'u2', name: 'Luis', tokenHash: sha256('x'), recoveryHash: sha256('y') });
-    await p.snapshot();
-    await p.snapshot();
-    assert.equal(store.saves, 1, 'un cambio = una copia');
+    addUser(db, 'Z');
+    assert.equal(await p.snapshot({ force: true }), false);
     await p.stop();
     db.close();
-  });
-
-  test('una instancia antigua no puede pisar la copia de la nueva', async () => {
-    const store = new MemoryStore();
-    const fileA = path.join(dir, 'old.db');
-    const fileB = path.join(dir, 'new.db');
-    const old = createPersistence({ dbFile: fileA, store, log: quiet });
-    await old.restore();
-    const dbOld = openDb(fileA);
-    old.start(dbOld);
-
-    const fresh = createPersistence({ dbFile: fileB, store, log: quiet }); // despliegue solapado
-    await fresh.restore();
-    const dbNew = openDb(fileB);
-    fresh.start(dbNew);
-
-    dbOld.createUser({ id: 'viejo', name: 'Viejo', tokenHash: sha256('1'), recoveryHash: sha256('2') });
-    assert.equal(await old.snapshot(), false);
-    assert.equal(old.status().lostOwnership, true);
-    dbNew.createUser({ id: 'nuevo', name: 'Nuevo', tokenHash: sha256('3'), recoveryHash: sha256('4') });
-    assert.equal(await fresh.snapshot(), true);
-    await old.stop();
-    await fresh.stop();
-    dbOld.close();
-    dbNew.close();
-  });
-
-  test('si no se puede leer la copia NO se arranca con una base vacía', async () => {
-    const store = new MemoryStore();
-    store.failLoad = 99;
-    const p = createPersistence({ dbFile: path.join(dir, 'c.db'), store, restoreRetries: 3, retryDelayMs: 1, log: quiet });
-    await assert.rejects(p.restore(), /No se pudo restaurar/);
+    assert.equal(store.data.toString(), 'copia-buena', 'la copia buena sigue intacta');
+    assert.equal(p.status().degraded, true);
   });
 
   test('se recupera de fallos temporales del almacén (Neon despertando)', async () => {
     const store = new MemoryStore();
     store.failLoad = 2;
-    const p = createPersistence({ dbFile: path.join(dir, 'd.db'), store, restoreRetries: 4, retryDelayMs: 1, log: quiet });
-    await p.restore();
+    const p = createPersistence({ dbFile: path.join(dir, 'tmp.db'), store, restoreRetries: 4, retryDelayMs: 1, log: quiet });
+    const res = await p.restore();
+    assert.equal(res.degraded, false);
   });
 });
 
@@ -108,13 +155,14 @@ describe('servidor con persistencia', () => {
   test('las cuentas sobreviven a un reinicio completo con disco nuevo', async () => {
     const file = path.join(dir, 'srv.db');
     const store = new MemoryStore();
-    const opts = { port: 0, host: '127.0.0.1', dbFile: file, puzzles: PUZZLES, persistStore: store };
+    const opts = { port: 0, host: '127.0.0.1', dbFile: file, puzzles: PUZZLES, persistStore: store, persistOptions: FAST };
 
     let app = await startServer(opts);
     let base = `http://127.0.0.1:${app.port}`;
     const guest = await (await fetch(`${base}/api/guest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Persistente' }) })).json();
     const stats = await (await fetch(`${base}/api/stats`)).json();
     assert.ok(stats.persist, '/api/stats informa del estado de la copia');
+    assert.equal(typeof stats.uptimeSeconds, 'number');
     await app.close(); // copia final
 
     wipe(file);
@@ -125,5 +173,20 @@ describe('servidor con persistencia', () => {
     assert.equal(me.status, 200);
     assert.equal((await me.json()).user.name, 'Persistente');
     await app.close();
+  });
+
+  test('el apagado no se bloquea con conexiones keep-alive abiertas (SIGTERM en Render)', async () => {
+    const app = await startServer({ port: 0, host: '127.0.0.1', dbFile: ':memory:', puzzles: PUZZLES });
+    const agent = new http.Agent({ keepAlive: true });
+    await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port: app.port, path: '/healthz', agent }, (res) => {
+        res.resume();
+        res.on('end', resolve);
+      }).on('error', reject);
+    });
+    const t0 = Date.now();
+    await app.close(); // antes se quedaba esperando a que el proxy cerrara la conexión
+    assert.ok(Date.now() - t0 < 3000, `el cierre tardó ${Date.now() - t0} ms`);
+    agent.destroy();
   });
 });

@@ -17,8 +17,8 @@ Gambito es **un único servicio Node** (estáticos + API + WebSocket) con una ba
 | `HOST` | `0.0.0.0` | Interfaz de escucha |
 | `TRUST_PROXY` | `1` si `NODE_ENV=production` | Usa `X-Forwarded-For` como IP real (límites de peticiones) |
 | `ALLOWED_ORIGINS` | *(vacío)* | Otras webs autorizadas a usar la API y el WebSocket (cliente en Vercel), separadas por comas |
-| `DATABASE_URL` | *(vacío)* | Postgres (Neon) donde se copia la base de datos en alojamientos **sin disco**. Si está definida, se restaura al arrancar y se guarda cada 15 min, al apagar y tras cambios |
-| `PERSIST_INTERVAL_MS` | `900000` | Cada cuántos ms se guarda la copia (solo con `DATABASE_URL`) |
+| `DATABASE_URL` | *(vacío)* | Postgres (Neon) donde se copia la base de datos en alojamientos **sin disco**. Si está definida, se restaura al arrancar y se guarda cada 3 min (si hubo cambios) y al apagar |
+| `PERSIST_INTERVAL_MS` | `180000` | Cada cuántos ms se guarda la copia (solo con `DATABASE_URL`) |
 | `CSP_CONNECT_EXTRA` | *(vacío)* | Orígenes extra permitidos en `connect-src` de la CSP (solo si el cliente se sirve desde este servidor pero usa otra API) |
 
 Límites anti-abuso (en `server/config.js`): 3 partidas abiertas por jugador, 8 salas nuevas por minuto, 20 WebSockets por IP,
@@ -51,7 +51,7 @@ El plan gratuito de Render **no tiene disco** (se borra al reiniciar) y **se due
 resuelve con dos servicios gratuitos más:
 
 - **Neon** (Postgres gratis): guarda una copia de la base de datos SQLite (cuentas, ranking, partidas). El servidor la
-  restaura al arrancar y la guarda cada 15 min si hubo cambios, y siempre al apagarse (ver `server/persist.js`).
+  restaura al arrancar y la guarda cada 3 min si hubo cambios, y siempre al apagarse (ver `server/persist.js`).
 - **UptimeRobot**: llama a `/healthz` cada 5 min para que Render no lo duerma (y te avisa si se cae).
 
 **Paso 1 · Neon.** En [neon.com](https://neon.com) → **New project** (nombre `gambito`, región cercana a Oregon/`us-west-2`).
@@ -77,9 +77,15 @@ Límites del plan gratuito, para ir con los ojos abiertos:
 
 - **750 horas/mes** en total por cuenta de Render: alcanza para **un** servicio encendido 24/7 (744 h). No crees otro.
 - Si el monitor falla un rato, el servicio se duerme y el primer visitante espera ≈ 1 minuto mientras despierta.
-- La copia a Neon es cada 15 min (más a menudo agotaría las 100 CU-horas gratuitas de Neon, que se suspende a los 5 min
-  de inactividad). Si el servidor muriera de golpe (no por un reinicio normal, que sí guarda al final), se perderían como
-  máximo 15 minutos de cuentas nuevas y resultados. Los jugadores no pierden su progreso: el cliente lo guarda también en su navegador.
+- La copia a Neon es cada 3 min y solo si hubo cambios: de noche, sin actividad, Neon se suspende y no gasta cuota
+  (100 CU-horas gratuitas al mes). Si el servidor muriera de golpe se perderían como máximo esos minutos de cuentas nuevas
+  y resultados; en un reinicio o despliegue normal se guarda una copia final. Los jugadores no pierden su progreso: el
+  cliente lo guarda también en su navegador.
+- **Despliegues sin pérdidas:** al desplegar, la instancia nueva arranca mientras la antigua aún atiende. La antigua sube su
+  copia final al apagarse y la nueva la **fusiona** con lo que haya guardado en ese rato antes de tomar el control, así que
+  no se pierden cuentas ni resultados. (Las partidas en curso sí se cortan.)
+- Si Neon no responde al arrancar (por ejemplo, cuota agotada) el servidor arranca en **modo degradado**: funciona, pero no
+  guarda copias y nunca pisa la copia buena. `/api/stats` muestra `persist.degraded: true`.
 - Las partidas en curso se pierden si el servicio se reinicia (las salas viven en memoria).
 - CPU compartida y 512 MB: suficiente para decenas de jugadores simultáneos; para más, pasa al plan de pago con disco.
 

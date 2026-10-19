@@ -24,12 +24,13 @@ try {
   const t0 = Date.now();
   await store.init();
   step('Conexión y creación de la tabla de prueba', true, `${Date.now() - t0} ms (la primera vez Neon despierta)`);
-  step('Tabla vacía al principio', (await store.load()) === null);
+  step('Tabla vacía al principio', (await store.meta()) === null);
   await store.claim(owner);
   const payload = randomBytes(200_000); // 200 KB aleatorios, como una base de datos
   step('Guardar copia (200 KB)', (await store.save(payload, owner)) === true);
   const back = await store.load();
   step('Leer la copia: idéntica byte a byte', Buffer.isBuffer(back) && Buffer.compare(back, payload) === 0);
+  step('Copia final marcada para el relevo', (await store.save(payload, owner, { final: true })) === true && (await store.meta()).final === true);
   step('Otra instancia no puede escribir', (await store.save(Buffer.from('x'), randomUUID())) === false);
   await store.drop();
   step('Tabla de prueba eliminada', true);

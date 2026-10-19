@@ -71,7 +71,7 @@ async function main() {
     check(
       'Copia de la base de datos (Neon) sin errores',
       !persist.lastError && !persist.lostOwnership,
-      persist.lastError ?? (persist.lastOkAt ? `última copia hace ${Math.round((Date.now() - persist.lastOkAt) / 1000)} s` : 'aún sin copia (se hace cada 15 min si hay cambios y al apagar)'),
+      persist.lastError ?? (persist.lastOkAt ? `última copia hace ${Math.round((Date.now() - persist.lastOkAt) / 1000)} s` : 'aún sin copia (se hace cada 3 min si hay cambios y al apagar)'),
     );
   } else {
     console.log('• Copia de la base de datos: desactivada (sin DATABASE_URL; usa el disco local)');

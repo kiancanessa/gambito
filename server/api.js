@@ -130,8 +130,9 @@ export function createApi({ db, rooms, matchmaker, onlineCount, puzzles, persist
           rooms: rooms.rooms.size,
           users: s.users,
           gamesToday: s.gamesToday,
+          uptimeSeconds: Math.round(process.uptime()),
           // Copia de la base de datos (solo con DATABASE_URL): cuándo fue la última y si hay error.
-          persist: p && { lastOkAt: p.lastOkAt, lastError: p.lastError, lostOwnership: p.lostOwnership },
+          persist: p && { claimed: p.claimed, degraded: p.degraded, restoredBytes: p.restoredBytes, lastOkAt: p.lastOkAt, lastError: p.lastError, lostOwnership: p.lostOwnership },
         });
       }
 
