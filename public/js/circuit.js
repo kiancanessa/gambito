@@ -92,7 +92,7 @@ function renderRegistration() {
     <div class="card-head"><p class="eyebrow">Inscripción abierta</p><span class="pill todo">${names.length}/${size}</span></div>
     <ul class="slots">${rows.join('')}</ul>
     <p class="muted">${names.length ? `Empieza al llegar a ${size} jugadores o en <b id="cirCount">${fmt(left)}</b>, rellenando con bots.` : 'Sé el primero: el torneo arranca 1 minuto después de la primera inscripción (se completa con bots).'}</p>
-    ${joined ? '<button class="btn danger" data-cir="leave">Salir de la inscripción</button>' : '<button class="lb-cta" data-cir="join">🏆 Entrar al Circuit<small>Blitz 3+2 · eliminatoria de 8 · premios cosméticos</small></button>'}
+    ${joined ? '<button class="btn danger" data-cir="leave">Salir de la inscripción</button>' : '<button class="play-now sm" data-cir="join"><span class="pn-main">ENTRAR AL CIRCUIT</span><small>Blitz 3+2 · eliminatoria de 8 · premios cosméticos</small></button>'}
   </section>`;
 }
 
@@ -121,11 +121,11 @@ function renderBracket() {
     const you = c.you;
     banner = `<section class="lb-card circuit-end"><p class="eyebrow">Torneo terminado</p><h3>🏆 Campeón: ${esc(c.champion?.name ?? '—')}</h3>
       ${you?.placement ? `<p><b>${PLACE_TEXT[you.placement]}</b> · premio ${prizeText(you.prize)}</p>${flags.wallet ? '' : '<p class="warn">Activa la cartera verificada (flag wallet) para cobrar los premios.</p>'}` : ''}
-      <button class="lb-cta" data-cir="again">Jugar otro torneo<small>Se abre una nueva inscripción</small></button></section>`;
+      <button class="play-now sm" data-cir="again"><span class="pn-main">JUGAR OTRO TORNEO</span><small>Se abre una nueva inscripción</small></button></section>`;
   } else if (c.you?.out) {
     banner = `<section class="lb-card circuit-end"><p class="eyebrow">Estás fuera</p><h3>${PLACE_TEXT[c.you.placement] ?? 'Eliminado'}</h3><p class="muted">Premio: ${prizeText(c.you.prize)}. Puedes seguir el torneo en directo.</p></section>`;
   } else if (c.you?.matchCode) {
-    banner = `<section class="lb-card circuit-end"><p class="eyebrow">¡Te toca!</p><h3>Tu partida está en juego</h3><button class="lb-cta" data-cir-watch="${esc(c.you.matchCode)}">▶ Ir a la partida</button></section>`;
+    banner = `<section class="lb-card circuit-end"><p class="eyebrow">¡Te toca!</p><h3>Tu partida está en juego</h3><button class="play-now sm" data-cir-watch="${esc(c.you.matchCode)}"><span class="pn-main">IR A LA PARTIDA</span><small>Tu rival te espera</small></button></section>`;
   }
   return `${banner}<section class="lb-card"><div class="card-head"><p class="eyebrow">Cuadro</p><span class="pill ${c.status === 'finished' ? 'ok' : 'live'}">${c.status === 'finished' ? 'Final' : 'En curso'}</span></div><div class="bracket">${cols}</div></section>`;
 }

@@ -161,7 +161,7 @@ export function createApi({ db, rooms, matchmaker, circuit, social, metrics = nu
 
       if (pathname === '/api/leaderboard' && method === 'GET') {
         const user = authUser(req);
-        const top = db.leaderboard(20).map((r, i) => ({ rank: i + 1, ...r }));
+        const top = db.leaderboard(clamp(url.searchParams.get('limit') ?? 20, 1, 100)).map((r, i) => ({ rank: i + 1, ...r }));
         return send(res, 200, { top, me: user ? { rank: db.ratingRank(user.rating), rating: user.rating } : null });
       }
 

@@ -20,6 +20,11 @@ import {
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
 import { enterCircuit, initCircuit } from './circuit.js';
+import { initShell } from './shell.js';
+import { enterHistory, initHistory } from './history.js';
+import { enterProfile } from './profile.js';
+import { enterRanking, initRanking } from './ranking.js';
+import { enterSettings, initSettings } from './settings.js';
 import { enterSocial, initSocial } from './social.js';
 import { initWallet } from './wallet.js';
 import { initTutorial, startTutorial } from './tutorial.js';
@@ -35,14 +40,6 @@ initStage();
 app.engine = engine;
 
 // ---------- Aspecto ----------
-function buildAmbient() {
-  const glyphs = ['♔', '♕', '♖', '♗', '♘', '♙', '♚', '♛', '♜', '♝', '♞', '♟'];
-  $('#ambient').innerHTML = Array.from({ length: 16 }, (_, i) => {
-    const size = 24 + Math.random() * 56;
-    return `<span style="left:${Math.random() * 100}%;font-size:${size}px;animation-duration:${18 + Math.random() * 26}s;animation-delay:${-Math.random() * 40}s;opacity:${0.05 + Math.random() * 0.08}">${glyphs[i % glyphs.length]}${VS}</span>`;
-  }).join('');
-}
-
 // Las skins equipadas se aplican solo a la pantalla de juego (no al <body>), para que las
 // vistas previas de la tienda lleven su propia clase sin competir con la equipada.
 function applySkins() {
@@ -51,6 +48,7 @@ function applySkins() {
   el.classList.add(`set-${state.equipped.set}`, `board-${state.equipped.board}`);
   stage?.setSkins({ set: state.equipped.set, board: state.equipped.board });
 }
+app.applySkins = applySkins;
 
 let lastCoins = state.coins;
 function updateHud() {
@@ -66,7 +64,8 @@ function updateHud() {
   $('#hudStreak').textContent = state.daily.streak;
   $('#hudXp').style.width = `${Math.min(100, (state.xp / XP_PER_LEVEL(state.level)) * 100)}%`;
   $('#shopCoins').textContent = state.coins;
-  $('#muteBtn').textContent = state.muted ? '🔇' : '🔊';
+  $('#muteBtn').classList.toggle('is-muted', state.muted);
+  $('#muteBtn').setAttribute('aria-pressed', String(state.muted));
   const next = CAMPAIGN[Math.min(state.campaign.cleared, CAMPAIGN.length - 1)];
   $('#homeCampaignInfo').textContent =
     state.campaign.cleared >= CAMPAIGN.length
@@ -122,6 +121,22 @@ async function go(name) {
   }
   if (name === 'social') {
     await enterSocial();
+    return;
+  }
+  if (name === 'ranking') {
+    await enterRanking();
+    return;
+  }
+  if (name === 'profile') {
+    await enterProfile();
+    return;
+  }
+  if (name === 'history') {
+    await enterHistory();
+    return;
+  }
+  if (name === 'settings') {
+    enterSettings();
     return;
   }
   if (name === 'daily') {
@@ -534,7 +549,7 @@ async function maybeLoginBonus() {
 async function maybeTutorial() {
   if (state.tutorialDone || state.stats.games > 0) return;
   const r = await choice(
-    `<div class="result win"><p class="eyebrow">Bienvenido a Gambito</p><h2>¿Primera vez?</h2>
+    `<div class="result win"><p class="eyebrow">Bienvenido a CHECKPOINT</p><h2>¿Primera vez?</h2>
      <p>Aprende a mover las piezas en un minuto y llévate <b>100 🪙</b> de regalo.</p>
      <div class="modal-actions"><button class="btn primary" data-choice="yes">🎓 Empezar tutorial</button><button class="btn" data-choice="no">Ya sé jugar</button></div></div>`,
     'result-card',
@@ -568,8 +583,10 @@ initWallet();
 initCircuit();
 initSocial();
 initLobby();
-$('#lobbyBtn').hidden = !flags.lobby;
-buildAmbient();
+initShell();
+initRanking();
+initHistory();
+initSettings();
 applySkins();
 updateHud();
 engine.init().then((ok) => {

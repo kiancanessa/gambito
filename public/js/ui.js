@@ -107,8 +107,13 @@ export const confirmModal = (title, text, yes = 'Aceptar', no = 'Cancelar') =>
   choice(`<h3>${title}</h3><p>${text}</p>
     <div class="modal-actions"><button class="btn" data-choice="no">${no}</button><button class="btn danger" data-choice="yes">${yes}</button></div>`).then((r) => r === 'yes');
 
+// Quien necesite saber en qué pantalla está el usuario (la navegación principal) se suscribe aquí.
+const screenListeners = new Set();
+export const onScreen = (fn) => screenListeners.add(fn);
+
 export function showScreen(name) {
   app.screen = name;
+  screenListeners.forEach((fn) => fn(name));
   $$('.screen').forEach((s) => (s.hidden = s.id !== `screen-${name}`));
   window.scrollTo(0, 0);
 }

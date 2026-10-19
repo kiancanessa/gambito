@@ -12,7 +12,7 @@ const run = { data: null, t0: 0, attempts: 0 };
 let tick = null;
 
 const shareString = (d, seconds, attempts) =>
-  `🧩 Gambito Diario #${d.number} · Mate en ${d.mateIn}\n⏱ ${fmtDuration(seconds)}  🔁 ${attempts} intento${attempts > 1 ? 's' : ''}  🔥 ${state.dailyPuzzle.streak}\n${location.origin}`;
+  `🧩 CHECKPOINT Diario #${d.number} · Mate en ${d.mateIn}\n⏱ ${fmtDuration(seconds)}  🔁 ${attempts} intento${attempts > 1 ? 's' : ''}  🔥 ${state.dailyPuzzle.streak}\n${location.origin}`;
 
 function renderBoard(d) {
   const rows = d.top.map((r) => `<li class="${r.id === net.user?.id ? 'me' : ''}"><span class="rk">${r.rank}</span><b>${esc(r.name)}</b><em>${fmtDuration(r.seconds)}</em></li>`).join('');

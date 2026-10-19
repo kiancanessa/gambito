@@ -2,7 +2,7 @@
 // - Navegación: red primero, con la copia en caché como respaldo sin conexión.
 // - Archivos estáticos (css/js/vendor/iconos): sirve de caché y se actualiza en segundo plano.
 // - /api y /ws nunca se cachean. Sube VERSION para invalidar la caché tras un despliegue.
-const VERSION = 'gambito-v2';
+const VERSION = 'checkpoint-v1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icons/icon.svg'])).then(() => self.skipWaiting()));

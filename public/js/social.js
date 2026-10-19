@@ -185,6 +185,8 @@ export async function pickFriendToInvite() {
   return undefined;
 }
 
+export const challengeFriend = challenge;
+
 // ---------- Arranque ----------
 async function onInvite(m) {
   const busy = app.screen === 'game' && app.game && !app.game.over;

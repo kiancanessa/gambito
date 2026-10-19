@@ -1,4 +1,6 @@
-# ♞ Gambito · Crónicas del Tablero
+# ♞ CHECKPOINT · Ajedrez competitivo
+
+> Nombre provisional de la marca (antes «Gambito · Crónicas del Tablero»). Sistema visual en [docs/DESIGN.md](docs/DESIGN.md).
 
 Ajedrez 3D con **campaña narrativa**, **partidas online**, **desafío diario**, misiones, pase de temporada y skins.
 Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegador, en móvil y se instala como app (PWA).
@@ -58,6 +60,8 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/social.js       amigos, invitaciones, bloqueos y reportes
   js/circuit.js      Royale Circuit (inscripción, cuadro, entrada a partidas, premios)
   js/replay.js       historial y visor de repeticiones
+  js/shell.js        navegación principal, flags y cuenta del inicio (CHECKPOINT)
+  js/ranking.js · js/history.js · js/settings.js   clasificaciones, historial y ajustes
   js/wallet.js       cartera verificada (cola de operaciones y espejo del servidor)
   js/lobby.js        lobby competitivo (agrega online, diario, misiones, temporada)
   js/net.js          API REST, sesión de invitado, nube y WebSocket

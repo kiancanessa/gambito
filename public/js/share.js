@@ -9,7 +9,7 @@ export async function shareBlob(blob, filename, text) {
   const file = new File([blob], filename, { type: blob.type });
   try {
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], text, title: 'Gambito' });
+      await navigator.share({ files: [file], text, title: 'CHECKPOINT' });
       return true;
     }
   } catch (err) {
@@ -29,7 +29,7 @@ export async function shareBlob(blob, filename, text) {
 export async function shareText(text) {
   if (navigator.share) {
     try {
-      await navigator.share({ text, title: 'Gambito' });
+      await navigator.share({ text, title: 'CHECKPOINT' });
       return;
     } catch (err) {
       if (err?.name === 'AbortError') return;
@@ -55,28 +55,28 @@ async function makeCard({ headline, sub, stats }) {
   c.height = H;
   const g = c.getContext('2d');
   const bg = g.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#2a1f5c');
-  bg.addColorStop(1, '#0c0919');
+  bg.addColorStop(0, '#141824');
+  bg.addColorStop(1, '#05060a');
   g.fillStyle = bg;
   g.fillRect(0, 0, W, H);
   const glow = g.createRadialGradient(W / 2, 760, 50, W / 2, 760, 700);
-  glow.addColorStop(0, 'rgba(150,120,255,0.45)');
-  glow.addColorStop(1, 'rgba(150,120,255,0)');
+  glow.addColorStop(0, 'rgba(34,225,255,0.22)');
+  glow.addColorStop(1, 'rgba(34,225,255,0)');
   g.fillStyle = glow;
   g.fillRect(0, 0, W, H);
 
   g.textAlign = 'center';
-  g.fillStyle = '#ffcf5a';
-  g.font = 'bold 96px Georgia, serif';
-  g.fillText('GAMBITO', W / 2, 140);
-  g.fillStyle = '#a99fcb';
-  g.font = '32px "Segoe UI", sans-serif';
-  g.fillText('CRÓNICAS DEL TABLERO', W / 2, 190);
+  g.fillStyle = '#f2f5f9';
+  g.font = 'bold 92px Bahnschrift, "Segoe UI", sans-serif';
+  g.fillText('CHECKPOINT', W / 2, 140);
+  g.fillStyle = '#22e1ff';
+  g.font = '30px "Segoe UI", sans-serif';
+  g.fillText('AJEDREZ COMPETITIVO', W / 2, 190);
 
   g.fillStyle = '#ffffff';
-  g.font = 'bold 84px Georgia, serif';
+  g.font = 'bold 84px Bahnschrift, "Segoe UI", sans-serif';
   g.fillText(headline, W / 2, 330);
-  g.fillStyle = '#cfc8ea';
+  g.fillStyle = '#8d97ab';
   g.font = '40px "Segoe UI", sans-serif';
   g.fillText(sub, W / 2, 392);
 
@@ -105,10 +105,10 @@ async function makeCard({ headline, sub, stats }) {
     g.drawImage(img, (W - w) / 2, 440 + (maxH - h) / 2, w, h);
   }
 
-  g.fillStyle = '#ffe08a';
+  g.fillStyle = '#22e1ff';
   g.font = 'bold 44px "Segoe UI", sans-serif';
   g.fillText(stats, W / 2, 1270 - 40);
-  g.fillStyle = '#8f86b3';
+  g.fillStyle = '#5d6779';
   g.font = '34px "Segoe UI", sans-serif';
   g.fillText(SITE().replace(/^https?:\/\//, ''), W / 2, 1310);
   return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
@@ -153,7 +153,7 @@ async function recordClip(game) {
 }
 
 export async function shareGame({ game, summary, headline, sub }) {
-  const text = `${headline} en Gambito, el ajedrez con historia y skins ♟ ${SITE()}`;
+  const text = `${headline} en CHECKPOINT, ajedrez competitivo con ligas, torneos y skins ♟ ${SITE()}`;
   const pick = await choice(`<h3>Compartir partida</h3>
     <p>Elige cómo quieres enseñar tu partida.</p>
     <div class="share-options">
@@ -165,7 +165,7 @@ export async function shareGame({ game, summary, headline, sub }) {
   if (pick === 'text') return shareText(text);
   if (pick === 'image') {
     const blob = await makeCard({ headline, sub, stats: `${summary.moves} jugadas · ${summary.checks} jaques` });
-    return shareBlob(blob, 'gambito.png', text);
+    return shareBlob(blob, 'checkpoint.png', text);
   }
   if (pick === 'clip') {
     $('#toast').hidden = true;
@@ -173,7 +173,7 @@ export async function shareGame({ game, summary, headline, sub }) {
     const blob = await recordClip(game).catch(() => null);
     if (!blob) return toast('Tu navegador no puede grabar el clip. Prueba con la imagen.');
     toast('✅ Clip listo');
-    return shareBlob(blob, 'gambito-clip.webm', text);
+    return shareBlob(blob, 'checkpoint-clip.webm', text);
   }
   return undefined;
 }

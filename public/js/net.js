@@ -18,6 +18,7 @@ export const net = {
   online: false, // el servidor responde
   syncing: false,
   lastSync: 0,
+  booted: false, // ya se intentó conectar al menos una vez (para no mostrar "sin conexión" mientras se conecta)
 };
 
 const readAuth = () => {
@@ -70,6 +71,15 @@ async function createGuest() {
 
 // Crea o recupera la sesión. Devuelve true si hay servidor y sesión válida.
 export async function bootstrap() {
+  try {
+    return await connectSession();
+  } finally {
+    net.booted = true;
+    emit();
+  }
+}
+
+async function connectSession() {
   net.auth = readAuth();
   if (net.auth?.token) {
     const me = await api('/api/me');

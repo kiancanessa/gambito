@@ -1,0 +1,55 @@
+// Interfaz CHECKPOINT: comprobaciones estáticas para que no haya botones de navegación sin destino ni iconos rotos.
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
+const html = readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+const jsFiles = readdirSync(path.join(PUBLIC, 'js')).filter((f) => f.endsWith('.js'));
+const jsSource = jsFiles.map((f) => readFileSync(path.join(PUBLIC, 'js', f), 'utf8')).join('\n');
+
+const screens = new Set([...html.matchAll(/<section class="screen"[^>]*id="screen-([\w-]+)"/g)].map((m) => m[1]));
+
+test('cada data-go del HTML y del JS apunta a una pantalla que existe', () => {
+  const targets = new Set([...html.matchAll(/data-go="([\w-]+)"/g), ...jsSource.matchAll(/data-go="([\w-]+)"/g)].map((m) => m[1]));
+  const missing = [...targets].filter((t) => !screens.has(t));
+  assert.deepEqual(missing, [], `pantallas sin sección en index.html: ${missing.join(', ')}`);
+  for (const must of ['home', 'lobby', 'circuit', 'ranking', 'profile', 'history', 'settings', 'missions', 'season', 'shop', 'social']) {
+    assert.ok(screens.has(must), `falta la pantalla ${must}`);
+  }
+});
+
+test('main.js sabe abrir todas las pantallas de la navegación principal', () => {
+  const main = readFileSync(path.join(PUBLIC, 'js', 'main.js'), 'utf8');
+  for (const name of ['lobby', 'circuit', 'social', 'ranking', 'profile', 'history', 'settings']) {
+    assert.match(main, new RegExp(`name === '${name}'`), `go('${name}') no está gestionado`);
+  }
+});
+
+test('todos los iconos del sprite que se usan están definidos', () => {
+  const defined = new Set([...html.matchAll(/<symbol id="(i-[\w-]+)"/g)].map((m) => m[1]));
+  const used = new Set([...html.matchAll(/href="#(i-[\w-]+)"/g), ...jsSource.matchAll(/href="#(i-[\w-]+)"/g)].map((m) => m[1]));
+  assert.deepEqual([...used].filter((u) => !defined.has(u)), []);
+});
+
+test('la hoja de estilos CHECKPOINT se carga después de style.css y define los tokens', () => {
+  const css = html.indexOf('/css/style.css');
+  const cp = html.indexOf('/css/checkpoint.css');
+  assert.ok(css > 0 && cp > css, 'checkpoint.css debe ir después de style.css');
+  const tokens = readFileSync(path.join(PUBLIC, 'css', 'checkpoint.css'), 'utf8');
+  for (const t of ['--cp-obsidian', '--cp-graphite', '--cp-cyan', '--cp-violet', '--cp-r', '--cp-s4']) assert.match(tokens, new RegExp(`${t}:`));
+});
+
+test('la marca es CHECKPOINT en la página, el manifiesto y la política de privacidad', () => {
+  assert.match(html, /<title>CHECKPOINT/);
+  assert.match(readFileSync(path.join(PUBLIC, 'manifest.webmanifest'), 'utf8'), /"short_name": "CHECKPOINT"/);
+  assert.doesNotMatch(readFileSync(path.join(PUBLIC, 'privacidad.html'), 'utf8'), /Gambito/);
+});
+
+test('los ids que usa el arranque existen en el HTML (no se rompe ningún enlace al iniciar)', () => {
+  // Elementos buscados con $('#id') por los módulos que se inician en main.js sin esperar a ninguna pantalla.
+  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody'];
+  for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `falta #${id}`);
+});

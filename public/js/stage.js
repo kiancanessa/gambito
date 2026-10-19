@@ -10,9 +10,18 @@ let demoTimer = null;
 let thumbStage = null;
 const thumbCache = new Map();
 
+// Preferencia del usuario (Ajustes → Tablero 2D).
+const prefers2d = () => {
+  try {
+    return localStorage.getItem('checkpoint.2d') === '1';
+  } catch {
+    return false;
+  }
+};
+
 export function initStage() {
   // `?2d` fuerza el tablero 2D de respaldo (útil para probarlo o en equipos sin GPU).
-  if (new URLSearchParams(location.search).has('2d') || !webglSupported()) return null;
+  if (new URLSearchParams(location.search).has('2d') || prefers2d() || !webglSupported()) return null;
   try {
     stage = new Board3D();
     app.stage = stage;

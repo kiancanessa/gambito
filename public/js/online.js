@@ -447,7 +447,7 @@ export function initOnline() {
       const link = linkFor(on.code);
       if (w.dataset.wait === 'copy') toast((await copyText(link)) ? '🔗 Enlace copiado' : link, 3000);
       if (w.dataset.wait === 'share') {
-        if (navigator.share) navigator.share({ title: 'Gambito', text: '¡Te reto a una partida de ajedrez en Gambito!', url: link }).catch(() => {});
+        if (navigator.share) navigator.share({ title: 'CHECKPOINT', text: '¡Te reto a una partida de ajedrez en CHECKPOINT!', url: link }).catch(() => {});
         else toast((await copyText(link)) ? '🔗 Enlace copiado' : link, 3000);
       }
       if (w.dataset.wait === 'cancel') await leaveToHub();

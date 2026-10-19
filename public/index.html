@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0d0820">
-  <title>Gambito · Crónicas del Tablero</title>
-  <meta name="description" content="Ajedrez 3D con campaña, partidas online con amigos, desafío diario y skins. Gratis y de código abierto.">
-  <meta property="og:title" content="Gambito · Crónicas del Tablero">
-  <meta property="og:description" content="Ajedrez 3D con historia, multijugador y skins. Te reto a una partida.">
+  <meta name="theme-color" content="#090b10">
+  <title>CHECKPOINT · Ajedrez competitivo</title>
+  <meta name="description" content="CHECKPOINT: ajedrez 3D competitivo con ligas, torneos Royale Circuit, desafío diario, amigos y skins. Gratis y de código abierto.">
+  <meta property="og:title" content="CHECKPOINT · Ajedrez competitivo">
+  <meta property="og:description" content="Sube de liga, gana torneos y colecciona skins. Te reto a una partida.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="/icons/og.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -15,23 +15,50 @@
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/checkpoint.css">
   <script type="importmap">
     { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
   </script>
 </head>
 <body>
-  <div class="bg-glow" aria-hidden="true"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 21V11M12 21V4M19 21v-7"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M22 20a6 6 0 0 0-4-5.6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-sword" viewBox="0 0 24 24"><path d="M14.5 4.5 20 4l-.5 5.5L9 20l-5-5zM4 20l3-3M9 15l-2 2"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 8h4a2 2 0 1 1 4 0h4v4a2 2 0 1 1 0 4v4H4z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.6 0 2-1 1.5-2-.6-1.2.2-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7"/></symbol>
+  </svg>
+    <div class="bg-glow" aria-hidden="true"></div>
   <div class="ambient" id="ambient" aria-hidden="true"></div>
   <div class="celebrate" id="celebrate" aria-hidden="true"></div>
 
   <header class="topbar" id="topbar">
-    <button class="brand" data-go="home" aria-label="Inicio"><i class="brand-ico">♞</i> <span>Gambito</span></button>
+    <button class="brand" data-go="home" aria-label="CHECKPOINT · Inicio"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 30 16 16 30 2 16Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M16 9.5 22.5 16 16 22.5 9.5 16Z" fill="currentColor"/></svg><span>CHECKPOINT</span></button>
+    <nav class="main-nav" aria-label="Principal">
+      <button class="nav-link" data-go="home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Inicio</span></button>
+      <button class="nav-link" data-go="lobby" data-nav="play" data-play><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span>Jugar</span></button>
+      <button class="nav-link" data-go="circuit" data-nav="circuit" data-flag="circuit"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span>Circuit</span></button>
+      <button class="nav-link" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Clasificación</span></button>
+      <button class="nav-link" data-go="missions" data-nav="rewards"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span>Misiones</span></button>
+      <button class="nav-link" data-go="social" data-nav="friends" data-flag="social"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span>Amigos</span></button>
+    </nav>
     <div class="chips">
       <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><i class="lg" id="profileGlyph">♟</i><b id="profileName">Jugador</b></button>
       <span class="chip level" title="Nivel de jugador"><em>NV</em><b id="hudLevel">1</b><span class="xpbar"><i id="hudXp"></i></span></span>
       <span class="chip streak" title="Racha diaria">🔥 <b id="hudStreak">0</b></span>
       <span class="chip coins" id="coinChip" title="Oros"><i class="coin"></i> <b id="hudCoins">0</b></span>
-      <button class="icon-btn" id="muteBtn" aria-label="Sonido" title="Sonido">🔊</button>
+      <button class="icon-btn" id="muteBtn" aria-label="Sonido" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sound"/></svg></button>
+      <button class="icon-btn" data-go="settings" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
     </div>
   </header>
 
@@ -40,26 +67,23 @@
     <section class="screen" id="screen-home">
       <div class="home-grid">
         <div class="home-copy">
-          <p class="eyebrow">Crónicas del Tablero</p>
-          <h1>Gambito</h1>
-          <p class="tagline">Un peón sin nombre. Un reino partido en 64 casillas.<br>Corónate y cambia el destino del tablero.</p>
-          <div class="menu">
-            <button class="big-btn gold" id="lobbyBtn" data-go="lobby" hidden><span class="ico">🏆</span><span><b>Lobby competitivo</b><small>Tu liga, partidas en vivo, misiones y más</small></span><i class="arrow">▶</i></button>
-            <button class="big-btn primary" data-go="campaign"><span class="ico">⚔️</span><span><b>Campaña</b><small id="homeCampaignInfo">Valle de Peones</small></span><i class="arrow">▶</i></button>
-            <button class="big-btn hot" data-go="online"><span class="ico">🌐</span><span><b>Jugar online</b><small>Reta a un amigo o sube de liga</small></span><i class="arrow">▶</i></button>
-            <button class="big-btn" data-go="daily"><span class="ico">🧩</span><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span><i class="arrow">▶</i></button>
-            <div class="menu-row">
-              <button class="big-btn compact" data-go="quick"><span class="ico">♟️</span><b>Vs IA</b></button>
-              <button class="big-btn compact" data-go="missions"><span class="ico">🎯</span><b>Misiones</b><span class="dot-badge" id="missionsDot" hidden>!</span></button>
-              <button class="big-btn compact" data-go="season"><span class="ico">🎖</span><b>Temporada</b><span class="dot-badge" id="seasonDot" hidden>!</span></button>
-              <button class="big-btn compact" data-go="shop"><span class="ico">🎨</span><b>Tienda</b></button>
-            </div>
+          <p class="eyebrow">Ajedrez competitivo</p>
+          <h1 class="wordmark">CHECKPOINT</h1>
+          <p class="tagline">Sube de liga, gana torneos y colecciona skins. Cada partida es un punto de control en tu camino.</p>
+          <button class="play-now" id="playNow" data-go="lobby" data-play><span class="pn-main">PLAY NOW</span><small>Entra al lobby y busca rival</small></button>
+          <div class="account-strip" id="homeAccount"></div>
+          <div class="tile-grid">
+            <button class="tile" data-go="campaign"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-map"/></svg><span><b>Campaña</b><small id="homeCampaignInfo">Valle de Peones</small></span></button>
+            <button class="tile" data-go="online"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sword"/></svg><span><b>Online</b><small>Clasificatoria y amigos</small></span></button>
+            <button class="tile" data-go="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-puzzle"/></svg><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span></button>
+            <button class="tile" data-go="quick"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span><b>Contra la IA</b><small>Práctica sin presión</small></span></button>
+            <button class="tile" data-go="missions"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span><b>Misiones</b><small>Recompensas diarias</small></span><span class="dot-badge" id="missionsDot" hidden>!</span></button>
+            <button class="tile" data-go="season"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg><span><b>Temporada</b><small>Pase de recompensas</small></span><span class="dot-badge" id="seasonDot" hidden>!</span></button>
+            <button class="tile" data-go="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span><b>Personalizar</b><small>Piezas, tableros y efectos</small></span></button>
+            <button class="tile" data-go="history"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg><span><b>Historial</b><small>Repeticiones de tus partidas</small></span></button>
           </div>
-          <div class="home-foot">
-            <span id="homeStats"></span>
-            <span class="foot-links"><button class="link-btn" id="tutorialBtn">Tutorial</button><button class="link-btn" id="installBtn" hidden>Instalar app</button><button class="link-btn" id="resetBtn">Reiniciar progreso</button></span>
-          </div>
-          <p class="oss-line">Código abierto (GPL-3.0) · <a href="https://github.com/kiancanessa/gambito" id="repoLink" target="_blank" rel="noopener">Contribuye en GitHub</a> · <a href="/privacidad.html">Privacidad</a></p>
+          <p class="home-foot"><span id="homeStats"></span></p>
+          <p class="oss-line">Código abierto (GPL-3.0) · <a href="https://github.com/kiancanessa/gambito" id="repoLink" target="_blank" rel="noopener">GitHub</a> · <a href="/privacidad.html">Privacidad</a></p>
         </div>
         <div class="hero-stage" id="heroStage" aria-hidden="true"></div>
       </div>
@@ -67,18 +91,13 @@
 
     <!-- LOBBY COMPETITIVO -->
     <section class="screen" id="screen-lobby" hidden>
-      <div class="screen-head">
-        <button class="back" data-go="home">← Inicio</button>
-        <h2>Lobby</h2>
-        <span class="chip" id="lbPresence"></span>
-      </div>
+      <div class="screen-head"><h2>Jugar</h2></div>
       <div class="lobby-grid" id="lobbyBody"></div>
     </section>
 
     <!-- ROYALE CIRCUIT -->
     <section class="screen" id="screen-circuit" hidden>
       <div class="screen-head">
-        <button class="back" data-go="lobby">← Lobby</button>
         <h2>Royale Circuit</h2>
         <span class="chip">🏆 Torneo</span>
       </div>
@@ -88,7 +107,6 @@
     <!-- AMIGOS -->
     <section class="screen" id="screen-social" hidden>
       <div class="screen-head">
-        <button class="back" data-go="lobby">← Lobby</button>
         <h2>Amigos</h2>
         <span class="chip">👥 Social</span>
       </div>
@@ -172,8 +190,8 @@
     <!-- MISIONES -->
     <section class="screen" id="screen-missions" hidden>
       <div class="screen-head">
-        <button class="back" data-go="home">← Volver</button>
-        <h2>Misiones</h2>
+        <h2>Misiones y recompensas</h2>
+        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions" class="on">Misiones</button><button data-go="season">Temporada</button><button data-go="shop">Personalizar</button></div>
       </div>
       <div class="missions-wrap" id="missionsBody"></div>
     </section>
@@ -181,8 +199,8 @@
     <!-- TEMPORADA -->
     <section class="screen" id="screen-season" hidden>
       <div class="screen-head">
-        <button class="back" data-go="home">← Volver</button>
-        <h2>Pase de temporada</h2>
+        <h2>Misiones y recompensas</h2>
+        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions">Misiones</button><button data-go="season" class="on">Temporada</button><button data-go="shop">Personalizar</button></div>
       </div>
       <div id="seasonBody"></div>
     </section>
@@ -285,11 +303,69 @@
       </div>
     </section>
 
+    <!-- CLASIFICACIONES -->
+    <section class="screen" id="screen-ranking" hidden>
+      <div class="screen-head">
+        <h2>Clasificaciones</h2>
+        <div class="seg" id="rankTabs" role="tablist">
+          <button data-rtab="elo" class="on" role="tab">Liga</button>
+          <button data-rtab="daily" role="tab">Desafío diario</button>
+          <button data-rtab="circuit" role="tab">Campeones</button>
+        </div>
+      </div>
+      <div id="rankingBody"></div>
+    </section>
+
+    <!-- PERFIL -->
+    <section class="screen" id="screen-profile" hidden>
+      <div class="screen-head"><h2>Perfil</h2></div>
+      <div id="profileBody"></div>
+    </section>
+
+    <!-- HISTORIAL Y REPETICIONES -->
+    <section class="screen" id="screen-history" hidden>
+      <div class="screen-head">
+        <h2>Historial y repeticiones</h2>
+        <div class="seg" id="historyFilter">
+          <button data-hf="all" class="on">Todas</button>
+          <button data-hf="win">Victorias</button>
+          <button data-hf="loss">Derrotas</button>
+          <button data-hf="draw">Tablas</button>
+        </div>
+      </div>
+      <div id="historyBody"></div>
+    </section>
+
+    <!-- AJUSTES Y PERSONALIZACIÓN -->
+    <section class="screen" id="screen-settings" hidden>
+      <div class="screen-head"><h2>Ajustes y personalización</h2></div>
+      <div class="settings-grid">
+        <section class="lb-card" id="setAccount"></section>
+        <section class="lb-card">
+          <p class="eyebrow">Sonido y pantalla</p>
+          <div class="set-row"><span><b>Sonido</b><small>Efectos de jugadas, capturas y recompensas</small></span><button class="switch" id="setSound" role="switch" aria-checked="true" aria-label="Sonido"><i></i></button></div>
+          <div class="set-row"><span><b>Reducir movimiento</b><small>Menos animaciones y transiciones</small></span><button class="switch" id="setMotion" role="switch" aria-checked="false" aria-label="Reducir movimiento"><i></i></button></div>
+          <div class="set-row"><span><b>Tablero 2D</b><small>Ligero, para equipos sin gráficos 3D (recarga la página)</small></span><button class="switch" id="set2d" role="switch" aria-checked="false" aria-label="Tablero 2D"><i></i></button></div>
+        </section>
+        <section class="lb-card" id="setLook"></section>
+        <section class="lb-card">
+          <p class="eyebrow">Ayuda y datos</p>
+          <div class="set-actions">
+            <button class="btn" id="tutorialBtn">🎓 Repetir el tutorial</button>
+            <button class="btn" id="installBtn" hidden>📲 Instalar la app</button>
+            <a class="btn" href="/privacidad.html">Privacidad</a>
+            <a class="btn" href="https://github.com/kiancanessa/gambito" target="_blank" rel="noopener">Código en GitHub</a>
+            <button class="btn danger" id="resetBtn">Reiniciar progreso</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <!-- TIENDA -->
     <section class="screen" id="screen-shop" hidden>
       <div class="screen-head">
-        <button class="back" data-go="home">← Volver</button>
-        <h2>Tienda de skins</h2>
+        <h2>Personalización</h2>
+        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions">Misiones</button><button data-go="season">Temporada</button><button data-go="shop" class="on">Personalizar</button></div>
         <span class="chip coins big"><i class="coin"></i> <b id="shopCoins">0</b></span>
       </div>
       <div class="seg shop-tabs" id="shopTabs">
@@ -300,6 +376,14 @@
       <div class="shop-grid" id="shopGrid"></div>
     </section>
   </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Navegación">
+    <button class="tab" data-go="home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Inicio</span></button>
+    <button class="tab" data-go="lobby" data-nav="play" data-play><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span>Jugar</span></button>
+    <button class="tab" data-go="circuit" data-nav="circuit" data-flag="circuit"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span>Circuit</span></button>
+    <button class="tab" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Ranking</span></button>
+    <button class="tab" data-go="profile" data-nav="me"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span>Perfil</span></button>
+  </nav>
 
   <!-- MODAL GENÉRICO -->
   <div class="modal" id="modal" hidden>

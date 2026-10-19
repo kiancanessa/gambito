@@ -1,4 +1,4 @@
-// Genera los iconos PNG de la app (peón dorado sobre fondo morado) sin dependencias: SDF + zlib.
+// Genera los iconos PNG de la app (peón blanco/cian sobre obsidiana) sin dependencias: SDF + zlib.
 // Uso: node scripts/make-icons.js   → public/icons/icon-192.png, icon-512.png, icon-maskable-512.png, og.png
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -71,11 +71,11 @@ const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 function render(w, h, { scale, round, cx = 0.5, cy = 0.5 }) {
   const buf = Buffer.alloc(w * h * 4);
   const SS = 3;
-  const top = hex('#34276d');
-  const bottom = hex('#0d0820');
-  const gold1 = hex('#fff3c4');
-  const gold2 = hex('#ff9f1c');
-  const edge = hex('#7a4300');
+  const top = hex('#161b27');
+  const bottom = hex('#05060a');
+  const gold1 = hex('#ffffff');
+  const gold2 = hex('#22e1ff');
+  const edge = hex('#03343f');
   const m = Math.min(w, h);
   for (let py = 0; py < h; py += 1) {
     for (let px = 0; px < w; px += 1) {
@@ -90,7 +90,7 @@ function render(w, h, { scale, round, cx = 0.5, cy = 0.5 }) {
           // fondo con degradado y resplandor
           let col = mix(top, bottom, v);
           const gd = length((u - cx) * (w / m), (v - cy) * (h / m));
-          col = mix(col, [150, 120, 255], Math.max(0, 0.5 - gd) * 0.9);
+          col = mix(col, [34, 225, 255], Math.max(0, 0.5 - gd) * 0.35);
           let alpha = 1;
           if (round) {
             const dd = sdRoundBox(u * (w / m), v * (h / m), (w / m) / 2, (h / m) / 2, (w / m) / 2, (h / m) / 2, 0.22);
