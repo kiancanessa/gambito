@@ -71,6 +71,9 @@ Cuando termine el despliegue copia la URL (`https://gambito-xxxx.onrender.com`).
 **Paso 3 · UptimeRobot.** En [uptimerobot.com](https://uptimerobot.com) → **Add New Monitor** → tipo **HTTP(s)**, URL
 `https://gambito-xxxx.onrender.com/healthz`, intervalo **5 minutos**.
 
+**Seguridad:** la cadena de Neon contiene la contraseña de tu base de datos. No la pegues en chats ni en el repositorio; si se
+filtra, en Neon ve a *Roles → Reset password* y actualiza `DATABASE_URL` en Render (Environment).
+
 **Paso 4 · Comprobar.** `npm run smoke -- https://gambito-xxxx.onrender.com` (debe mostrar "Copia de la base de datos (Neon) sin errores").
 
 Límites del plan gratuito, para ir con los ojos abiertos:
