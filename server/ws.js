@@ -3,8 +3,9 @@ import { WebSocketServer } from 'ws';
 import { sha256 } from './auth.js';
 import { LIMITS, TRUST_PROXY, allowedOrigins } from './config.js';
 import { TIME_CONTROLS } from './rooms.js';
+import { circuitMessage } from './tournaments.js';
 
-const KNOWN_MESSAGES = new Set(['auth', 'create', 'join', 'queue', 'dequeue', 'move', 'resign', 'draw', 'emote', 'rematch', 'leave', 'invite', 'circuit_join', 'circuit_leave', 'circuit_sync']);
+const KNOWN_MESSAGES = new Set(['auth', 'create', 'join', 'queue', 'dequeue', 'move', 'resign', 'draw', 'emote', 'rematch', 'leave', 'invite', 'circuit_join', 'circuit_leave', 'circuit_sync', 'circuit_watch', 'circuit_unwatch']);
 
 const clientIp = (req) => {
   const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
@@ -85,7 +86,9 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social, metri
         return ws.close();
       }
       meta.user = user;
-      return send(ws, { t: 'authed', user });
+      send(ws, { t: 'authed', user });
+      circuit.attach(user, ws); // quien ya está inscrito vuelve a recibir su torneo y su partida pendiente al reconectar
+      return undefined;
     }
     if (!meta.user) return send(ws, { t: 'error', code: 'auth', message: 'Identifícate primero' });
 
@@ -166,16 +169,27 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social, metri
         break;
       }
       // ----- Royale Circuit -----
+      // El cliente solo pide inscribirse, salir o mirar; el servidor valida plazos, cupos y unicidad y es el único que mueve el cuadro.
       case 'circuit_join':
+      case 'circuit_leave': {
+        meta.circuitActs = (meta.circuitActs ?? []).filter((x) => now - x < 60_000);
+        const id = typeof msg.id === 'string' ? msg.id.slice(0, 64) : '';
+        if (meta.circuitActs.length >= 12) return send(ws, { t: 'circuit_error', reason: 'limit', message: circuitMessage('limit') });
+        meta.circuitActs.push(now);
         meta.user = db.userById(meta.user.id) ?? meta.user;
-        circuit.join(meta.user, ws);
+        const res = msg.t === 'circuit_join' ? circuit.join(meta.user, id, ws) : circuit.leave(meta.user, id);
+        if (!res.ok) return send(ws, { t: 'circuit_error', reason: res.reason, id, message: circuitMessage(res.reason) });
+        send(ws, { t: 'circuit_state', circuit: circuit.detail(id, meta.user.id) });
         break;
-      case 'circuit_leave':
-        circuit.leave(meta.user.id);
-        send(ws, { t: 'circuit_state', circuit: null });
-        break;
+      }
       case 'circuit_sync':
-        if (!circuit.sync(meta.user, ws)) send(ws, { t: 'circuit_state', circuit: null });
+        circuit.attach(meta.user, ws);
+        break;
+      case 'circuit_watch':
+        circuit.watch(ws, typeof msg.id === 'string' ? msg.id.slice(0, 64) : null);
+        break;
+      case 'circuit_unwatch':
+        circuit.unwatch(ws);
         break;
       default:
     }

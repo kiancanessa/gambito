@@ -7,7 +7,7 @@ import { academyContinue, academyNext, academyPips } from './academy.js';
 import { GLYPH, LEAGUES, QUICK_LEVELS, SEASON, TIME_CONTROLS, XP_PER_LEVEL, leagueOf } from './data.js';
 import { arenaMode, readCapabilities } from './arena-caps.js';
 import { webglSupported } from './board3d.js';
-import { circuitMine, circuitPublic, refreshCircuitPublic } from './circuit.js';
+import { circuitClock, circuitHud, circuitList, onCircuit, openCircuit, refreshCircuitPublic, watchCircuitList } from './circuit.js';
 import { flags } from './flags.js';
 import { missionsSummary } from './missions.js';
 import { api, bootstrap, ensureOnline, net, onNet, refreshUser } from './net.js';
@@ -36,7 +36,6 @@ const lb = {
   aiLevel: 3,
   data: { stats: null, top: [], me: null, live: [], daily: null, history: [] },
   loaded: false, // ya se completó al menos una consulta de datos (con éxito o con fallo)
-  circuitAt: 0, // cuándo se leyó el estado público del Circuit (para la cuenta atrás)
   offline: false,
   timer: null,
   tick: null,
@@ -297,17 +296,9 @@ function runPlay() {
 }
 
 // ---------- Royale Circuit (HUD derecho) ----------
-function circuitState() {
-  const pub = circuitPublic();
-  const mine = circuitMine();
-  const left = pub?.open ? pub.open.fillInMs - (Date.now() - lb.circuitAt) : 0;
-  if (mine?.status === 'registering') return { kind: 'joined', mine, left: mine.fillInMs - (Date.now() - lb.circuitAt) };
-  if (mine?.status === 'running' && !mine.you?.out) return { kind: 'playing', mine };
-  if (pub?.open) return { kind: 'open', open: pub.open, size: pub.size, left };
-  if (pub?.running?.length) return { kind: 'running', running: pub.running };
-  if (!pub) return { kind: 'unknown' };
-  return { kind: 'idle' };
-}
+// Todo sale de la lista que publica el servidor (torneos programados, inscripciones reales); nada se inventa.
+const hhmm = (ts) => new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+const cd = (until) => `<b class="cd" data-until="${until}">${mmss(until - circuitClock())}</b>`;
 
 function renderCircuit() {
   const box = $('#arenaCircuit');
@@ -315,62 +306,63 @@ function renderCircuit() {
     box.innerHTML = '<p class="eyebrow">Royale Circuit</p><h3>Torneos eliminatorios</h3><p class="muted">Muy pronto: entra, sobrevive ronda a ronda y gana cosméticos exclusivos.</p><span class="pill soon">Próximamente</span>';
     return;
   }
-  const c = circuitState();
+  const c = circuitHud();
   const head = (pill) => `<div class="card-head"><p class="eyebrow">Royale Circuit</p>${pill}</div>`;
   const prize = '<ul class="prize-row compact"><li>Cuartos <b>🪙 30</b></li><li>Semi <b>🪙 60</b></li><li>Final <b>🪙 120</b></li><li class="top">Campeón <b>🪙 250 + 👑</b></li></ul>';
   if (c.kind === 'unknown') {
     if (connecting() || loadingData()) {
-      box.innerHTML = `${head('')}<h3>Eliminatoria de 8</h3>${skeleton(2)}`;
+      box.innerHTML = `${head('')}<h3>Torneos eliminatorios</h3>${skeleton(2)}`;
     } else {
-      box.innerHTML = `${head('<span class="pill bad">Sin datos</span>')}<h3>Eliminatoria de 8</h3><div class="hud-alert" role="alert"><span>No se pudo consultar el estado de los torneos.</span><button class="btn" data-lb="retry">Reintentar</button></div>`;
+      box.innerHTML = `${head('<span class="pill bad">Sin datos</span>')}<h3>Torneos eliminatorios</h3><div class="hud-alert" role="alert"><span>No se pudo consultar el estado de los torneos.</span><button class="btn" data-lb="retry">Reintentar</button></div>`;
     }
     return;
   }
   if (c.kind === 'idle') {
-    box.innerHTML = `${head('<span class="pill ok">Libre</span>')}<h3>Eliminatoria de 8 · Blitz 3+2</h3>
-      ${empty('trophy', 'No hay torneos abiertos', 'Abre el siguiente: arranca un minuto después de la primera inscripción y se completa con bots.')}
-      ${prize}<button class="btn primary" data-lb="circuit">Abrir un torneo</button>`;
+    box.innerHTML = `${head('<span class="pill">Sin torneos</span>')}<h3>Torneos eliminatorios</h3>
+      ${empty('trophy', 'No hay torneos programados', 'Los programa el servidor: el siguiente aparecerá aquí con su hora de inicio.')}
+      ${prize}<button class="btn" data-lb="circuit">Ver torneos</button>`;
     return;
   }
+  const t = c.t ?? c.running[0];
   let pill = '';
   let line = '';
-  let cta = 'Entrar al torneo';
+  let cta = 'Ver torneo';
   if (c.kind === 'open') {
-    pill = `<span class="pill todo">${c.open.joined}/${c.size} inscritos</span>`;
-    line = `Empieza al llegar a ${c.size} o en <b id="lbCount">${mmss(c.left)}</b>, con bots si faltan.`;
+    pill = `<span class="pill todo">${t.players}/${t.size} inscritos</span>`;
+    line = `Inscripción abierta: cierra en ${cd(t.regClosesAt)}. Empieza a las ${hhmm(t.startsAt)}.`;
+    cta = 'Inscribirme';
   } else if (c.kind === 'joined') {
-    pill = `<span class="pill todo">Inscrito ${c.mine.entrants.length}/${c.mine.size}</span>`;
-    line = `Ya estás dentro. Empieza en <b id="lbCount">${mmss(c.left)}</b> o al completarse.`;
-    cta = 'Ver torneo';
+    pill = `<span class="pill todo">Inscrito ${t.players}/${t.size}</span>`;
+    line = t.status === 'open' ? `Ya estás dentro. Empieza a las ${hhmm(t.startsAt)}; puedes salir hasta que cierre la inscripción.` : `Empieza en ${cd(t.startsAt)}. Mantén la pestaña abierta.`;
   } else if (c.kind === 'playing') {
     pill = '<span class="pill live">¡Estás compitiendo!</span>';
-    line = c.mine.you?.matchCode ? 'Tu partida está en juego.' : 'Esperando tu siguiente partida.';
+    line = `${t.roundName ?? 'En juego'}: entrarás a tu partida automáticamente.`;
     cta = 'Ir al torneo';
+  } else if (c.kind === 'next') {
+    pill = `<span class="pill soon">${t.status === 'closed' ? 'Cerrado' : 'Programado'}</span>`;
+    line = t.status === 'closed' ? `Inscripción cerrada. Empieza en ${cd(t.startsAt)}.` : `La inscripción abre en ${cd(t.regOpensAt)}; empieza a las ${hhmm(t.startsAt)}.`;
   } else {
     pill = `<span class="pill live">${c.running.length} en curso</span>`;
-    line = 'Hay torneos en marcha: míralos en directo o abre uno nuevo.';
+    line = 'Hay torneos en marcha: míralos en directo.';
   }
-  box.innerHTML = `${head(pill)}<h3>Eliminatoria de 8 · Blitz 3+2</h3><p class="muted">${line}</p>${prize}<button class="btn primary" data-lb="circuit">${cta}</button>`;
+  box.innerHTML = `${head(pill)}<h3>${esc(t.name)} · hasta ${t.size}</h3><p class="muted">${line}</p>${prize}<button class="btn primary" data-lb="circuit" data-id="${esc(t.id)}">${cta}</button>`;
 }
 
 // ---------- Torneos y eventos ----------
 function renderEvents() {
   const d = lb.data.daily;
-  const pub = circuitPublic();
+  const pub = circuitList();
   const season = seasonSummary();
   const daysLeft = Math.max(0, Math.ceil((new Date(`${SEASON.endsAt}T23:59:59`).getTime() - Date.now()) / 86_400_000));
   const rows = [];
   if (flags.circuit && pub) {
-    const c = circuitState();
-    if (c.kind === 'open' || c.kind === 'joined') {
-      const n = c.kind === 'open' ? `${c.open.joined}/${c.size}` : `${c.mine.entrants.length}/${c.mine.size}`;
-      rows.push(['live', 'ACTIVO', 'Royale Circuit · inscripción abierta', `${n} jugadores · Blitz 3+2`, `<button class="btn primary" data-lb="circuit">${c.kind === 'open' ? 'Entrar' : 'Ver'}</button>`]);
+    for (const t of pub.tournaments.slice(0, 3)) {
+      const go = (label, primary = false) => `<button class="btn ${primary ? 'primary' : ''}" data-lb="circuit" data-id="${esc(t.id)}">${label}</button>`;
+      if (t.status === 'open') rows.push(['live', 'ACTIVO', `${esc(t.name)} · inscripción abierta`, `${t.players}/${t.size} jugadores · cierra en ${cd(t.regClosesAt)}`, go(t.joined ? 'Ver' : 'Entrar', !t.joined)]);
+      else if (t.status === 'running') rows.push(['live', 'EN CURSO', `${esc(t.name)} · ${esc(t.roundName ?? 'en juego')}`, `${t.live} partida${t.live === 1 ? '' : 's'} en directo`, go('Ver')]);
+      else rows.push(['next', 'PRÓXIMO', esc(t.name), t.status === 'closed' ? `Inscripción cerrada · empieza en ${cd(t.startsAt)}` : `Empieza a las ${hhmm(t.startsAt)} · inscripción en ${cd(t.regOpensAt)}`, go('Ver')]);
     }
-    for (const t of pub.running ?? []) {
-      const live = t.live[0];
-      rows.push(['live', 'EN CURSO', `Royale Circuit · ${live?.label ?? 'en juego'}`, live ? `${esc(live.a)} vs ${esc(live.b)}` : 'Rondas simuladas entre bots', live ? `<button class="btn" data-spectate="${esc(live.code)}">Ver</button>` : '']);
-    }
-    if (!rows.length) rows.push(['next', 'PRÓXIMO', 'Royale Circuit', 'No hay ninguno abierto: se abre cuando alguien se inscribe y empieza 1 min después', '<button class="btn" data-lb="circuit">Abrir uno</button>']);
+    if (!rows.length) rows.push(['next', 'PRÓXIMO', 'Royale Circuit', 'No hay torneos programados ahora mismo', '<button class="btn" data-lb="circuit">Ver torneos</button>']);
   }
   if (online() && d) {
     rows.push([d.mine ? 'done' : 'today', 'HOY', `Desafío diario #${d.number} · mate en ${d.mateIn}`, `${d.mine ? `Resuelto en ${fmtDuration(d.mine.seconds)} · puesto #${d.mine.rank}` : `${d.solvedCount} lo resolvieron`} · cierra en ${fmtCountdown(d.nextResetAt - Date.now())}`, `<button class="btn ${d.mine ? '' : 'primary'}" data-go="daily">${d.mine ? 'Ranking' : 'Resolver'}</button>`]);
@@ -499,7 +491,6 @@ async function refresh() {
   if (history.ok) lb.data.history = history.json.games;
   if (flags.circuit) {
     await refreshCircuitPublic();
-    lb.circuitAt = Date.now();
   }
   if (flags.social) await refreshSocial();
   await refreshUser();
@@ -515,13 +506,13 @@ export async function enterLobby() {
   if (app.screen !== 'lobby') return;
   renderAll();
   refresh();
+  if (flags.circuit) watchCircuitList(); // los torneos se actualizan solos mientras estás en el lobby
   clearInterval(lb.timer);
   lb.timer = setInterval(() => (app.screen === 'lobby' ? refresh() : clearInterval(lb.timer)), REFRESH_MS);
   clearInterval(lb.tick);
   lb.tick = setInterval(() => {
     if (app.screen !== 'lobby') return clearInterval(lb.tick);
-    const el = $('#lbCount');
-    if (el) el.textContent = mmss(circuitState().left ?? 0);
+    for (const el of document.querySelectorAll('#arenaCircuit .cd, #lbEvents .cd')) el.textContent = mmss(Number(el.dataset.until) - circuitClock());
     return undefined;
   }, 1000);
 }
@@ -532,6 +523,11 @@ export function initLobby() {
   onScreen(onLeaveLobby);
   onQueueChange(() => renderPlayOnly());
   if (flags.social) onSocial(() => app.screen === 'lobby' && renderSocial());
+  onCircuit(() => {
+    if (app.screen !== 'lobby') return;
+    renderCircuit();
+    renderEvents();
+  });
   onNet(() => {
     if (app.screen === 'lobby') {
       renderProfile();
@@ -590,7 +586,7 @@ export function initLobby() {
       await bootstrap();
       return refresh();
     }
-    if (act === 'circuit') return app.go('circuit');
+    if (act === 'circuit') return openCircuit(e.target.closest('[data-lb]').dataset.id ?? null);
     if (act === 'social') return app.go('social');
     if (act === 'cancel') return cancelQueue();
     return undefined;

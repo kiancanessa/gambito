@@ -798,3 +798,40 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--cp-cyan); o
 .stars-earned .on { color: var(--cp-coin); }
 .stars-earned span:not(.on) { color: rgba(255, 255, 255, 0.18); }
 @media (max-width: 560px) { .ac-lesson { padding: 8px 10px; } .ac-info b { white-space: normal; } }
+
+/* ---------- 20 · Royale Circuit: torneos programados ---------- */
+.cd { font-variant-numeric: tabular-nums; }
+.cir-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.cir-card { display: grid; gap: 10px; align-content: start; padding: 18px; border-radius: var(--cp-r-lg); background: var(--cp-graphite); border: 1px solid var(--cp-line); }
+.cir-card.open { border-color: rgba(34, 225, 255, 0.45); box-shadow: 0 10px 28px rgba(34, 225, 255, 0.08); }
+.cir-card.running { border-color: rgba(255, 90, 110, 0.45); }
+.cir-card.cancelled, .cir-card.finished { opacity: 0.8; }
+.cir-card.joined { outline: 2px solid var(--cp-cyan); outline-offset: 2px; }
+.cir-card h3 { margin: 0; }
+.cir-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
+.cir-facts small { color: var(--cp-muted); }
+.cir-facts li.ok { color: var(--cp-good); }
+.cir-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cir-actions .btn { flex: 1 1 auto; }
+.cir-recent { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.link-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; width: 100%; padding: 10px 12px; border-radius: var(--cp-r-sm); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--cp-line); text-align: left; color: var(--cp-text); }
+.link-row:hover, .link-row:focus-visible { border-color: var(--cp-cyan); }
+.circuit-hero .back { margin-bottom: 4px; }
+.circuit-end.champion { border-color: rgba(255, 207, 90, 0.5); background: linear-gradient(135deg, rgba(255, 207, 90, 0.14), var(--cp-graphite) 60%); }
+.slots li.me { outline: 2px solid var(--cp-cyan); }
+.slots li i { font-style: normal; color: var(--cp-muted); margin-right: 4px; font-size: 0.75rem; }
+.slots li.needed { border-color: rgba(34, 225, 255, 0.3); }
+.bracket { grid-template-columns: repeat(var(--rounds, 3), minmax(200px, 1fr)); overflow-x: auto; padding-bottom: 6px; align-items: stretch; }
+@media (max-width: 760px) { .bracket { grid-template-columns: repeat(var(--rounds, 3), minmax(230px, 80vw)); scroll-snap-type: x proximity; } .cm-col { scroll-snap-align: start; } }
+.cm-col { align-content: space-around; }
+.cm { position: relative; }
+.cm-state { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cp-muted); justify-self: end; }
+.cm-state.playing { color: #ff8a98; }
+.cm-state.ready { color: var(--cp-cyan); }
+.cm-state.done { color: var(--cp-good); }
+.cm-row.empty { color: var(--cp-muted); font-size: 0.85rem; display: block; }
+.cir-results-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); margin-top: 10px; }
+.cir-results h4 { margin: 0 0 4px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cp-muted); }
+.cir-results ul, .cir-rules ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 0.88rem; }
+.cir-rules ul { color: var(--cp-muted); list-style: disc; padding-left: 18px; }
+.circuit-body summary { cursor: pointer; }

@@ -155,7 +155,13 @@ export function createApi({ db, rooms, matchmaker, circuit, social, metrics = nu
         });
       }
 
-      if (pathname === '/api/circuit' && method === 'GET') return send(res, 200, circuit.publicView());
+      // Lista de torneos (con tu inscripción si hay sesión) y detalle de uno: público, solo lectura. El cuadro lo mueve únicamente el servidor.
+      if (pathname === '/api/circuit' && method === 'GET') return send(res, 200, circuit.listView(authUser(req)?.id ?? null));
+      const circuitOne = pathname.match(/^\/api\/circuit\/t\/([\w-]{1,64})$/);
+      if (circuitOne && method === 'GET') {
+        const detail = circuit.detail(circuitOne[1], authUser(req)?.id ?? null);
+        return detail ? send(res, 200, detail) : send(res, 404, { error: 'Torneo no encontrado' });
+      }
 
       if (pathname === '/api/live' && method === 'GET') return send(res, 200, { games: rooms.liveGames(6) });
 

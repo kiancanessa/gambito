@@ -115,7 +115,7 @@ async function loadExtra() {
   if (me.ok) extra.rank = me.json.rank;
   if (circuit.ok) {
     const label = { champion: 'Campeón del Royale Circuit', final: 'Finalista del Royale Circuit', semi: 'Semifinalista del Royale Circuit', quarter: 'Cuartos del Royale Circuit' };
-    extra.trophies = circuit.json.results.filter((r) => r.placement !== 'quarter').map((r) => ({ placement: r.placement, label: label[r.placement], at: r.at }));
+    extra.trophies = circuit.json.results.filter((r) => label[r.placement] && r.placement !== 'quarter').map((r) => ({ placement: r.placement, label: label[r.placement], at: r.at }));
     extra.circuitFinals = circuit.json.results.filter((r) => r.placement === 'final' || r.placement === 'champion').length;
   }
   return extra;

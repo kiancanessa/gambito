@@ -10,9 +10,20 @@ import { PgStore, createPersistence } from './persist.js';
 import { RoomManager } from './rooms.js';
 import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
-import { CircuitManager } from './tournaments.js';
+import { CIRCUIT, CircuitManager } from './tournaments.js';
 import { createSocial } from './social.js';
 import { createMetrics } from './metrics.js';
+
+function circuitEnvOptions() {
+  const every = Number(process.env.CIRCUIT_EVERY_MS);
+  const min = Number(process.env.CIRCUIT_MIN_PLAYERS);
+  const lead = Number(process.env.CIRCUIT_LEAD_MS);
+  if (!every && !min && !lead) return {};
+  return {
+    formats: CIRCUIT.formats.map((f) => ({ ...f, everyMs: every || f.everyMs, minPlayers: min || f.minPlayers })),
+    ...(lead ? { minLeadMs: lead, closeLeadMs: Math.round(lead / 2) } : {}),
+  };
+}
 
 // Persistencia opcional para alojamientos sin disco (Render Free): con DATABASE_URL (Postgres de Neon) la base de datos
 // SQLite se restaura al arrancar y se copia periódicamente (ver server/persist.js).
@@ -28,8 +39,8 @@ export async function startServer({
   // actividad, no gasta cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
   persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 3 * 60_000,
   persistOptions = {},
-  // Tiempos del Royale Circuit (pruebas). CIRCUIT_FILL_MS acorta la espera de inscripción para probarlo a mano.
-  circuitOptions = process.env.CIRCUIT_FILL_MS ? { fillAfterMs: Number(process.env.CIRCUIT_FILL_MS) } : {},
+  // Tiempos del Royale Circuit (pruebas). CIRCUIT_EVERY_MS / CIRCUIT_MIN_PLAYERS / CIRCUIT_LEAD_MS acortan el calendario para probarlo a mano.
+  circuitOptions = circuitEnvOptions(),
   // Cada cuántos ms se escribe una línea de métricas en el log (0 la desactiva).
   metricsLogMs = process.env.METRICS_LOG_MS === undefined ? 300_000 : Number(process.env.METRICS_LOG_MS),
 } = {}) {

@@ -109,19 +109,20 @@ partida en modo espectador sin motor (`remote.send` vacío y `game.over = true`)
 reproducir/siguiente/final, velocidad 0,5×–2× y deslizador. Avanzar de uno en uno anima la jugada; retroceder o saltar reconstruye
 la posición con `loadMoves`. **Compartir** reutiliza `share.js`: tarjeta o clip de las últimas jugadas hasta el punto que estés viendo.
 
-## Royale Circuit (Fase 4)
+## Royale Circuit (Fase 4, rediseñado en el PROMPT 04)
 
-`server/tournaments.js` (`CircuitManager`): eliminatoria de **8** jugadores, **bajo demanda**, Blitz 3+2. Se arranca al llegar a 8 inscritos o
-`fillAfterMs` (60 s) después de la primera inscripción, **rellenando con bots**. Cuadro cuartos → semifinal → final con cabezas de serie
-por rating (1v8, 4v5, 2v7, 3v6). Una partida con humanos es una `Room` normal (no clasificatoria) con asientos **reservados y estrictos**
-(un ajeno solo puede mirar); `circuit_match` hace que el cliente entre solo. Quien no se sienta en 60 s pierde; las partidas bot-bot se
-simulan por rating. Un empate se repite con los colores cambiados y, tras 3, pasa el mejor cabeza de serie. Los bots son sockets
-virtuales dentro de la sala (`chooseBotMove`: mate en 1, capturas, sin regalar mate en 1).
+Torneos eliminatorios **programados por un organizador automático** (sin bots, sin salas de usuario). Diseño, estados, reglas,
+protocolo y criterios de aceptación: **[CIRCUIT.md](CIRCUIT.md)**. Resumen:
 
-Al terminar se guarda en `tournaments` y `tournament_results`; los premios (30/60/120 oros por ronda, 250 + el set exclusivo **Corona del
-Circuito** al campeón) se cobran por la cartera con la fuente `circuit` (clave `circuit:<id>`, solo para quien tiene resultado). El set
-exclusivo (`exclusive` en `SHOP`) no se compra ni se acepta desde un guardado antiguo. Los torneos en curso viven en memoria: un reinicio
-del servidor los pierde (los resultados ya guardados no). `CIRCUIT_FILL_MS` acorta la espera para probarlo a mano.
+- `server/bracket.js`: cuadro de eliminación simple, puro y probado (cabezas de serie, byes, avance, puestos) para 4, 8, 16, 32 y 64.
+- `server/circuit-store.js` + tablas `circuit_tournaments / circuit_entries / circuit_matches`: cada paso es una transacción con
+  comprobación de estado (compare-and-set), así que un resultado no se aplica dos veces ni un jugador ocupa dos plazas.
+- `server/tournaments.js` (`CircuitManager`): estados `scheduled → open → closed → running → finished | cancelled`, un único `tick()`
+  que mueve los estados por hora, recuperación tras reinicio (`recover`) y difusión en tiempo real (`circuit_list`, `circuit_state`).
+- Las partidas son `Room` normales con asientos reservados y estrictos; el servidor decide cada resultado y el cliente no puede declarar nada.
+- Al terminar se guarda en `tournaments` y `tournament_results` (historial y premios); los premios se cobran por la cartera con la
+  fuente `circuit` (clave `circuit:<id>`, solo para quien tiene resultado). El set exclusivo **Corona del Circuito** no se compra.
+- `CIRCUIT_EVERY_MS`, `CIRCUIT_MIN_PLAYERS` y `CIRCUIT_LEAD_MS` acortan el calendario para probarlo a mano.
 
 ## Social (Fase 5)
 

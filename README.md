@@ -19,9 +19,9 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/Academia, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
 | **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
+| **Royale Circuit** | Torneos eliminatorios programados por el servidor (Blitz de 8 y Rápida de 16, ampliable a 32/64): inscripción con plazo y cupo, cuadro con byes, relojes y resultados validados en el servidor, desempates explícitos, recuperación tras reinicios y pantalla en tiempo real. Sin bots. Ver [docs/CIRCUIT.md](docs/CIRCUIT.md). |
 | **Juego limpio y métricas** | Una clasificatoria no puntúa si repite pareja más de 3 veces en 24 h o termina demasiado pronto; alertas de ritmo sospechoso para revisión; métricas en el log y en `/api/metrics`. |
 | **Amigos** | Código de amigo, lista con presencia, retos e invitaciones a partida, bloqueos y reportes. Sin chat libre ni email (flag `social`). |
-| **Royale Circuit** | Torneo eliminatorio de 8 (cuartos, semifinal, final) en Blitz 3+2, bajo demanda y con bots que rellenan. Premios en oros y un set de piezas exclusivo para el campeón (flag `circuit`). |
 | **Repeticiones** | Historial de tus partidas online en el lobby y visor 3D con reproducción automática, saltos, velocidad y clip para compartir (flag `replays`). Solo quienes jugaron la partida pueden verla. |
 | **Cartera segura** | Oros, XP e inventario se validan en el servidor (flag `wallet`): compras con precio del catálogo, recompensas online calculadas con la partida real y topes en lo que no se puede comprobar. |
 | **Skins** | 6 sets de piezas, 6 tableros y 4 efectos de captura (materiales y texturas procedurales, sin imágenes). |

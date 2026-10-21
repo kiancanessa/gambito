@@ -142,6 +142,21 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            SELECT o.tournament_id, o.user_id, o.placement, o.coins, o.xp, o.item, o.created_at FROM old.tournament_results o
            WHERE EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id);`
       : '';
+    // Torneos del Circuit (cuadro persistido): gana la copia con la revisión más alta; se reemplazan también sus inscritos y partidos.
+    const circuitState = ['circuit_tournaments', 'circuit_entries', 'circuit_matches'].every((x) => oldTables.has(x))
+      ? `CREATE TEMP TABLE circuit_take AS SELECT o.id FROM old.circuit_tournaments o
+           WHERE NOT EXISTS (SELECT 1 FROM main.circuit_tournaments m WHERE m.id = o.id AND m.rev >= o.rev);
+         DELETE FROM circuit_matches WHERE tournament_id IN (SELECT id FROM circuit_take);
+         DELETE FROM circuit_entries WHERE tournament_id IN (SELECT id FROM circuit_take);
+         INSERT OR REPLACE INTO circuit_tournaments (id, format, name, tc, size, min_players, status, reg_opens_at, reg_closes_at, starts_at, created_at, started_at, finished_at, champion_id, cancel_reason, rounds, rev)
+           SELECT id, format, name, tc, size, min_players, status, reg_opens_at, reg_closes_at, starts_at, created_at, started_at, finished_at, champion_id, cancel_reason, rounds, rev
+           FROM old.circuit_tournaments WHERE id IN (SELECT id FROM circuit_take);
+         INSERT INTO circuit_entries (tournament_id, user_id, name, rating, seed, status, placement, joined_at)
+           SELECT tournament_id, user_id, name, rating, seed, status, placement, joined_at FROM old.circuit_entries WHERE tournament_id IN (SELECT id FROM circuit_take);
+         INSERT INTO circuit_matches (tournament_id, round, slot, a_id, b_id, status, winner_id, reason, draws, code, updated_at)
+           SELECT tournament_id, round, slot, a_id, b_id, status, winner_id, reason, draws, code, updated_at FROM old.circuit_matches WHERE tournament_id IN (SELECT id FROM circuit_take);
+         DROP TABLE circuit_take;`
+      : '';
     const social = ['friend_codes', 'friendships', 'blocks', 'reports'].every((t) => oldTables.has(t))
       ? `INSERT OR IGNORE INTO friend_codes SELECT * FROM old.friend_codes WHERE user_id IN (SELECT id FROM main.users);
          INSERT OR IGNORE INTO friendships SELECT * FROM old.friendships
@@ -169,6 +184,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       INSERT OR IGNORE INTO daily_results SELECT * FROM old.daily_results;
       ${wallet}
       ${circuit}
+      ${circuitState}
       ${social}
       ${fair}
       COMMIT;

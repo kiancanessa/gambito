@@ -2,6 +2,7 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { CIRCUIT_SCHEMA, createCircuitStore } from './circuit-store.js';
 import { MIN_RATING, START_RATING } from './elo.js';
 
 const publicUser = (u) =>
@@ -129,6 +130,7 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_day ON daily_results(day, seconds);
   `);
+  db.exec(CIRCUIT_SCHEMA);
 
   const q = {
     insertUser: db.prepare('INSERT INTO users (id,name,token_hash,recovery_hash,created_at,last_seen) VALUES (?,?,?,?,?,?)'),
@@ -181,6 +183,7 @@ export function openDb(file) {
 
   return {
     raw: db,
+    circuit: createCircuitStore(db),
     close: () => db.close(),
     createUser({ id, name, tokenHash, recoveryHash }) {
       const now = Date.now();
