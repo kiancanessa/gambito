@@ -124,6 +124,14 @@ protocolo y criterios de aceptación: **[CIRCUIT.md](CIRCUIT.md)**. Resumen:
   fuente `circuit` (clave `circuit:<id>`, solo para quien tiene resultado). El set exclusivo **Corona del Circuito** no se compra.
 - `CIRCUIT_EVERY_MS`, `CIRCUIT_MIN_PLAYERS` y `CIRCUIT_LEAD_MS` acortan el calendario para probarlo a mano.
 
+## Progresión (PROMPT 05)
+
+`server/progression.js` + `xp-rules.js`: XP de cuenta, misiones, logros y temporadas **verificados en el servidor**. `RoomManager.onGameSaved`
+avisa al terminar cada sala; el módulo analiza la partida guardada (`games`) y concede XP idempotente (`progress_events`, clave única
+por jugador y evento) por el libro de cuentas de la cartera (`wallets.grantInTx`). Las misiones se recalculan con los eventos del
+periodo al reclamarlas (`mission_claims`, `season_claims`); la clasificación de temporada vive en `season_stats`. Detalle y criterios
+de aceptación: **[PROGRESION.md](PROGRESION.md)**.
+
 ## Social (Fase 5)
 
 `server/social.js` (tablas `friend_codes`, `friendships`, `blocks`, `reports`). Sin email ni chat libre: cada jugador tiene un **código de amigo** de

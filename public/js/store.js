@@ -13,8 +13,7 @@ const fresh = () => ({
   stats: { games: 0, wins: 0, losses: 0, draws: 0, checks: 0, captures: 0, promotions: 0, onlineGames: 0, onlineWins: 0, dailySolved: 0 },
   daily: { last: null, streak: 0 }, // recompensa de entrada diaria
   dailyPuzzle: { streak: 0, best: 0, lastDay: -1 }, // desafío diario (puzzle)
-  missions: { dayKey: '', daily: [], weekKey: '', weekly: [] },
-  season: { id: 1, xp: 0, claimed: [] },
+  flair: { frame: null, title: null }, // marco de avatar y título elegidos (se desbloquean por nivel de cuenta)
   tutorialDone: false,
   academy: { ex: {}, lessons: {}, unlocked: 1 }, // ejercicios resueltos, estrellas por lección y etapas desbloqueadas (saltar nivel)
   records: { winStreak: 0, bestWinStreak: 0, peakRating: 0, fastestMate: 0, mostChecks: 0 }, // récords personales
@@ -143,13 +142,8 @@ export function dailyAvailable() {
 
 export function claimDaily() {
   if (!dailyAvailable()) return null;
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  // Racha con 1 día de gracia: se mantiene si entraste ayer o anteayer.
-  const twoAgo = new Date();
-  twoAgo.setDate(twoAgo.getDate() - 2);
-  const keeps = [dayKey(yesterday), dayKey(twoAgo)].includes(state.daily.last);
-  state.daily.streak = keeps ? state.daily.streak + 1 : 1;
+  // Sin castigos por faltar: el contador solo suma los días reclamados y no se reinicia nunca.
+  state.daily.streak += 1;
   state.daily.last = dayKey();
   const amount = DAILY_REWARDS[(state.daily.streak - 1) % DAILY_REWARDS.length];
   state.coins += amount;

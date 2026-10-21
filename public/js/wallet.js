@@ -90,6 +90,13 @@ async function init() {
   if (res.ok && !queue.length) applyWallet(res.json.wallet);
 }
 
+// Trae la cartera real del servidor (tras una reclamación o un premio concedido por el servidor).
+export async function syncWallet() {
+  if (!net.user || queue.length) return;
+  const res = await api('/api/wallet');
+  if (res.ok && !queue.length) applyWallet(res.json.wallet);
+}
+
 export function initWallet() {
   if (!flags.wallet) return;
   setOpSink(enqueue);

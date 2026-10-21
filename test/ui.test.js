@@ -16,14 +16,14 @@ test('cada data-go del HTML y del JS apunta a una pantalla que existe', () => {
   const targets = new Set([...html.matchAll(/data-go="([\w-]+)"/g), ...jsSource.matchAll(/data-go="([\w-]+)"/g)].map((m) => m[1]));
   const missing = [...targets].filter((t) => !screens.has(t));
   assert.deepEqual(missing, [], `pantallas sin sección en index.html: ${missing.join(', ')}`);
-  for (const must of ['home', 'lobby', 'circuit', 'ranking', 'profile', 'history', 'settings', 'missions', 'season', 'shop', 'social', 'academy']) {
+  for (const must of ['home', 'lobby', 'circuit', 'ranking', 'profile', 'history', 'settings', 'progress', 'shop', 'social', 'academy']) {
     assert.ok(screens.has(must), `falta la pantalla ${must}`);
   }
 });
 
 test('main.js sabe abrir todas las pantallas de la navegación principal', () => {
   const main = readFileSync(path.join(PUBLIC, 'js', 'main.js'), 'utf8');
-  for (const name of ['lobby', 'circuit', 'social', 'ranking', 'profile', 'history', 'settings', 'academy']) {
+  for (const name of ['lobby', 'circuit', 'social', 'ranking', 'profile', 'history', 'settings', 'academy', 'progress']) {
     assert.match(main, new RegExp(`name === '${name}'`), `go('${name}') no está gestionado`);
   }
 });
@@ -50,7 +50,7 @@ test('la marca es CHECKPOINT en la página, el manifiesto y la política de priv
 
 test('los ids que usa el arranque existen en el HTML (no se rompe ningún enlace al iniciar)', () => {
   // Elementos buscados con $('#id') por los módulos que se inician en main.js sin esperar a ninguna pantalla.
-  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'homeAcademyInfo'];
+  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'homeAcademyInfo', 'progressBody', 'progressDot'];
   for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `falta #${id}`);
 });
 
@@ -59,4 +59,11 @@ test('la campaña con mapa ya no existe: la Academia la sustituye y ningún arch
   assert.doesNotMatch(jsSource, /startCampaign|renderMap|from '\.\/map\.js'/);
   assert.ok(!jsFiles.includes('map.js'));
   assert.ok(jsFiles.includes('academy.js') && jsFiles.includes('academy-data.js'));
+});
+
+test('la progresión sustituye a las misiones y la temporada locales: nada de XP ni premios decididos por el cliente', () => {
+  assert.doesNotMatch(html, /screen-missions|screen-season|missionsBody|seasonBody/);
+  assert.doesNotMatch(jsSource, /from '\.\/(missions|season)\.js'|addSeasonXp|track\('/);
+  assert.ok(jsFiles.includes('progress.js') && jsFiles.includes('progression-data.js'));
+  assert.ok(!jsFiles.includes('missions.js') && !jsFiles.includes('season.js'));
 });

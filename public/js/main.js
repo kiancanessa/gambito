@@ -5,11 +5,9 @@ import {
 import { dailyPending, enterDaily, initDaily } from './daily.js';
 import { Engine } from './engine.js';
 import { burst, sfx } from './fx.js';
-import { claimableMissions, initMissions, renderMissions, track } from './missions.js';
 import { bootstrap, net, onNet } from './net.js';
 import { enterHub, initOnline, isOnlineGameActive, joinFromLink } from './online.js';
 import { initProfile } from './profile.js';
-import { claimableSeason, initSeason, renderSeason, addSeasonXp } from './season.js';
 import { startSession } from './session.js';
 import { shareGame } from './share.js';
 import { initStage, mountHome, stage, stopDemo, thumbFor } from './stage.js';
@@ -19,6 +17,7 @@ import {
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
 import { enterCircuit, initCircuit } from './circuit.js';
+import { applyFlair, claimableCount, enterProgress, initProgress, onProgress } from './progress.js';
 import { academySummary, enterAcademy, initAcademy } from './academy.js';
 import { announceRecords, recordsHtml, updateRecords } from './records.js';
 import { initShell } from './shell.js';
@@ -63,6 +62,7 @@ function updateHud() {
   $('#hudCoins').textContent = state.coins;
   $('#hudLevel').textContent = state.level;
   $('#hudStreak').textContent = state.daily.streak;
+  applyFlair();
   $('#hudXp').style.width = `${Math.min(100, (state.xp / XP_PER_LEVEL(state.level)) * 100)}%`;
   $('#shopCoins').textContent = state.coins;
   $('#muteBtn').classList.toggle('is-muted', state.muted);
@@ -75,8 +75,7 @@ function updateHud() {
 async function refreshHome() {
   updateHud();
   const dot = (id, on) => ($(id).hidden = !on);
-  dot('#missionsDot', claimableMissions() > 0);
-  dot('#seasonDot', claimableSeason() > 0);
+  dot('#progressDot', claimableCount() > 0);
   const pending = await dailyPending();
   dot('#dailyDot', pending);
   $('#homeDailyInfo').textContent = state.dailyPuzzle.streak ? `🔥 Racha de ${state.dailyPuzzle.streak} día${state.dailyPuzzle.streak > 1 ? 's' : ''}` : 'Un mate nuevo cada día';
@@ -128,6 +127,10 @@ async function go(name) {
     enterAcademy();
     return;
   }
+  if (name === 'progress' || name === 'missions' || name === 'season') {
+    await enterProgress(name === 'progress' ? null : name);
+    return;
+  }
   if (name === 'profile') {
     await enterProfile();
     return;
@@ -152,8 +155,6 @@ async function go(name) {
   }
   if (name === 'quick') renderQuick();
   if (name === 'shop') renderShop();
-  if (name === 'missions') renderMissions();
-  if (name === 'season') renderSeason();
 }
 app.go = go;
 
@@ -284,17 +285,8 @@ async function finishGame(cfg, s) {
   }
   const records = updateRecords({ result: s.result, plies: s.plies, checks: s.checks, mate: /mate/i.test(s.reason) });
   addCoins(total, { source: 'game' });
-  const levelUps = addXp(Math.max(10, total), { source: 'game' });
-  // Misiones y temporada
-  track('game');
-  if (s.result === 'win') {
-    track('win');
-    if (s.lost === 0 && !s.usedUndo) track('perfect');
-  }
-  track('check', s.checks);
-  track('capture', s.captures);
-  track('promote', s.promotions);
-  addSeasonXp(Math.max(15, Math.round(total / 2)));
+  // Práctica contra la IA: el servidor no la ve, así que da poca XP y con tope diario (la XP de verdad viene de las partidas online).
+  const levelUps = addXp(Math.min(30, Math.max(5, Math.round(total / 3))), { source: 'game' });
   save();
   if (total) sfx.coin();
   if (s.result === 'win') celebrate();
@@ -500,8 +492,8 @@ onChange(updateHud);
 onNet(() => updateHud());
 initOnline();
 initDaily();
-initMissions();
-initSeason();
+initProgress();
+onProgress(() => $('#progressDot') && ($('#progressDot').hidden = claimableCount() === 0));
 initTutorial();
 initProfile();
 initWallet();

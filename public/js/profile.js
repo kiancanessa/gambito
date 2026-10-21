@@ -1,7 +1,6 @@
 // Perfil: identidad, liga, estadísticas, trofeos e insignias, y gestión de la cuenta (nombre, código de recuperación, sincronización).
-import { CAMPAIGN, GLYPH, LEAGUES, SEASON, leagueOf } from './data.js';
+import { CAMPAIGN, GLYPH, LEAGUES, leagueOf } from './data.js';
 import { api, net, newRecoveryCode, onNet, recoverAccount, renameUser, syncDown, pushNow } from './net.js';
-import { seasonLevel } from './season.js';
 import { state } from './store.js';
 import { $, app, copyText, esc, showScreen, toast, VS } from './ui.js';
 
@@ -21,10 +20,8 @@ function badges(extra) {
     { id: 'promo', name: 'Corona', text: 'Corona un peón', have: st.promotions, need: 1 },
     { id: 'checks50', name: 'Acosador', text: 'Da 50 jaques', have: st.checks, need: 50 },
     { id: 'daily7', name: 'Mente aguda', text: 'Resuelve 7 desafíos diarios', have: st.dailySolved, need: 7 },
-    { id: 'streak7', name: 'Constancia', text: 'Racha de 7 días entrando', have: state.daily.streak, need: 7 },
     { id: 'campaign', name: 'Graduado', text: 'Supera las pruebas finales de la Academia', have: state.campaign.cleared, need: CAMPAIGN.length },
     { id: 'academy', name: 'Estudiante', text: 'Completa 5 lecciones de la Academia', have: Object.keys(state.academy?.lessons ?? {}).length, need: 5 },
-    { id: 'season10', name: 'Veterano', text: 'Alcanza el nivel 10 de temporada', have: seasonLevel(), need: 10 },
     { id: 'tutorial', name: 'Aprendiz', text: 'Completa el tutorial', have: state.tutorialDone ? 1 : 0, need: 1 },
     { id: 'circuit', name: 'Finalista', text: 'Llega a la final del Circuit', have: extra.circuitFinals, need: 1 },
   ];
@@ -86,7 +83,7 @@ function render(extra) {
 
       <section class="lb-card">
         <div class="card-head"><p class="eyebrow">Insignias</p><span class="pill todo">${earned}/${bs.length}</span></div>
-        <ul class="badge-grid">${bs.map((b) => `<li class="${b.done ? 'done' : ''}" title="${esc(b.text)}"><i>${b.done ? '✔' : ''}</i><b>${esc(b.name)}</b><small>${b.done ? esc(b.text) : `${Math.min(b.have, b.need)}/${b.need} · ${esc(b.text)}`}</small></li>`).join('')}</ul>
+        <p class="muted fine">Los logros verificados por el servidor están en <button class="link-btn" data-go="progress">Progresión</button>.</p><ul class="badge-grid">${bs.map((b) => `<li class="${b.done ? 'done' : ''}" title="${esc(b.text)}"><i>${b.done ? '✔' : ''}</i><b>${esc(b.name)}</b><small>${b.done ? esc(b.text) : `${Math.min(b.have, b.need)}/${b.need} · ${esc(b.text)}`}</small></li>`).join('')}</ul>
       </section>
 
       <section class="lb-card pf-account">
@@ -193,7 +190,6 @@ export function initProfile() {
     deferred = null;
     $('#installBtn').hidden = true;
   });
-  void SEASON;
 }
 
 // Compatibilidad: otras pantallas llaman a openProfile().

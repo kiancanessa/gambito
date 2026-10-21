@@ -51,13 +51,13 @@
       <button class="nav-link" data-go="academy" data-nav="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span>Academia</span></button>
       <button class="nav-link" data-go="circuit" data-nav="circuit" data-flag="circuit"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span>Circuit</span></button>
       <button class="nav-link" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Clasificación</span></button>
-      <button class="nav-link" data-go="missions" data-nav="rewards"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span>Misiones</span></button>
+      <button class="nav-link" data-go="progress" data-nav="rewards"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span>Progreso</span></button>
       <button class="nav-link" data-go="social" data-nav="friends" data-flag="social"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span>Amigos</span></button>
     </nav>
     <div class="chips">
       <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><i class="lg" id="profileGlyph">♟</i><b id="profileName">Jugador</b></button>
       <span class="chip level" title="Nivel de jugador"><em>NV</em><b id="hudLevel">1</b><span class="xpbar"><i id="hudXp"></i></span></span>
-      <span class="chip streak" title="Racha diaria">🔥 <b id="hudStreak">0</b></span>
+      <span class="chip streak" title="Recompensas diarias reclamadas">🔥 <b id="hudStreak">0</b></span>
       <span class="chip coins" id="coinChip" title="Oros"><i class="coin"></i> <b id="hudCoins">0</b></span>
       <button class="icon-btn" id="muteBtn" aria-label="Sonido" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sound"/></svg></button>
       <button class="icon-btn" data-go="settings" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
@@ -79,8 +79,7 @@
             <button class="tile" data-go="online"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sword"/></svg><span><b>Online</b><small>Clasificatoria y amigos</small></span></button>
             <button class="tile" data-go="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-puzzle"/></svg><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span></button>
             <button class="tile" data-go="quick"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span><b>Contra la IA</b><small>Práctica sin presión</small></span></button>
-            <button class="tile" data-go="missions"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span><b>Misiones</b><small>Recompensas diarias</small></span><span class="dot-badge" id="missionsDot" hidden>!</span></button>
-            <button class="tile" data-go="season"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg><span><b>Temporada</b><small>Pase de recompensas</small></span><span class="dot-badge" id="seasonDot" hidden>!</span></button>
+            <button class="tile" data-go="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span><b>Progresión</b><small>Nivel, misiones y temporada</small></span><span class="dot-badge" id="progressDot" hidden>!</span></button>
             <button class="tile" data-go="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span><b>Personalizar</b><small>Piezas, tableros y efectos</small></span></button>
             <button class="tile" data-go="history"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg><span><b>Historial</b><small>Repeticiones de tus partidas</small></span></button>
           </div>
@@ -183,22 +182,13 @@
       </div>
     </section>
 
-    <!-- MISIONES -->
-    <section class="screen" id="screen-missions" hidden>
+    <!-- PROGRESIÓN -->
+    <section class="screen" id="screen-progress" hidden>
       <div class="screen-head">
-        <h2>Misiones y recompensas</h2>
-        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions" class="on">Misiones</button><button data-go="season">Temporada</button><button data-go="shop">Personalizar</button></div>
+        <h2>Progresión</h2>
+        <div class="seg subnav" aria-label="Progresión y recompensas"><button data-go="progress" class="on">Progreso</button><button data-go="shop">Personalizar</button></div>
       </div>
-      <div class="missions-wrap" id="missionsBody"></div>
-    </section>
-
-    <!-- TEMPORADA -->
-    <section class="screen" id="screen-season" hidden>
-      <div class="screen-head">
-        <h2>Misiones y recompensas</h2>
-        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions">Misiones</button><button data-go="season" class="on">Temporada</button><button data-go="shop">Personalizar</button></div>
-      </div>
-      <div id="seasonBody"></div>
+      <div class="pg-body" id="progressBody"></div>
     </section>
 
     <!-- PARTIDA RÁPIDA -->
@@ -367,7 +357,7 @@
     <section class="screen" id="screen-shop" hidden>
       <div class="screen-head">
         <h2>Personalización</h2>
-        <div class="seg subnav" aria-label="Misiones y recompensas"><button data-go="missions">Misiones</button><button data-go="season">Temporada</button><button data-go="shop" class="on">Personalizar</button></div>
+        <div class="seg subnav" aria-label="Progresión y recompensas"><button data-go="progress">Progreso</button><button data-go="shop" class="on">Personalizar</button></div>
         <span class="chip coins big"><i class="coin"></i> <b id="shopCoins">0</b></span>
       </div>
       <div class="seg shop-tabs" id="shopTabs">

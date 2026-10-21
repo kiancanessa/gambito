@@ -1,8 +1,6 @@
 // Desafío diario: el mismo mate en 2-3 para todo el mundo, con ranking por tiempo y racha.
 import { sfx } from './fx.js';
-import { track } from './missions.js';
 import { api, ensureOnline, net } from './net.js';
-import { addSeasonXp } from './season.js';
 import { startSession } from './session.js';
 import { shareText } from './share.js';
 import { addCoins, save, state } from './store.js';
@@ -120,10 +118,8 @@ async function onFinish(summary) {
     dp.best = Math.max(dp.best, dp.streak);
     dp.lastDay = d.day;
     state.stats.dailySolved += 1;
-    reward = 60 + Math.min(40, dp.streak * 5);
+    reward = 60; // fija: la racha es solo un dato; faltar un día no cambia lo que ganas
     addCoins(reward, { source: 'puzzle', key: `daily:${d.day}` });
-    addSeasonXp(80);
-    track('daily');
     save();
     celebrate();
   }

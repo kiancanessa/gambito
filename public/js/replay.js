@@ -1,6 +1,7 @@
 // Repeticiones (Fase 3, flag `replays`): historial de tus partidas y visor sobre la misma escena 3D de las partidas.
 import { TIME_CONTROLS, leagueOf } from './data.js';
 import { api } from './net.js';
+import { reportReview } from './progress.js';
 import { setBanner, startSession } from './session.js';
 import { shareGame } from './share.js';
 import { $, app, esc, toast } from './ui.js';
@@ -58,6 +59,11 @@ function seek(n, { animate = false } = {}) {
   else rp.game.loadMoves(rp.moves.slice(0, target));
   rp.i = target;
   paint();
+  // Llegar a la última jugada de una partida propia cuenta como revisarla (el servidor lo valida y lo da una sola vez).
+  if (target === total && total > 0 && !rp.reported) {
+    rp.reported = true;
+    reportReview(rp.data.id, total);
+  }
 }
 
 function play() {

@@ -118,22 +118,23 @@ describe('recompensas', () => {
 
   test('el XP sube de nivel y el gasto de pistas no deja saldo negativo', async () => {
     const g = await guest('Nivelador');
+    // La práctica local (IA, Academia) no se puede verificar: da poca XP por evento (60) y con tope diario (300).
     let r = await ops(g, [{ oid: 'xp', t: 'earn', source: 'game', coins: 0, xp: 250 }]);
-    assert.equal(r.wallet.level, 2); // 100 para nivel 2, el resto sobra
-    assert.equal(r.wallet.xp, 150);
+    assert.equal(r.wallet.xp, 60, 'el servidor recorta la XP de práctica a 60 por evento');
+    r = await ops(g, Array.from({ length: 6 }, (_, i) => ({ oid: `xp${i}`, t: 'earn', source: 'game', coins: 0, xp: 60 })));
+    assert.deepEqual(r.results.map((x) => x.reason ?? 'ok'), ['ok', 'ok', 'ok', 'ok', 'cap', 'cap'], 'a partir de 300 XP al día, nada más');
+    assert.equal(r.wallet.level, 3); // 60 + 240 = 300 XP: 100 para el nivel 2, 160 para el 3 → nivel 3
     r = await ops(g, [{ oid: 's1', t: 'spend', source: 'hint', amount: 10 }, { oid: 's2', t: 'spend', source: 'hint', amount: 500 }, { oid: 's3', t: 'spend', source: 'otro', amount: 1 }]);
     assert.deepEqual(r.results.map((x) => x.reason ?? 'ok'), ['ok', 'ok', 'invalid']);
     assert.ok(r.wallet.coins >= 0);
   });
 
-  test('temporada: el servidor decide el premio por nivel, una sola vez', async () => {
+  test('el antiguo cobro de temporada por el monedero ya no existe (se reclama en /api/progress/claim)', async () => {
     const g = await guest('Temporada');
-    let r = await ops(g, [{ oid: 'a', t: 'earn', source: 'season', key: 'season:1:5', coins: 99_999 }]);
-    assert.ok(r.wallet.owned.includes('board:forest'), 'nivel 5 da el tablero Bosque');
-    assert.equal(r.wallet.coins, 100, 'no suma oros que no le tocan');
-    r = await ops(g, [{ oid: 'b', t: 'earn', source: 'season', key: 'season:1:10', coins: 1 }, { oid: 'c', t: 'earn', source: 'season', key: 'season:1:10' }, { oid: 'd', t: 'earn', source: 'season', key: 'season:1:31' }]);
-    assert.equal(r.wallet.coins, 250);
-    assert.deepEqual(r.results.map((x) => x.reason ?? 'ok'), ['ok', 'dup', 'invalid']);
+    const r = await ops(g, [{ oid: 'a', t: 'earn', source: 'season', key: 'season:1:5', coins: 99_999 }]);
+    assert.equal(r.results[0].reason, 'moved');
+    assert.ok(!r.wallet.owned.includes('board:forest'));
+    assert.equal(r.wallet.coins, 100);
   });
 
   test('desafío diario: solo se paga si el servidor tiene la solución', async () => {
@@ -144,16 +145,16 @@ describe('recompensas', () => {
     await fetch(`${base}/api/daily/submit`, { method: 'POST', headers: authed(g), body: JSON.stringify({ moves: ['a1a8'], seconds: 12, attempts: 1 }) });
     r = await ops(g, [{ oid: 'p2', t: 'earn', source: 'puzzle', key: `daily:${day}`, coins: 70 }, { oid: 'p3', t: 'earn', source: 'puzzle', key: `daily:${day}`, coins: 70 }]);
     assert.deepEqual(r.results.map((x) => x.reason ?? 'ok'), ['ok', 'dup']);
-    assert.equal(r.wallet.coins, 170);
+    assert.equal(r.wallet.coins, 190, '100 + 70 del desafío + 20 del logro «Táctico», concedido por el servidor');
   });
 
   test('reiniciar progreso devuelve la cartera inicial y permite volver a ganar', async () => {
     const g = await guest('Reinicio');
-    await ops(g, [{ oid: 'a', t: 'earn', source: 'season', key: 'season:1:3' }]);
+    await ops(g, [{ oid: 'a', t: 'earn', source: 'tutorial', key: 'tutorial', coins: 100 }]);
     let r = await ops(g, [{ oid: 'r', t: 'reset' }]);
     assert.equal(r.wallet.coins, 100);
-    r = await ops(g, [{ oid: 'b', t: 'earn', source: 'season', key: 'season:1:3' }]);
-    assert.equal(r.wallet.coins, 160);
+    r = await ops(g, [{ oid: 'b', t: 'earn', source: 'tutorial', key: 'tutorial', coins: 100 }]);
+    assert.equal(r.wallet.coins, 200);
   });
 
   test('operaciones mal formadas no rompen nada', async () => {

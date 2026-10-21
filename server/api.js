@@ -4,12 +4,13 @@ import { timingSafeEqual } from 'node:crypto';
 import { LIMITS, SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 import { createWallets } from './wallet.js';
+import { progressMessage } from './progression.js';
+import { seasonAt, SEASONS } from '../public/js/progression-data.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, circuit, social, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, social, wallets = createWallets(db), progression, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
-  const wallets = createWallets(db);
 
   // Limitador sencillo en memoria: `max` peticiones por `windowMs` y clave.
   function limited(key, max, windowMs) {
@@ -163,6 +164,13 @@ export function createApi({ db, rooms, matchmaker, circuit, social, metrics = nu
         return detail ? send(res, 200, detail) : send(res, 404, { error: 'Torneo no encontrado' });
       }
 
+      // Clasificación de una temporada (pública, solo lectura). Sin `season`, la actual (o la última que terminó).
+      if (pathname === '/api/season/leaderboard' && method === 'GET') {
+        const wanted = Number(url.searchParams.get('season'));
+        const season = SEASONS.find((x) => x.id === wanted) ?? seasonAt(Date.now()) ?? SEASONS.filter((x) => Date.parse(`${x.endsAt}T23:59:59Z`) < Date.now()).at(-1) ?? SEASONS[0];
+        return send(res, 200, progression.leaderboard(season.id, authUser(req)?.id ?? null));
+      }
+
       if (pathname === '/api/live' && method === 'GET') return send(res, 200, { games: rooms.liveGames(6) });
 
       if (pathname === '/api/leaderboard' && method === 'GET') {
@@ -208,6 +216,25 @@ export function createApi({ db, rooms, matchmaker, circuit, social, metrics = nu
         const updatedAt = Date.now();
         db.putSave(user.id, json, updatedAt);
         return send(res, 200, { updatedAt });
+      }
+
+      // ----- Progresión: la ve y la concede el servidor; el cliente solo pide ver, reclamar o registrar una revisión -----
+      if (pathname === '/api/progress' && method === 'GET') return send(res, 200, progression.summary(user.id));
+
+      if (pathname === '/api/progress/claim' && method === 'POST') {
+        if (limited(`claim:${user.id}`, 40, 60_000)) return send(res, 429, { error: 'Demasiadas reclamaciones seguidas' });
+        const body = await readJson(req, 2048);
+        const out = body.kind === 'mission' ? progression.claimMission(user.id, { kind: body.slot, id: body.id, period: body.period }) : body.kind === 'season' ? progression.claimSeason(user.id, body) : { ok: false, reason: 'invalid' };
+        metrics?.inc('progress_claims_total', { kind: String(body.kind).slice(0, 12), result: out.ok ? 'ok' : out.reason });
+        if (!out.ok) return send(res, out.reason === 'invalid' || out.reason === 'unknown' ? 400 : 409, { ok: false, reason: out.reason, error: progressMessage(out.reason) });
+        return send(res, 200, { ok: true, reward: { coins: out.coins, xp: out.xp, item: out.item }, summary: progression.summary(user.id) });
+      }
+
+      if (pathname === '/api/progress/review' && method === 'POST') {
+        if (limited(`review:${user.id}`, 30, 60_000)) return send(res, 429, { error: 'Demasiadas revisiones seguidas' });
+        const body = await readJson(req, 1024);
+        const out = progression.recordReview(user.id, body.gameId, body.ply);
+        return send(res, out.ok || out.reason === 'dup' ? 200 : 400, out.ok ? { ok: true, xp: out.xp } : { ok: false, reason: out.reason, error: progressMessage(out.reason) });
       }
 
       if (pathname === '/api/circuit/me' && method === 'GET') return send(res, 200, { results: db.circuitResultsOf(user.id, 20) });
@@ -319,6 +346,7 @@ export function createApi({ db, rooms, matchmaker, circuit, social, metrics = nu
         const puzzle = puzzleFor(day, puzzles);
         if (!verifySolution(puzzle, body.moves)) return send(res, 400, { error: 'La solución no es un mate válido' });
         db.dailySubmit(day, user.id, clamp(body.seconds, 2, 3600), clamp(body.attempts, 1, 99));
+        progression.recordPuzzle(user.id, day); // XP verificada: el servidor comprobó el mate (una vez por día)
         return send(res, 200, dailyPayload(day, user));
       }
 

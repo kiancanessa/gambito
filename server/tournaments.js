@@ -77,8 +77,9 @@ export class CircuitManager {
    * @param {ReturnType<import('./db.js').openDb>} o.db
    * @param {object} [o.options]  sobrescribe `CIRCUIT` (pruebas)
    */
-  constructor({ rooms, db, options = {}, metrics = { inc() {} } }) {
+  constructor({ rooms, db, options = {}, metrics = { inc() {} }, progression = null }) {
     this.rooms = rooms;
+    this.progression = progression;
     this.metrics = metrics;
     this.db = db;
     this.store = db.circuit;
@@ -156,6 +157,15 @@ export class CircuitManager {
     timer.unref?.();
     this.timers.add(timer);
     return timer;
+  }
+
+  // La progresión nunca debe romper un torneo.
+  safe(fn) {
+    try {
+      fn();
+    } catch (err) {
+      console.error('[circuit] progresión', err);
+    }
   }
 
   entry(t, id) {
@@ -354,6 +364,7 @@ export class CircuitManager {
     });
     if (!res.ok) return;
     this.metrics.inc('circuit_started_total');
+    this.safe(() => this.progression?.recordCircuitJoin(present.map((e) => e.id), t.id));
     for (const e of absent) e.status = 'absent';
     present.forEach((e, i) => {
       e.status = 'active';
@@ -497,6 +508,7 @@ export class CircuitManager {
     }
     if (!res.ok) return;
     this.metrics.inc('circuit_finished_total');
+    this.safe(() => this.progression?.recordCircuitResults(results.map((r) => ({ userId: r.userId, placement: r.placement, xp: r.xp ?? 0 })), t.id));
     champion.status = 'champion';
     t.status = 'finished';
     t.finishedAt = now;

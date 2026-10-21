@@ -4,16 +4,15 @@
 // misiones, amigos, ranking, partidas en vivo e historial. Todo sale de datos reales (net, store, API); donde no hay nada
 // (sin torneos, sin amigos, sin partidas) se muestra un estado vacío, y mientras carga o falla, un esqueleto o un aviso.
 import { academyContinue, academyNext, academyPips } from './academy.js';
-import { GLYPH, LEAGUES, QUICK_LEVELS, SEASON, TIME_CONTROLS, XP_PER_LEVEL, leagueOf } from './data.js';
+import { GLYPH, LEAGUES, QUICK_LEVELS, TIME_CONTROLS, XP_PER_LEVEL, leagueOf } from './data.js';
 import { arenaMode, readCapabilities } from './arena-caps.js';
 import { webglSupported } from './board3d.js';
 import { circuitClock, circuitHud, circuitList, onCircuit, openCircuit, refreshCircuitPublic, watchCircuitList } from './circuit.js';
 import { flags } from './flags.js';
-import { missionsSummary } from './missions.js';
+import { dailyBrief, onProgress, progressData, seasonBrief } from './progress.js';
 import { api, bootstrap, ensureOnline, net, onNet, refreshUser } from './net.js';
 import { cancelQueue, createRoom, getTc, joinRoom, onQueueChange, queueInfo, setTc, startQueue } from './online.js';
 import { historyHtml, openReplay, tcName } from './replay.js';
-import { seasonLevel, seasonSummary } from './season.js';
 import { challengeFriend, onSocial, refreshSocial, socialData } from './social.js';
 import { state } from './store.js';
 import { $, app, avatar, esc, fmtCountdown, fmtDuration, onScreen, showScreen, toast, VS } from './ui.js';
@@ -199,13 +198,13 @@ function renderProfile() {
       : `<div class="hud-alert" role="alert"><span>Sin conexión con el servidor: tu rating y las partidas online no están disponibles.</span><button class="btn" data-lb="retry">Reintentar</button></div>`}
     <div class="meter"><div class="meter-head"><span>Nivel ${state.level}</span><small>${state.xp}/${need} XP</small></div>
       <div class="xpline" role="progressbar" aria-label="Experiencia" aria-valuenow="${state.xp}" aria-valuemin="0" aria-valuemax="${need}"><i style="width:${Math.min(100, (state.xp / need) * 100)}%"></i></div>
-      <small class="meter-foot">Temporada: nivel ${seasonLevel()}/${SEASON.levels}</small></div>
-    <ul class="lb-chips"><li><b>${state.daily.streak}</b><small>racha</small></li><li><b>${state.coins}</b><small>oros</small></li>${u ? `<li><b>${u.wins}-${u.losses}</b><small>V-D</small></li>` : ''}${pos}</ul>
+      <small class="meter-foot">${seasonBrief() ? `Temporada: nivel ${seasonBrief().level}/${seasonBrief().levels}` : 'Nivel de cuenta · independiente del rating'}</small></div>
+    <ul class="lb-chips"><li><b>${state.daily.streak}</b><small>días</small></li><li><b>${state.coins}</b><small>oros</small></li>${u ? `<li><b>${u.wins}-${u.losses}</b><small>V-D</small></li>` : ''}${pos}</ul>
     <nav class="hud-links" aria-label="Accesos">
       <button class="btn" data-go="profile">${ICON.user}Perfil</button>
       <button class="btn" data-go="ranking">${ICON.bars}Clasificación</button>
       <button class="btn" data-go="shop">${ICON.palette}Personalizar</button>
-      <button class="btn" data-go="missions">${ICON.target}Misiones</button>
+      <button class="btn" data-go="progress">${ICON.target}Progreso</button>
     </nav>`;
   if (lb.league !== lg.id) {
     lb.league = lg.id;
@@ -352,8 +351,7 @@ function renderCircuit() {
 function renderEvents() {
   const d = lb.data.daily;
   const pub = circuitList();
-  const season = seasonSummary();
-  const daysLeft = Math.max(0, Math.ceil((new Date(`${SEASON.endsAt}T23:59:59`).getTime() - Date.now()) / 86_400_000));
+  const season = seasonBrief();
   const rows = [];
   if (flags.circuit && pub) {
     for (const t of pub.tournaments.slice(0, 3)) {
@@ -367,29 +365,37 @@ function renderEvents() {
   if (online() && d) {
     rows.push([d.mine ? 'done' : 'today', 'HOY', `Desafío diario #${d.number} · mate en ${d.mateIn}`, `${d.mine ? `Resuelto en ${fmtDuration(d.mine.seconds)} · puesto #${d.mine.rank}` : `${d.solvedCount} lo resolvieron`} · cierra en ${fmtCountdown(d.nextResetAt - Date.now())}`, `<button class="btn ${d.mine ? '' : 'primary'}" data-go="daily">${d.mine ? 'Ranking' : 'Resolver'}</button>`]);
   }
-  rows.push(['next', 'PRÓXIMO', season.name, daysLeft ? `La temporada termina en ${daysLeft} día${daysLeft > 1 ? 's' : ''} · nivel ${season.level}/${season.levels}` : 'La temporada ha terminado', '<button class="btn" data-go="season">Ver pase</button>']);
+  if (season) rows.push(['next', 'TEMPORADA', season.name, `Nivel ${season.level}/${season.levels}${season.claimable ? ` · ${season.claimable} premio${season.claimable > 1 ? 's' : ''} por reclamar` : ''}`, '<button class="btn" data-go="progress">Ver pase</button>']);
   const body = loadingData() && !pub ? skeleton(3) : `<ul class="ev-list">${rows.map(([kind, tag, title, sub, action]) => `<li class="${kind}"><span class="ev-tag">${tag}</span><span class="ev-main"><b>${title}</b><small>${sub}</small></span>${action}</li>`).join('')}</ul>`;
   $('#lbEvents').innerHTML = `<div class="card-head"><p class="eyebrow">Torneos y eventos</p></div>${body}`;
 }
 
 // ---------- Misiones y progreso ----------
 function renderMissions() {
-  const { daily } = missionsSummary();
-  const ready = daily.filter((m) => m.ready).length;
+  const daily = dailyBrief();
+  if (!daily) {
+    $('#lbMissions').innerHTML = `<div class="card-head"><p class="eyebrow">Misiones de hoy</p></div>${connecting() || loadingData() ? skeleton(2) : empty('target', 'Misiones no disponibles', 'Las misiones las valida el servidor: conéctate para verlas.')}<button class="btn" data-go="progress">Progreso</button>`;
+    return;
+  }
+  const ready = daily.filter((m) => m.state === 'completed').length;
   $('#lbMissions').innerHTML = `
     <div class="card-head"><p class="eyebrow">Misiones de hoy</p>${ready ? `<span class="pill todo">${ready} para reclamar</span>` : ''}</div>
-    <ul class="lb-missions">${daily.map((m) => `<li class="${m.claimed ? 'claimed' : m.ready ? 'ready' : ''}"><span>${esc(m.text)}</span><small>${m.claimed ? '✓' : `${m.progress}/${m.target}`}</small><div class="m-bar"><i style="width:${Math.min(100, (m.progress / m.target) * 100)}%"></i></div></li>`).join('')}</ul>
-    <button class="btn ${ready ? 'primary' : ''}" data-go="missions">${ready ? 'Reclamar premios' : 'Ver misiones'}</button>`;
+    <ul class="lb-missions">${daily.map((m) => `<li class="${m.state === 'claimed' ? 'claimed' : m.state === 'completed' ? 'ready' : ''}"><span>${esc(m.text)}</span><small>${m.state === 'claimed' ? '✓' : `${m.progress}/${m.target}`}</small><div class="m-bar"><i style="width:${Math.min(100, (m.progress / m.target) * 100)}%"></i></div></li>`).join('')}</ul>
+    <button class="btn ${ready ? 'primary' : ''}" data-go="progress">${ready ? 'Reclamar premios' : 'Ver misiones'}</button>`;
 }
 
 function renderSeason() {
-  const s = seasonSummary();
+  const s = seasonBrief();
+  if (!s) {
+    $('#lbSeason').innerHTML = `<div class="card-head"><p class="eyebrow">Pase de temporada</p></div><p class="muted">${progressData() ? 'No hay temporada activa ahora mismo.' : 'Conéctate para ver el pase de temporada.'}</p><button class="btn" data-go="progress">Progreso</button>`;
+    return;
+  }
   $('#lbSeason').innerHTML = `
-    <div class="card-head"><p class="eyebrow">Pase de temporada</p>${s.claimable ? `<span class="pill todo">${s.claimable} premio${s.claimable > 1 ? 's' : ''}</span>` : ''}</div>
+    <div class="card-head"><p class="eyebrow">${esc(s.name)}</p>${s.claimable ? `<span class="pill todo">${s.claimable} premio${s.claimable > 1 ? 's' : ''}</span>` : ''}</div>
     <div class="season-line"><b>Nivel ${s.level}</b><small>/ ${s.levels}</small></div>
     <div class="xpline"><i style="width:${s.maxed ? 100 : (s.into / s.per) * 100}%"></i></div>
     <p class="muted">${s.maxed ? '¡Pase completado!' : `${s.into}/${s.per} XP · siguiente: ${esc(s.nextReward)}`}</p>
-    <button class="btn ${s.claimable ? 'primary' : ''}" data-go="season">${s.claimable ? 'Reclamar' : 'Ver pase'}</button>`;
+    <button class="btn ${s.claimable ? 'primary' : ''}" data-go="progress">${s.claimable ? 'Reclamar' : 'Ver pase'}</button>`;
 }
 
 // ---------- Amigos ----------
@@ -523,6 +529,12 @@ export function initLobby() {
   onScreen(onLeaveLobby);
   onQueueChange(() => renderPlayOnly());
   if (flags.social) onSocial(() => app.screen === 'lobby' && renderSocial());
+  onProgress(() => {
+    if (app.screen !== 'lobby') return;
+    renderMissions();
+    renderSeason();
+    renderEvents();
+  });
   onCircuit(() => {
     if (app.screen !== 'lobby') return;
     renderCircuit();

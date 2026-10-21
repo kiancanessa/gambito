@@ -12,7 +12,7 @@ const SECTION = {
   academy: 'academy',
   circuit: 'circuit',
   ranking: 'ranking',
-  missions: 'rewards', season: 'rewards', shop: 'rewards',
+  progress: 'rewards', shop: 'rewards',
   social: 'friends',
   profile: 'me', history: 'me', settings: 'me',
 };

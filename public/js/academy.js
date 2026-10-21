@@ -5,7 +5,6 @@ import { LESSONS, ORDER, STAGES, TRIALS_STAGE, judge, normSan } from './academy-
 import { CAMPAIGN, GLYPH, QUICK_LEVELS } from './data.js';
 import { feedback } from './feedback.js';
 import { sfx } from './fx.js';
-import { addSeasonXp } from './season.js';
 import { setBanner, startSession } from './session.js';
 import { addCoins, addXp, save, state } from './store.js';
 import { $, app, celebrate, choice, esc, showScreen, toast, VS } from './ui.js';
@@ -306,7 +305,6 @@ async function completeLesson(lesson, ctx) {
   if (coins) {
     addCoins(coins, { source: 'game' });
     addXp(30, { source: 'game' });
-    addSeasonXp(25);
   }
   let bonus = 0;
   if (!wasDone && stageDone(stage)) {

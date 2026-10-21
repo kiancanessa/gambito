@@ -12,6 +12,8 @@ import { createStatic } from './static.js';
 import { attachWs } from './ws.js';
 import { CIRCUIT, CircuitManager } from './tournaments.js';
 import { createSocial } from './social.js';
+import { createProgression } from './progression.js';
+import { createWallets } from './wallet.js';
 import { createMetrics } from './metrics.js';
 
 function circuitEnvOptions() {
@@ -58,8 +60,11 @@ export async function startServer({
   const matchmaker = new Matchmaker(rooms, {
     canMatch: (a, b, wa, wb) => !social.isBlocked(a.id, b.id) && !(process.env.BLOCK_SAME_IP_RANKED === '1' && wa?.ip && wa.ip === wb?.ip),
   });
-  const circuit = new CircuitManager({ rooms, db, options: circuitOptions, metrics });
   let ws = null;
+  const wallets = createWallets(db);
+  const progression = createProgression({ db, wallets, notify: (id, msg) => ws?.notify(id, msg) });
+  rooms.onGameSaved = (room) => progression.recordGame(room);
+  const circuit = new CircuitManager({ rooms, db, options: circuitOptions, metrics, progression });
   const api = createApi({
     db,
     rooms,
@@ -67,6 +72,8 @@ export async function startServer({
     circuit,
     social,
     metrics,
+    wallets,
+    progression,
     presence: (ids) => ws?.presence(ids) ?? {},
     notify: (id, msg) => ws?.notify(id, msg),
     onlineCount: () => ws?.count() ?? 0,

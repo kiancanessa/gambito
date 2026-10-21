@@ -449,17 +449,20 @@ describe('partida completa con jugadores reales y tiempo real', { timeout: 240_0
     assert.equal(mine[0].placement, 'champion');
     assert.deepEqual({ coins: mine[0].coins, item: mine[0].item }, { coins: CIRCUIT.prizes.champion.coins, item: 'set:royal' });
     const claim = (who, oid) => fetch(`${app.base}/api/wallet/ops`, { method: 'POST', headers: auth(who), body: JSON.stringify({ ops: [{ oid, t: 'earn', source: 'circuit', key: `circuit:${mine[0].id}` }] }) }).then((r) => r.json());
+    // además del premio, el servidor ha concedido por su cuenta los logros del torneo: se mide solo lo que paga el premio
+    const coinsBefore = (await getJson(app, g, '/api/wallet')).wallet.coins;
     const first = await claim(g, 'c1');
     assert.equal(first.results[0].ok, true);
-    assert.equal(first.wallet.coins, 100 + mine[0].coins);
+    assert.equal(first.wallet.coins - coinsBefore, mine[0].coins);
     assert.ok(first.wallet.owned.includes('set:royal'));
     assert.equal((await claim(g, 'c2')).results[0].reason, 'dup');
     assert.equal((await claim(watcherGuest, 'x')).results[0].reason, 'unverified', 'quien no jugó el torneo no cobra nada');
     // cada participante cobra solo lo suyo: el perdedor de cuartos recibe el premio de cuartos, no el del campeón
     const loser = gs.find((x) => x.user.id !== row.champion_id && row.entries.find((e) => e.user_id === x.user.id).placement === 'quarter');
+    const loserBefore = (await getJson(app, loser, '/api/wallet')).wallet.coins;
     const own = await claim(loser, 'y');
     assert.equal(own.results[0].ok, true);
-    assert.equal(own.wallet.coins, 100 + CIRCUIT.prizes.quarter.coins);
+    assert.equal(own.wallet.coins - loserBefore, CIRCUIT.prizes.quarter.coins);
     assert.ok(!own.wallet.owned.includes('set:royal'));
 
     for (const p of [...ps, watcher]) p.ws.close();

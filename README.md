@@ -18,7 +18,7 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Online** | Partida por enlace (`/g/CODIGO`), emparejamiento clasificatorio con Elo y ligas (Peón → Rey), relojes, tablas, revancha, espectadores y emotes (sin chat libre). |
 | **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/Academia, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
-| **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
+| **Progresión** | Nivel de cuenta independiente del rating, XP por partidas completadas y retos (no solo por ganar), misiones diarias/semanales, 24 logros, temporadas con clasificación propia y pase gratuito de 30 niveles. Todo lo verifica y concede el servidor; sin rachas que se pierdan. Ver [docs/PROGRESION.md](docs/PROGRESION.md). |
 | **Royale Circuit** | Torneos eliminatorios programados por el servidor (Blitz de 8 y Rápida de 16, ampliable a 32/64): inscripción con plazo y cupo, cuadro con byes, relojes y resultados validados en el servidor, desempates explícitos, recuperación tras reinicios y pantalla en tiempo real. Sin bots. Ver [docs/CIRCUIT.md](docs/CIRCUIT.md). |
 | **Juego limpio y métricas** | Una clasificatoria no puntúa si repite pareja más de 3 veces en 24 h o termina demasiado pronto; alertas de ritmo sospechoso para revisión; métricas en el log y en `/api/metrics`. |
 | **Amigos** | Código de amigo, lista con presencia, retos e invitaciones a partida, bloqueos y reportes. Sin chat libre ni email (flag `social`). |
@@ -65,6 +65,8 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/ranking.js · js/history.js · js/settings.js   clasificaciones, historial y ajustes
   js/wallet.js       cartera verificada (cola de operaciones y espejo del servidor)
   js/lobby.js        lobby competitivo (agrega online, diario, misiones, temporada)
+  js/progress.js     página de progresión (nivel, misiones, temporada, logros, historial)
+  js/progression-data.js  temporadas, misiones, logros y desbloqueos (compartido con el servidor)
   js/net.js          API REST, sesión de invitado, nube y WebSocket
   js/daily.js        desafío diario    js/missions.js · js/season.js   progreso
   js/tutorial.js     tutorial          js/share.js   tarjeta y clip

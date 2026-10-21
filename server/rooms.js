@@ -311,6 +311,11 @@ export class Room {
     Object.values(this.dcTimers).forEach(clearTimeout);
     this.touched = Date.now();
     this.ratingDelta = this.m.onGameEnd(this);
+    try {
+      this.m.onGameSaved?.(this); // progresión: nunca debe impedir que la partida termine
+    } catch (err) {
+      console.error('[progression]', err);
+    }
     this.m.metrics.inc('games_total', { mode: this.circuit ? 'circuit' : this.rated ? 'ranked' : 'friend', result: winner ? 'decisive' : reason === 'abortada' ? 'aborted' : 'draw' });
     this.broadcast();
     this.onOver?.(this);
@@ -391,6 +396,7 @@ export class RoomManager {
     const { w, b } = room.players;
     if (!w || !b || room.uci.length === 0) return null;
     const gameId = crypto.randomUUID();
+    room.gameId = gameId; // la progresión (XP, misiones, temporada) se calcula a partir de esta partida guardada
     this.db.insertGame({
       id: gameId,
       code: room.code,

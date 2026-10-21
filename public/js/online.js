@@ -4,13 +4,11 @@ import { feedback } from './feedback.js';
 import { sfx } from './fx.js';
 import { buzz, prefs } from './prefs.js';
 import { announceRecords, recordsHtml, updateRecords } from './records.js';
-import { track } from './missions.js';
 import { flags } from './flags.js';
 import { api, ensureOnline, net, refreshUser, socket } from './net.js';
-import { addSeasonXp } from './season.js';
 import { startSession, setBanner } from './session.js';
 import { shareGame } from './share.js';
-import { addCoins, addXp, save, state } from './store.js';
+import { addCoins, save, state } from './store.js';
 import { $, $$, app, avatar, celebrate, choice, confirmModal, copyText, esc, fmtClock, showScreen, toast, VS, wait } from './ui.js';
 
 const on = {
@@ -414,20 +412,7 @@ async function finishOnline(summary) {
   st.promotions += summary.promotions;
   // Con el flag `wallet` el servidor calcula esta recompensa con la partida que vio; el cliente solo la anuncia.
   addCoins(total, { source: 'online', key: `game:${s.code}` });
-  const levelUps = addXp(Math.max(10, total));
-  if (minMoves) {
-    track('game');
-    track('online');
-    if (summary.result === 'win') {
-      track('win');
-      track('onlinewin');
-      if (summary.lost === 0) track('perfect');
-    }
-    track('check', summary.checks);
-    track('capture', summary.captures);
-    track('promote', summary.promotions);
-    addSeasonXp(Math.max(20, total));
-  }
+  // La XP, las misiones y la temporada de las partidas online las concede el servidor (aviso por WebSocket: ver progress.js).
   save();
   if (total) sfx.coin();
   if (summary.result === 'win') celebrate();
@@ -446,7 +431,7 @@ async function finishOnline(summary) {
     ${delta !== null ? `<p class="rating-line ${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)} pts · ${net.user.rating} · Liga ${lg.name}</p>` : ''}
     ${rows.length ? `<ul class="rewards">${rows.map((r, i) => `<li style="--i:${i}"><span>${r[0]}</span><b>+${r[1]} 🪙</b></li>`).join('')}<li class="total" style="--i:${rows.length}"><span>Total</span><b>+${total} 🪙</b></li></ul>` : '<p class="muted">Partida muy corta: sin recompensas (mínimo 6 jugadas).</p>'}
     ${recordsHtml(records)}
-    ${levelUps ? `<p class="levelup">⭐ ¡Subiste al nivel ${state.level}!</p>` : ''}
+    <p class="muted fine">La XP de la partida la concede el servidor: mira tu avance en Progresión.</p>
     <div class="modal-actions">
       <button class="btn primary" data-choice="rematch">Revancha</button>
       <button class="btn" data-choice="share">📤 Compartir</button>

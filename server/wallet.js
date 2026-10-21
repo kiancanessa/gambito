@@ -6,7 +6,7 @@
 // - Las recompensas que dependen de partidas contra la IA (que el servidor no ve) llevan topes por evento y por día:
 //   no se pueden probar, pero se acota lo que se podría falsear.
 import { Chess } from 'chess.js';
-import { DAILY_REWARDS, DEFAULT_OWNED, SEASON, SHOP, XP_PER_LEVEL } from '../public/js/data.js';
+import { DAILY_REWARDS, DEFAULT_OWNED, SHOP, XP_PER_LEVEL } from '../public/js/data.js';
 
 const KIND = { sets: 'set', boards: 'board', fx: 'fx' };
 const CATALOG = new Map();
@@ -24,9 +24,10 @@ const DAY_MS = 24 * 3600 * 1000;
 const MAX_OPS = 50;
 
 // Fuentes sin verificación posible: tope por evento y por ventana de 24 h.
+// Práctica local (IA, Academia): el servidor no la ve, así que da poca XP y con tope diario. La XP «de verdad» (partidas online,
+// desafío diario, torneos, misiones) la concede el servidor por su cuenta: ver progression.js.
 const CAPPED = {
-  game: { coins: 500, xp: 500, dayCoins: 3000, dayXp: 3000 }, // contra la IA, rápida y campaña
-  mission: { coins: 300, xp: 0, dayCoins: 1500, dayXp: 0 },
+  game: { coins: 500, xp: 60, dayCoins: 3000, dayXp: 300 },
   tutorial: { coins: 100, xp: 0, dayCoins: 100, dayXp: 0 },
   login: { coins: Math.max(...DAILY_REWARDS), xp: 0, dayCoins: 400, dayXp: 0 },
 };
@@ -104,7 +105,7 @@ export function createWallets(db) {
     const g = db.gameByCode(code, userId);
     if (!g || g.reason === 'abortada') return null;
     const moves = JSON.parse(g.moves);
-    if (moves.length < 6) return { coins: 0, xp: 10 };
+    if (moves.length < 6) return { coins: 0, xp: 0 };
     const mine = g.white_id === userId ? 'w' : 'b';
     const result = g.winner === mine ? 'win' : g.winner ? 'loss' : 'draw';
     let coins = Math.round({ win: 60, draw: 20, loss: 10 }[result] * (g.rated ? 1.5 : 1));
@@ -121,7 +122,7 @@ export function createWallets(db) {
       }
       coins += Math.min(25, checks * 5);
     }
-    return { coins, xp: Math.max(10, coins) };
+    return { coins, xp: 0 }; // la XP de las partidas online la concede el servidor (progression.js)
   }
 
   // Cada operación lleva `oid` (identificador único del cliente, para reintentos) y `t` (tipo).
@@ -143,14 +144,10 @@ export function createWallets(db) {
         const tid = key?.startsWith('circuit:') ? key.slice(8) : null;
         const prize = tid && db.tournamentResult(tid, userId);
         if (!prize) return { reason: 'unverified' };
-        return { ref: key, coins: prize.coins, xp: prize.xp, grant: prize.item };
+        return { ref: key, coins: prize.coins, xp: 0, grant: prize.item }; // la XP del torneo la concede el servidor al terminar
       }
-      case 'season': {
-        const level = Number(key?.startsWith(`season:${SEASON.id}:`) ? key.split(':')[2] : NaN);
-        if (!Number.isInteger(level) || level < 1 || level > SEASON.levels) return { reason: 'invalid' };
-        const r = SEASON.rewards[level] ?? SEASON.defaultReward;
-        return { ref: key, coins: r.coins ?? 0, xp: 0, grant: r.item ? `${r.item[0]}:${r.item[1]}` : null };
-      }
+      case 'season': // las recompensas de temporada se reclaman en /api/progress/claim (el servidor comprueba el nivel)
+        return { reason: 'moved' };
       default: {
         const cap = CAPPED[op.source];
         if (!cap) return { reason: 'unknown' };
@@ -235,5 +232,39 @@ export function createWallets(db) {
     return { wallet: view(q.get.get(userId)), results };
   }
 
-  return { ensure, apply };
+  // Concede monedas, XP y un objeto una sola vez por `ref` (el libro de cuentas lo impide), dentro de la transacción en curso.
+  // Si el jugador ya tiene el objeto, `fallbackCoins` lo compensa.
+  function grantInTx(userId, { ref, source, coins = 0, xp = 0, item = null, fallbackCoins = 0 }) {
+    if (q.ref.get(userId, ref)) return { ok: false, reason: 'dup' };
+    const w = ensure(userId);
+    const levelBefore = w.level;
+    let gained = coins;
+    let granted = null;
+    if (item && CATALOG.has(item)) {
+      if (w.owned.includes(item)) gained += fallbackCoins;
+      else {
+        w.owned.push(item);
+        granted = item;
+      }
+    }
+    w.coins = Math.min(MAX_COINS, w.coins + gained);
+    if (xp) Object.assign(w, levelFrom(w.xp + xp, w.level));
+    store(userId, w);
+    q.log.run(userId, ref, source, gained, xp, Date.now());
+    return { ok: true, level: w.level, levelBefore, coins: gained, xp, item: granted };
+  }
+
+  function grant(userId, g) {
+    raw.exec('BEGIN IMMEDIATE');
+    try {
+      const r = grantInTx(userId, g);
+      raw.exec('COMMIT');
+      return r;
+    } catch (err) {
+      raw.exec('ROLLBACK');
+      throw err;
+    }
+  }
+
+  return { ensure, apply, grant, grantInTx };
 }

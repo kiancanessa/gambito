@@ -157,6 +157,17 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            SELECT tournament_id, round, slot, a_id, b_id, status, winner_id, reason, draws, code, updated_at FROM old.circuit_matches WHERE tournament_id IN (SELECT id FROM circuit_take);
          DROP TABLE circuit_take;`
       : '';
+    // Progresión: eventos, reclamaciones y logros solo se añaden (claves únicas); la clasificación de temporada gana quien tenga más partidas.
+    const progress = ['progress_events', 'mission_claims', 'season_claims', 'achievements', 'season_stats'].every((x) => oldTables.has(x))
+      ? `INSERT OR IGNORE INTO progress_events (user_id, ref, kind, xp, season_id, at, meta)
+           SELECT user_id, ref, kind, xp, season_id, at, meta FROM old.progress_events WHERE user_id IN (SELECT id FROM main.users);
+         INSERT OR IGNORE INTO mission_claims SELECT * FROM old.mission_claims WHERE user_id IN (SELECT id FROM main.users);
+         INSERT OR IGNORE INTO season_claims SELECT * FROM old.season_claims WHERE user_id IN (SELECT id FROM main.users);
+         INSERT OR IGNORE INTO achievements SELECT * FROM old.achievements WHERE user_id IN (SELECT id FROM main.users);
+         INSERT OR REPLACE INTO season_stats SELECT o.* FROM old.season_stats o
+           WHERE o.user_id IN (SELECT id FROM main.users)
+             AND NOT EXISTS (SELECT 1 FROM main.season_stats m WHERE m.season_id = o.season_id AND m.user_id = o.user_id AND m.games >= o.games);`
+      : '';
     const social = ['friend_codes', 'friendships', 'blocks', 'reports'].every((t) => oldTables.has(t))
       ? `INSERT OR IGNORE INTO friend_codes SELECT * FROM old.friend_codes WHERE user_id IN (SELECT id FROM main.users);
          INSERT OR IGNORE INTO friendships SELECT * FROM old.friendships
@@ -185,6 +196,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       ${wallet}
       ${circuit}
       ${circuitState}
+      ${progress}
       ${social}
       ${fair}
       COMMIT;
