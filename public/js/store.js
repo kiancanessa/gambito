@@ -1,5 +1,5 @@
 // Estado persistente del jugador (localStorage con respaldo en memoria) + gancho para el guardado en la nube.
-import { DEFAULT_OWNED, DAILY_REWARDS, XP_PER_LEVEL } from './data.js';
+import { DEFAULT_EQUIPPED, DEFAULT_OWNED, DAILY_REWARDS, XP_PER_LEVEL } from './data.js';
 
 const KEY = 'gambito.save.v1';
 
@@ -8,12 +8,11 @@ const fresh = () => ({
   xp: 0,
   level: 1,
   owned: [...DEFAULT_OWNED],
-  equipped: { set: 'classic', board: 'wood', fx: 'sparks' },
+  equipped: { ...DEFAULT_EQUIPPED },
   campaign: { cleared: 0, stars: {}, seen: 0 }, // nodos superados, mejores estrellas por rival y último avance mostrado
   stats: { games: 0, wins: 0, losses: 0, draws: 0, checks: 0, captures: 0, promotions: 0, onlineGames: 0, onlineWins: 0, dailySolved: 0 },
   daily: { last: null, streak: 0 }, // recompensa de entrada diaria
   dailyPuzzle: { streak: 0, best: 0, lastDay: -1 }, // desafío diario (puzzle)
-  flair: { frame: null, title: null }, // marco de avatar y título elegidos (se desbloquean por nivel de cuenta)
   tutorialDone: false,
   academy: { ex: {}, lessons: {}, unlocked: 1 }, // ejercicios resueltos, estrellas por lección y etapas desbloqueadas (saltar nivel)
   records: { winStreak: 0, bestWinStreak: 0, peakRating: 0, fastestMate: 0, mostChecks: 0 }, // récords personales

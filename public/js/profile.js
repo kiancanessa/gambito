@@ -1,6 +1,7 @@
 // Perfil: identidad, liga, estadísticas, trofeos e insignias, y gestión de la cuenta (nombre, código de recuperación, sincronización).
 import { CAMPAIGN, GLYPH, LEAGUES, leagueOf } from './data.js';
 import { api, net, newRecoveryCode, onNet, recoverAccount, renameUser, syncDown, pushNow } from './net.js';
+import { decorClass, identityHtml, titleOf } from './cosmetics-art.js';
 import { state } from './store.js';
 import { $, app, copyText, esc, showScreen, toast, VS } from './ui.js';
 
@@ -57,16 +58,17 @@ function render(extra) {
   ];
   body.innerHTML = `
     <div class="profile-layout">
-      <section class="lb-card pf-hero">
-        <div class="pf-emblem" style="--c:${lg.color}"><span class="emblem big" style="--c:${lg.color}"><i>${GLYPH[lg.glyph]}${VS}</i></span></div>
+      <section class="lb-card pf-hero ${decorClass()}">
+        <div class="pf-emblem" style="--c:${lg.color}">${identityHtml(state.equipped, { size: 84, label: `Avatar de ${esc(u.name)}` })}<span class="emblem sm" style="--c:${lg.color}" title="Liga ${lg.name}"><i>${GLYPH[lg.glyph]}${VS}</i></span></div>
         <div class="pf-id">
           <p class="eyebrow">Liga ${lg.name}</p>
           <h3 class="pf-name">${esc(u.name)}</h3>
+          ${titleOf() ? `<p class="pf-title">${esc(titleOf())}</p>` : ''}
           <p class="pf-rating"><b>${u.rating}</b> pts${extra.rank && u.games > 0 ? ` · puesto <b>#${extra.rank}</b>` : ''}</p>
           <div class="lg-bar" role="progressbar" aria-valuenow="${Math.round(pr.pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pr.pct}%;color:${pr.next?.color ?? lg.color};background:currentColor"></i></div>
           <small>${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>
         </div>
-        <div class="pf-actions"><button class="btn" data-go="history">Historial</button><button class="btn" data-go="settings">Ajustes</button></div>
+        <div class="pf-actions"><button class="btn" data-go="shop">Personalizar</button><button class="btn" data-go="history">Historial</button><button class="btn" data-go="settings">Ajustes</button></div>
       </section>
 
       <section class="lb-card">
@@ -158,6 +160,18 @@ async function onAction(e) {
   return undefined;
 }
 
+// Pone al día el avatar de la barra superior cuando cambia el equipamiento.
+let idKey = '';
+export function refreshIdentity() {
+  const el = $('#profileGlyph');
+  if (!el) return;
+  const e = state.equipped;
+  const key = `${e.avatar}|${e.frame}`;
+  if (key === idKey) return;
+  idKey = key;
+  el.innerHTML = identityHtml(e, { size: 28, badge: false });
+}
+
 export function initProfile() {
   $('#profileChip').addEventListener('click', () => app.go('profile'));
   $('#profileBody').addEventListener('click', onAction);
@@ -169,8 +183,8 @@ export function initProfile() {
     chip.hidden = !net.user;
     if (net.user) {
       const lg = leagueOf(net.user.rating);
-      $('#profileGlyph').textContent = GLYPH[lg.glyph] + VS;
-      $('#profileGlyph').style.color = lg.color;
+      void lg;
+      $('#profileGlyph').innerHTML = identityHtml(state.equipped, { size: 28, badge: false });
       $('#profileName').textContent = net.user.name;
       if (app.screen === 'profile') render(current);
     }

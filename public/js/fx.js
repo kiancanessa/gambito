@@ -1,5 +1,5 @@
 // Sonidos sintetizados (WebAudio) y partículas visuales. Todo sin archivos externos.
-import { prefs } from './prefs.js';
+import { animScale, prefs } from './prefs.js';
 import { state } from './store.js';
 
 let ctx = null;
@@ -67,6 +67,10 @@ const FX = {
   confetti: { colors: ['#ff4081', '#40c4ff', '#ffd740', '#69f0ae', '#b388ff'], count: 20, dist: [30, 90], size: [5, 9], life: 900, shape: 'rect', gravity: 40 },
   embers: { colors: ['#ff5722', '#ff9800', '#ffccbc'], count: 16, dist: [10, 50], size: [3, 7], life: 1000, shape: 'circle', rise: -50 },
   frost: { colors: ['#e1f5fe', '#81d4fa', '#ffffff'], count: 16, dist: [20, 70], size: [3, 8], life: 800, shape: 'diamond' },
+  // Efectos de victoria (cosméticos): solo decoran, no cambian nada de la partida.
+  firework: { colors: ['#ffd24a', '#ff8a98', '#22e1ff', '#34e3a0', '#b9a1ff'], count: 34, dist: [80, 230], size: [4, 8], life: 1150, shape: 'circle', gravity: 60 },
+  laurel: { colors: ['#ffd24a', '#e8b923', '#9bd35a'], count: 24, dist: [20, 140], size: [9, 15], life: 2300, shape: 'leaf', gravity: 430 },
+  nova: { colors: ['#ffffff', '#22e1ff', '#b9a1ff'], count: 30, dist: [60, 260], size: [3, 7], life: 1000, shape: 'circle' },
 };
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -92,5 +96,44 @@ export function burst(layer, x, y, fxId = 'sparks', scale = 1) {
       { duration: fx.life * rand(0.8, 1.2), easing: 'cubic-bezier(.2,.7,.3,1)' },
     );
     anim.onfinish = () => el.remove();
+  }
+}
+
+// ---- Efectos de victoria ----
+// `layer` es el contenedor a pantalla completa (#celebrate). Todos respetan «animaciones: desactivadas».
+export function victoryFx(layer, id = 'confetti') {
+  if (!layer || animScale() <= 0) return;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const at = (fn, ms) => setTimeout(fn, ms);
+  switch (id) {
+    case 'fireworks':
+      for (let i = 0; i < 6; i += 1) at(() => burst(layer, w * rand(0.15, 0.85), h * rand(0.15, 0.5), 'firework', 1.6), i * 260);
+      break;
+    case 'laurel':
+      for (let i = 0; i < 4; i += 1) at(() => burst(layer, w * rand(0.1, 0.9), -10, 'laurel', 3.2), i * 300);
+      break;
+    case 'aurora': {
+      const veil = document.createElement('div');
+      veil.className = 'aurora-veil';
+      layer.appendChild(veil);
+      veil.animate([{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], { duration: 3200, easing: 'ease-in-out' }).onfinish = () => veil.remove();
+      burst(layer, w * 0.5, h * 0.35, 'frost', 2.4);
+      break;
+    }
+    case 'nova':
+      for (let i = 0; i < 3; i += 1) {
+        at(() => {
+          const ring = document.createElement('i');
+          ring.className = 'nova-ring';
+          ring.style.cssText = `left:${w / 2}px;top:${h * 0.38}px`;
+          layer.appendChild(ring);
+          ring.animate([{ transform: 'translate(-50%,-50%) scale(0.05)', opacity: 0.95 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 0 }], { duration: 1500, easing: 'cubic-bezier(.15,.7,.3,1)' }).onfinish = () => ring.remove();
+        }, i * 260);
+      }
+      at(() => burst(layer, w * 0.5, h * 0.38, 'nova', 2.6), 120);
+      break;
+    default:
+      [0.2, 0.5, 0.8].forEach((fx, i) => at(() => burst(layer, w * fx, h * 0.35, 'confetti', 2.6), i * 220));
   }
 }

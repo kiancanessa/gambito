@@ -55,7 +55,7 @@
       <button class="nav-link" data-go="social" data-nav="friends" data-flag="social"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span>Amigos</span></button>
     </nav>
     <div class="chips">
-      <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><i class="lg" id="profileGlyph">♟</i><b id="profileName">Jugador</b></button>
+      <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><span class="chip-idn" id="profileGlyph"></span><b id="profileName">Jugador</b></button>
       <span class="chip level" title="Nivel de jugador"><em>NV</em><b id="hudLevel">1</b><span class="xpbar"><i id="hudXp"></i></span></span>
       <span class="chip streak" title="Recompensas diarias reclamadas">🔥 <b id="hudStreak">0</b></span>
       <span class="chip coins" id="coinChip" title="Oros"><i class="coin"></i> <b id="hudCoins">0</b></span>
@@ -353,19 +353,15 @@
       </div>
     </section>
 
-    <!-- TIENDA -->
+    <!-- PERSONALIZACIÓN -->
     <section class="screen" id="screen-shop" hidden>
       <div class="screen-head">
         <h2>Personalización</h2>
         <div class="seg subnav" aria-label="Progresión y recompensas"><button data-go="progress">Progreso</button><button data-go="shop" class="on">Personalizar</button></div>
         <span class="chip coins big"><i class="coin"></i> <b id="shopCoins">0</b></span>
       </div>
-      <div class="seg shop-tabs" id="shopTabs">
-        <button data-tab="sets" class="on">Piezas</button>
-        <button data-tab="boards">Tableros</button>
-        <button data-tab="fx">Efectos</button>
-      </div>
-      <div class="shop-grid" id="shopGrid"></div>
+      <p class="sr-only" id="czLive" role="status" aria-live="polite"></p>
+      <div class="cz-body" id="customBody" aria-busy="false"></div>
     </section>
   </main>
 

@@ -13,7 +13,6 @@
 import { XP_PER_LEVEL } from '../public/js/data.js';
 import {
   ACHIEVEMENTS,
-  LEVEL_UNLOCKS,
   SEASONS,
   SEASON_MIN_RANKED_GAMES,
   SEASON_RATING_CARRY,
@@ -29,11 +28,13 @@ import {
   seasonLevelOf,
   seasonRewardFor,
   seasonStatus,
-  unlocksAt,
   weekIdOf,
   weekWindow,
 } from '../public/js/progression-data.js';
+import { levelUnlocks } from '../public/js/cosmetics-data.js';
 import { START_RATING } from './elo.js';
+
+const LEVEL_UNLOCKS = levelUnlocks();
 import { analyzeGame, gameXp } from './xp-rules.js';
 
 export const PROGRESS_SCHEMA = `
@@ -114,7 +115,7 @@ const periodNum = (period, prefix) => (typeof period === 'string' && period.star
  * @param {(userId: string, msg: object) => unknown} [o.notify]
  * @param {() => number} [o.now]   reloj (pruebas)
  */
-export function createProgression({ db, wallets, notify = () => {}, now = Date.now }) {
+export function createProgression({ db, wallets, notify = () => {}, now = Date.now, after = () => {} }) {
   const raw = db.raw;
   const q = {
     event: raw.prepare('SELECT 1 FROM progress_events WHERE user_id = ? AND ref = ?'),
@@ -191,6 +192,11 @@ export function createProgression({ db, wallets, notify = () => {}, now = Date.n
   function push(userId, res, extra = {}) {
     if (!res?.ok) return;
     const unlocked = res.leveledUp ? LEVEL_UNLOCKS.filter((u) => u.level > res.levelBefore && u.level <= res.level) : [];
+    try {
+      after(userId, res); // p. ej. conceder los cosméticos que se desbloquean por nivel o por logro
+    } catch (err) {
+      console.error('[progression] after', err);
+    }
     notify(userId, { t: 'progress', xp: res.xp, coins: res.coins, level: res.level, leveledUp: res.leveledUp, unlocked, ...extra });
   }
 
@@ -501,5 +507,5 @@ export function createProgression({ db, wallets, notify = () => {}, now = Date.n
     };
   }
 
-  return { summary, recordGame, recordPuzzle, recordCircuitJoin, recordCircuitResults, recordReview, claimMission, claimSeason, leaderboard, checkAchievements, statsOf, unlocksAt };
+  return { summary, recordGame, recordPuzzle, recordCircuitJoin, recordCircuitResults, recordReview, claimMission, claimSeason, leaderboard, checkAchievements, statsOf };
 }

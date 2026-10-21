@@ -1,18 +1,18 @@
 // Arranque y navegación: Academia (pruebas finales), partida rápida contra la IA, tienda, recompensas y enlaces a los demás modos.
 import {
-  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS, RARITY, SHOP, XP_PER_LEVEL,
+  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS, XP_PER_LEVEL,
 } from './data.js';
 import { dailyPending, enterDaily, initDaily } from './daily.js';
 import { Engine } from './engine.js';
-import { burst, sfx } from './fx.js';
+import { sfx } from './fx.js';
 import { bootstrap, net, onNet } from './net.js';
 import { enterHub, initOnline, isOnlineGameActive, joinFromLink } from './online.js';
-import { initProfile } from './profile.js';
+import { initProfile, refreshIdentity } from './profile.js';
 import { startSession } from './session.js';
 import { shareGame } from './share.js';
-import { initStage, mountHome, stage, stopDemo, thumbFor } from './stage.js';
+import { initStage, mountHome, stage, stopDemo } from './stage.js';
 import {
-  addCoins, addXp, buy, claimDaily, dailyAvailable, equip, onChange, owns, resetAll, save, state,
+  addCoins, addXp, claimDaily, dailyAvailable, onChange, resetAll, save, state,
 } from './store.js';
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
@@ -33,7 +33,6 @@ import {
 } from './ui.js';
 
 const engine = new Engine();
-let shopTab = 'sets';
 const quick = { level: 3, color: 'w' };
 
 initStage();
@@ -47,6 +46,7 @@ function applySkins() {
   el.className = el.className.replace(/\b(set|board)-\S+/g, '').trim();
   el.classList.add(`set-${state.equipped.set}`, `board-${state.equipped.board}`);
   stage?.setSkins({ set: state.equipped.set, board: state.equipped.board });
+  stage?.setCosmetics?.({ crown: state.equipped.crown });
 }
 app.applySkins = applySkins;
 
@@ -63,6 +63,7 @@ function updateHud() {
   $('#hudLevel').textContent = state.level;
   $('#hudStreak').textContent = state.daily.streak;
   applyFlair();
+  refreshIdentity();
   $('#hudXp').style.width = `${Math.min(100, (state.xp / XP_PER_LEVEL(state.level)) * 100)}%`;
   $('#shopCoins').textContent = state.coins;
   $('#muteBtn').classList.toggle('is-muted', state.muted);
@@ -154,7 +155,10 @@ async function go(name) {
     history.replaceState(null, '', '/');
   }
   if (name === 'quick') renderQuick();
-  if (name === 'shop') renderShop();
+  if (name === 'shop') {
+    const m = await import('./customize.js'); // carga diferida: solo pesa cuando se abre
+    await m.enterCustomize();
+  }
 }
 app.go = go;
 
@@ -361,84 +365,6 @@ $('#resignBtn').addEventListener('click', async () => {
   const g = app.game;
   if (!g || g.over) return;
   if (await confirmModal('¿Rendirte?', 'Cuenta como derrota.', 'Rendirme', 'Seguir')) g.resign();
-});
-
-// ---------- Tienda ----------
-const KIND = { sets: 'set', boards: 'board', fx: 'fx' };
-
-function previewHtml(tab, item) {
-  if (tab === 'sets' || tab === 'boards') {
-    const url = thumbFor(tab === 'sets' ? 'set' : 'board', item.id);
-    if (url) return `<img class="pv pv-img" alt="${item.name}" src="${url}">`;
-  }
-  if (tab === 'sets') {
-    const sq = (cls, c, p) => `<div class="sq ${cls}"><span class="piece ${c} t-${p}">${GLYPH[p]}${VS}</span></div>`;
-    return `<div class="pv pv-set set-${item.id} board-${state.equipped.board}">${sq('light', 'w', 'n')}${sq('dark', 'b', 'q')}${sq('dark', 'w', 'b')}${sq('light', 'b', 'r')}</div>`;
-  }
-  if (tab === 'boards') {
-    return `<div class="pv pv-board board-${item.id} set-${state.equipped.set}">${['light', 'dark', 'dark', 'light', 'light', 'dark', 'dark', 'light', 'light']
-      .map((c, i) => `<div class="sq ${c}">${i === 4 ? `<span class="piece w t-k">${GLYPH.k}${VS}</span>` : ''}</div>`).join('')}</div>`;
-  }
-  return `<div class="pv pv-fx" data-fx="${item.id}"><span class="try">✨ Probar</span><div class="fx-layer"></div></div>`;
-}
-
-function renderShop() {
-  $$('#shopTabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === shopTab));
-  const kind = KIND[shopTab];
-  // Los objetos exclusivos (premios del Circuit) solo aparecen cuando los tienes.
-  $('#shopGrid').innerHTML = SHOP[shopTab].filter((i) => !i.exclusive || owns(kind, i.id)).map((item) => {
-    const own = owns(kind, item.id);
-    const eq = state.equipped[kind] === item.id;
-    const r = RARITY[item.rarity];
-    const action = eq
-      ? `<button class="btn" disabled>Equipado</button>`
-      : own
-        ? `<button class="btn primary" data-act="equip" data-id="${item.id}">Equipar</button>`
-        : `<button class="btn buy ${state.coins < item.price ? 'cant' : ''}" data-act="buy" data-id="${item.id}">🪙 ${item.price}</button>`;
-    return `<article class="shop-card ${eq ? 'equipped' : ''}" style="--r:${r.color}">
-      ${previewHtml(shopTab, item)}
-      <div class="shop-info"><b>${item.name}</b><span class="rarity">${r.label}</span></div>
-      ${action}
-    </article>`;
-  }).join('');
-}
-
-$('#shopTabs').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-tab]');
-  if (!b) return;
-  shopTab = b.dataset.tab;
-  renderShop();
-});
-
-$('#shopGrid').addEventListener('click', (e) => {
-  const pv = e.target.closest('.pv-fx');
-  if (pv) {
-    const layer = $('.fx-layer', pv);
-    const r = pv.getBoundingClientRect();
-    burst(layer, r.width / 2, r.height / 2, pv.dataset.fx, 1.2);
-    sfx.capture();
-    return;
-  }
-  const btn = e.target.closest('[data-act]');
-  if (!btn) return;
-  const kind = KIND[shopTab];
-  const item = SHOP[shopTab].find((i) => i.id === btn.dataset.id);
-  if (btn.dataset.act === 'buy') {
-    const res = buy(kind, item);
-    if (!res.ok) {
-      sfx.error();
-      toast(res.reason === 'coins' ? `Te faltan ${item.price - state.coins} oros.` : 'Ya lo tienes.');
-      return;
-    }
-    equip(kind, item.id);
-    sfx.coin();
-    toast(`¡${item.name} desbloqueado y equipado!`);
-  } else {
-    equip(kind, item.id);
-    sfx.select();
-  }
-  applySkins();
-  renderShop();
 });
 
 // ---------- Recompensa de entrada diaria ----------

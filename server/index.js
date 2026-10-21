@@ -14,6 +14,7 @@ import { CIRCUIT, CircuitManager } from './tournaments.js';
 import { createSocial } from './social.js';
 import { createProgression } from './progression.js';
 import { createWallets } from './wallet.js';
+import { createCosmetics } from './cosmetics.js';
 import { createMetrics } from './metrics.js';
 
 function circuitEnvOptions() {
@@ -62,7 +63,9 @@ export async function startServer({
   });
   let ws = null;
   const wallets = createWallets(db);
-  const progression = createProgression({ db, wallets, notify: (id, msg) => ws?.notify(id, msg) });
+  const cosmetics = createCosmetics({ db, wallets, notify: (id, msg) => ws?.notify(id, msg) });
+  // Al ganar XP o un logro, el servidor concede por su cuenta los cosméticos que se desbloquean por nivel o por logro.
+  const progression = createProgression({ db, wallets, notify: (id, msg) => ws?.notify(id, msg), after: (id) => cosmetics.sync(id) });
   rooms.onGameSaved = (room) => progression.recordGame(room);
   const circuit = new CircuitManager({ rooms, db, options: circuitOptions, metrics, progression });
   const api = createApi({
@@ -74,6 +77,7 @@ export async function startServer({
     metrics,
     wallets,
     progression,
+    cosmetics,
     presence: (ids) => ws?.presence(ids) ?? {},
     notify: (id, msg) => ws?.notify(id, msg),
     onlineCount: () => ws?.count() ?? 0,

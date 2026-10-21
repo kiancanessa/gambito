@@ -1,6 +1,7 @@
 // Utilidades de interfaz compartidas por todos los módulos (sin dependencias circulares con main.js).
 import { GLYPH } from './data.js';
-import { burst } from './fx.js';
+import { victoryFx } from './fx.js';
+import { state } from './store.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -56,12 +57,9 @@ export function toast(msg, ms = 2600) {
 
 export const avatar = (glyph, color) => `<div class="avatar" style="--c:${esc(color)}">${GLYPH[glyph]}${VS}</div>`;
 
-export function celebrate() {
-  const layer = $('#celebrate');
-  const w = window.innerWidth;
-  [0.2, 0.5, 0.8].forEach((fx, i) => {
-    setTimeout(() => burst(layer, w * fx, window.innerHeight * 0.35, 'confetti', 2.6), i * 220);
-  });
+// Celebración de una victoria con el efecto cosmético equipado (confeti por defecto).
+export function celebrate(effect = state.equipped?.victory) {
+  victoryFx($('#celebrate'), effect);
 }
 
 export const stars = (n) => [1, 2, 3].map((i) => `<span class="${i <= n ? 'on' : ''}">★</span>`).join('');

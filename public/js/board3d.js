@@ -49,6 +49,14 @@ const SETS = {
     w: { color: '#fff1b8', roughness: 0.15, metalness: 1, emissive: '#b8860b', emissiveIntensity: 0.3 },
     b: { color: '#3b1670', roughness: 0.2, metalness: 0.9, emissive: '#7a3cff', emissiveIntensity: 0.55 },
   },
+  marble: {
+    w: { color: '#f1efe9', roughness: 0.18, metalness: 0, clearcoat: 1 },
+    b: { color: '#33373d', roughness: 0.25, metalness: 0.1, clearcoat: 0.9 },
+  },
+  cobalt: {
+    w: { color: '#cfd8e6', roughness: 0.2, metalness: 1 },
+    b: { color: '#1c3f9e', roughness: 0.25, metalness: 0.7, emissive: '#0a2a7a', emissiveIntensity: 0.3 },
+  },
   dragon: {
     w: { color: '#12b255', roughness: 0.3, metalness: 0.85, emissive: '#0a7a38', emissiveIntensity: 0.35 },
     b: { color: '#a30f1f', roughness: 0.3, metalness: 0.85, emissive: '#6a0510', emissiveIntensity: 0.4 },
@@ -62,6 +70,7 @@ const BOARDS = {
   night: { light: '#4f4e92', dark: '#171446', frame: '#0c0a2a', side: '#07061a', glow: '#6a5cff', label: '#b8b3ff', paint: 'stars', emissive: true },
   sakura: { light: '#fff1f6', dark: '#e58aac', frame: '#8a3a5c', side: '#5a2038', glow: '#ff8fb8', label: '#ffd2e2', paint: 'petals' },
   neon: { light: '#0e1030', dark: '#070817', frame: '#0b0b1c', side: '#05050f', glow: '#00f5ff', label: '#00f5ff', paint: 'grid', emissive: true },
+  slate: { light: '#b9bfc6', dark: '#5b636d', frame: '#2b3138', side: '#1d2227', glow: '#9fb4c8', label: '#d9dee4', paint: 'speckle' },
   lava: { light: '#5c3022', dark: '#160a08', frame: '#2a120c', side: '#160805', glow: '#ff5a1f', label: '#ffb36b', paint: 'cracks', emissive: true },
 };
 
@@ -476,6 +485,7 @@ export class Board3D {
     this.pulses = [];
     this.hooks = new Set();
     this.skins = { set: 'classic', board: 'wood' };
+    this.crown = 'classic'; // cosmético de coronación equipado
     this.mat = {};
     this.tileMats = [];
     this.tiles = [];
@@ -811,12 +821,49 @@ export class Board3D {
       this.pieces.delete(move.to);
       const np = this.spawn(move.promotion, move.color, move.to);
       np.group.scale.setScalar(0.01);
-      this.ringFlash(move.to);
       np.busy += 1;
-      await this.tween(0.55, (p) => np.group.scale.setScalar(Math.max(0.01, p)), easeOutBack);
+      await this.crownAnimation(np, move.to, this.crown);
       np.group.scale.setScalar(1);
       np.busy -= 1;
     }
+  }
+
+  // Cosmético de coronación: solo cambia cómo aparece la pieza nueva; la pieza, su tamaño y su casilla son los de siempre.
+  async crownAnimation(np, sq, style = 'classic') {
+    const baseY = np.group.position.y;
+    if (style === 'rise') {
+      this.ringFlash(sq, '#ffffff');
+      np.group.position.y = baseY - 0.5;
+      await this.tween(0.75, (p) => {
+        np.group.scale.setScalar(Math.max(0.01, p));
+        np.group.position.y = baseY - 0.5 * (1 - p);
+        np.group.rotation.y = (1 - p) * Math.PI * 2;
+      }, easeOut);
+      np.group.rotation.y = 0;
+      np.group.position.y = baseY;
+      return;
+    }
+    if (style === 'halo') {
+      this.ringFlash(sq, '#ffd24a');
+      setTimeout(() => this.ringFlash(sq, '#fff1b8'), 160);
+      await this.tween(0.7, (p) => np.group.scale.setScalar(Math.max(0.01, p * (1 + 0.12 * Math.sin(p * Math.PI)))), easeOutBack);
+      return;
+    }
+    if (style === 'stardust') {
+      ['#ffd24a', '#22e1ff', '#ff8a98'].forEach((c, i) => setTimeout(() => this.ringFlash(sq, c), i * 140));
+      await this.tween(0.8, (p) => {
+        np.group.scale.setScalar(Math.max(0.01, p));
+        np.group.position.y = baseY + Math.sin(p * Math.PI) * 0.18;
+      }, easeOutBack);
+      np.group.position.y = baseY;
+      return;
+    }
+    this.ringFlash(sq);
+    await this.tween(0.55, (p) => np.group.scale.setScalar(Math.max(0.01, p)), easeOutBack);
+  }
+
+  setCosmetics({ crown = 'classic' } = {}) {
+    this.crown = crown;
   }
 
   // ----- Eventos de partida (tipo "juice") -----

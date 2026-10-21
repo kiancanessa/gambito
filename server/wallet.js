@@ -6,17 +6,23 @@
 // - Las recompensas que dependen de partidas contra la IA (que el servidor no ve) llevan topes por evento y por día:
 //   no se pueden probar, pero se acota lo que se podría falsear.
 import { Chess } from 'chess.js';
-import { DAILY_REWARDS, DEFAULT_OWNED, SHOP, XP_PER_LEVEL } from '../public/js/data.js';
+import { DAILY_REWARDS, DEFAULT_EQUIPPED, DEFAULT_OWNED, XP_PER_LEVEL } from '../public/js/data.js';
+import { ITEMS, isGranted, itemKey } from '../public/js/cosmetics-data.js';
 
-const KIND = { sets: 'set', boards: 'board', fx: 'fx' };
-const CATALOG = new Map();
-for (const [group, list] of Object.entries(SHOP)) for (const it of list) CATALOG.set(`${KIND[group]}:${it.id}`, it.price);
+// Catálogo de cosméticos (cosmetics-data.js): TODOS los artículos conocidos, los comprables con precio fijado aquí y los que
+// solo concede el servidor (nivel, logro, temporada, circuito). El cliente nunca puede otorgarse un artículo: ni comprar uno
+// que no se vende, ni importarlo desde un guardado, ni equipar uno que no tiene.
+const KNOWN = new Set(ITEMS.filter((it) => it.status === 'active').map((it) => itemKey(it.category, it.id)));
+const CATALOG = new Map(); // artículos que se pueden comprar con oros (o incluidos por defecto): clave → precio
+const EXCLUSIVE = new Set(); // artículos que no se compran
+for (const it of ITEMS) {
+  const key = itemKey(it.category, it.id);
+  if (it.status !== 'active') continue;
+  if (it.unlock.type === 'purchase') CATALOG.set(key, it.unlock.price);
+  else if (it.unlock.type === 'default') CATALOG.set(key, 0);
+  else if (isGranted(it)) EXCLUSIVE.add(key);
+}
 
-// Objetos que solo se consiguen como premio: ni se compran ni se aceptan desde un guardado antiguo.
-const EXCLUSIVE = new Set();
-for (const [group, list] of Object.entries(SHOP)) for (const it of list) if (it.exclusive) EXCLUSIVE.add(`${KIND[group]}:${it.id}`);
-
-const DEFAULT_EQUIPPED = { set: 'classic', board: 'wood', fx: 'sparks' };
 const START_COINS = 100;
 const MIGRATION_MAX_COINS = 20_000; // tope al importar el guardado antiguo (que el cliente podía falsear)
 const MAX_COINS = 1_000_000;
@@ -80,12 +86,13 @@ export function createWallets(db) {
     clearLedger: raw.prepare('DELETE FROM ledger WHERE user_id = ?'),
   };
 
+  // Cuentas anteriores a un cosmético nuevo: se completan con lo que todas las cuentas tienen (idempotente, sin duplicados).
   const view = (row) => ({
     coins: row.coins,
     xp: row.xp,
     level: row.level,
-    owned: JSON.parse(row.owned),
-    equipped: JSON.parse(row.equipped),
+    owned: [...new Set([...DEFAULT_OWNED, ...JSON.parse(row.owned)])],
+    equipped: { ...DEFAULT_EQUIPPED, ...JSON.parse(row.equipped) },
     rev: row.rev,
   });
 
@@ -168,9 +175,9 @@ export function createWallets(db) {
     switch (op?.t) {
       case 'buy': {
         const id = `${op.kind}:${op.id}`;
+        if (EXCLUSIVE.has(id)) return 'exclusive';
         const price = CATALOG.get(id);
         if (price === undefined) return 'unknown';
-        if (EXCLUSIVE.has(id)) return 'exclusive';
         if (w.owned.includes(id)) return 'owned';
         if (w.coins < price) return 'coins';
         w.coins -= price;
@@ -196,7 +203,7 @@ export function createWallets(db) {
         if (q.ref.get(userId, r.ref)) return 'dup';
         w.coins = Math.min(MAX_COINS, w.coins + r.coins);
         if (r.xp) Object.assign(w, levelFrom(w.xp + r.xp, w.level));
-        if (r.grant && CATALOG.has(r.grant) && !w.owned.includes(r.grant)) w.owned.push(r.grant);
+        if (r.grant && KNOWN.has(r.grant) && !w.owned.includes(r.grant)) w.owned.push(r.grant);
         q.log.run(userId, r.ref, op.source, r.coins, r.xp, Date.now());
         return null;
       }
@@ -240,7 +247,7 @@ export function createWallets(db) {
     const levelBefore = w.level;
     let gained = coins;
     let granted = null;
-    if (item && CATALOG.has(item)) {
+    if (item && KNOWN.has(item)) {
       if (w.owned.includes(item)) gained += fallbackCoins;
       else {
         w.owned.push(item);

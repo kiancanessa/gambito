@@ -57,7 +57,7 @@ function renderLook() {
       <select data-equip="${kind}" aria-label="${label}">${owned.map((i) => `<option value="${i.id}" ${state.equipped[kind] === i.id ? 'selected' : ''}>${esc(i.name)} · ${RARITY[i.rarity].label}</option>`).join('')}</select></label>`;
   }).join('');
   $('#setLook').innerHTML = `<p class="eyebrow">Personalización</p>${rows}
-    <button class="btn primary" data-go="shop">Abrir la tienda de skins</button>`;
+    <button class="btn primary" data-go="shop">Abrir la personalización</button>`;
 }
 
 function renderSwitches() {

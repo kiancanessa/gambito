@@ -11,8 +11,9 @@ import { mergeSnapshot } from '../server/persist.js';
 import { createProgression } from '../server/progression.js';
 import { createWallets } from '../server/wallet.js';
 import { analyzeGame, gameXp } from '../server/xp-rules.js';
+import { levelUnlocks } from '../public/js/cosmetics-data.js';
 import {
-  ACHIEVEMENTS, LEVEL_UNLOCKS, MISSIONS_DAILY, MISSIONS_WEEKLY, SEASONS, XP_RULES as R, dayIdOf, dayWindow, missionDef, missionProgress, missionsFor,
+  ACHIEVEMENTS, MISSIONS_DAILY, MISSIONS_WEEKLY, SEASONS, XP_RULES as R, dayIdOf, dayWindow, missionDef, missionProgress, missionsFor,
   seasonAt, seasonEnd, seasonLevelOf, seasonStart, weekIdOf, weekWindow,
 } from '../public/js/progression-data.js';
 
@@ -523,7 +524,7 @@ describe('repasar partidas, torneos y niveles', () => {
     wallets.grant(a, { ref: 'big', source: 'xp', xp: 400 });
     const sum = prog.summary(a);
     assert.ok(sum.account.level >= 3);
-    assert.deepEqual(sum.unlocks.filter((u) => u.unlocked).map((u) => u.level), LEVEL_UNLOCKS.filter((u) => u.level <= sum.account.level).map((u) => u.level));
+    assert.deepEqual(sum.unlocks.filter((u) => u.unlocked).map((u) => u.level), levelUnlocks().filter((u) => u.level <= sum.account.level).map((u) => u.level));
     prog.recordPuzzle(a, 7);
     assert.ok(pushes.every((p) => p.t === 'progress'));
   });

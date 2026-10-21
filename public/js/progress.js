@@ -1,7 +1,8 @@
 // Progresión (nivel de cuenta, misiones, temporada, logros e historial). Todo lo que se ve aquí lo calcula y lo concede el
 // servidor: el cliente pide `/api/progress`, reclama con `/api/progress/claim` y se entera de los avances por WebSocket
 // (`progress`). No hay rachas: nada de lo acumulado caduca por faltar un día.
-import { ACHIEVEMENTS, LEVEL_UNLOCKS, MISSIONS_DAILY, MISSIONS_WEEKLY } from './progression-data.js';
+import { ACHIEVEMENTS, MISSIONS_DAILY, MISSIONS_WEEKLY } from './progression-data.js';
+import { decorClass, identityHtml, titleOf } from './cosmetics-art.js';
 import { feedback } from './feedback.js';
 import { flags } from './flags.js';
 import { sfx } from './fx.js';
@@ -123,29 +124,17 @@ const left = (until) => `<b class="cd" data-until="${until}">${clock(until - ser
 const dateOf = (ms) => new Date(ms).toLocaleDateString('es', { day: 'numeric', month: 'short' });
 const rewardLine = (m) => `🪙 ${m.coins} · ${m.xp} XP`;
 
-function unlockedFlair() {
-  const level = ps.data?.account.level ?? 1;
-  return LEVEL_UNLOCKS.filter((u) => u.level <= level);
-}
-const flair = () => state.flair ?? { frame: null, title: null };
-const titleName = () => LEVEL_UNLOCKS.find((u) => u.kind === 'title' && u.id === flair().title)?.name ?? null;
-
+// El marco, el título y la decoración que llevas puestos salen del inventario del servidor (state.equipped).
 export function applyFlair() {
-  const f = flair();
-  const unlocked = new Set(unlockedFlair().map((u) => `${u.kind}:${u.id}`));
-  const frame = f.frame && unlocked.has(`frame:${f.frame}`) ? f.frame : '';
-  document.documentElement.dataset.frame = frame;
-  const color = LEVEL_UNLOCKS.find((u) => u.kind === 'frame' && u.id === frame)?.color;
-  document.documentElement.style.setProperty('--frame', color ?? 'transparent');
+  document.documentElement.dataset.cosmetics = '1';
 }
 
 function header(d) {
   const a = d.account;
   const pct = Math.min(100, (a.xp / a.next) * 100);
-  const t = titleName();
-  const f = flair();
-  return `<section class="lb-card pg-head">
-    <div class="lvl-badge" data-frame="${esc(f.frame ?? '')}" style="--frame:${LEVEL_UNLOCKS.find((u) => u.kind === 'frame' && u.id === f.frame)?.color ?? 'transparent'}"><b>${a.level}</b><small>NIVEL</small></div>
+  const t = titleOf();
+  return `<section class="lb-card pg-head ${decorClass()}">
+    <div class="lvl-badge">${identityHtml(state.equipped, { size: 76, label: `Nivel ${a.level}` })}<small>NIVEL ${a.level}</small></div>
     <div class="pg-xp"><p class="eyebrow">Nivel de cuenta${t ? ` · ${esc(t)}` : ''}</p>
       <div class="xpline" role="progressbar" aria-label="Experiencia" aria-valuenow="${a.xp}" aria-valuemin="0" aria-valuemax="${a.next}"><i style="width:${pct}%"></i></div>
       <small>${a.xp} / ${a.next} XP para el nivel ${a.level + 1} · el nivel es independiente de tu rating</small></div>
@@ -267,10 +256,6 @@ function renderOverview(d) {
   const s = d.season;
   const ready = claimableCount();
   const nextUnlock = d.unlocks.find((u) => !u.unlocked);
-  const frames = d.unlocks.filter((u) => u.kind === 'frame');
-  const titles = d.unlocks.filter((u) => u.kind === 'title');
-  const f = flair();
-  const flairBtn = (u) => `<button class="btn ${f[u.kind] === u.id ? 'primary' : ''}" data-flair="${u.kind}:${u.id}" ${u.unlocked ? '' : 'disabled'} title="${u.unlocked ? '' : `Nivel ${u.level}`}">${u.unlocked ? '' : '🔒 '}${esc(u.name)}${u.unlocked ? '' : ` (nv. ${u.level})`}</button>`;
   return `<div class="pg-grid">
     <section class="lb-card"><div class="card-head"><p class="eyebrow">Misiones de hoy</p>${ready ? `<span class="pill todo">${ready} por reclamar</span>` : ''}</div>
       <ul class="missions compact">${daily.map((m) => missionRow(m)).join('')}</ul><button class="btn" data-ptab="missions">Ver todas las misiones</button></section>
@@ -278,9 +263,9 @@ function renderOverview(d) {
       <p class="big-num"><b>${s.level}</b> / ${s.levels}</p><div class="xpline"><i style="width:${s.level >= s.levels ? 100 : (s.into / s.xpPerLevel) * 100}%"></i></div>
       <small>${s.claimable ? `${s.claimable} recompensas por reclamar` : `termina en ${left(Date.parse(`${s.endsAt}T23:59:59Z`))}`}</small></div><button class="btn" data-ptab="season">Ver temporada</button></section>` : ''}
     <section class="lb-card"><div class="card-head"><p class="eyebrow">Recompensas visuales</p>${nextUnlock ? `<small class="muted">siguiente: ${esc(nextUnlock.name)} (nivel ${nextUnlock.level})</small>` : ''}</div>
-      <p class="muted">Se desbloquean solas al subir de nivel. Son solo estéticas.</p>
-      <p class="pg-label">Marcos de avatar</p><div class="pg-flair"><button class="btn ${!f.frame ? 'primary' : ''}" data-flair="frame:">Sin marco</button>${frames.map(flairBtn).join('')}</div>
-      <p class="pg-label">Títulos</p><div class="pg-flair"><button class="btn ${!f.title ? 'primary' : ''}" data-flair="title:">Sin título</button>${titles.map(flairBtn).join('')}</div></section>
+      <p class="muted">Avatares, marcos, títulos, efectos y más. Se desbloquean solos al subir de nivel o conseguir logros; son solo estéticos.</p>
+      <p class="pg-label">${d.unlocks.filter((u) => u.unlocked).length} de ${d.unlocks.length} desbloqueos por nivel conseguidos</p>
+      <button class="btn primary" data-go="shop">Abrir la personalización</button></section>
     <section class="lb-card"><p class="eyebrow">Cómo se gana XP</p><ul class="pg-rules">${RULE_LINES(d.rules).map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join('')}</ul>
       <p class="muted fine">La XP premia participar y terminar; ganar es solo un extra. Hay un máximo por partida, por pareja de rivales y por día para que no se pueda granjear.</p></section>
   </div>`;
@@ -334,6 +319,10 @@ function setTab(id) {
 export function initProgress() {
   onReady(() => loadProgress({ quiet: true }).then(applyFlair));
   // El servidor avisa de cada avance (partida, desafío, torneo, logro, nivel): se muestra y se refresca la página.
+  socket.on('cosmetics', (m) => {
+    toast(`🎁 Nuevo cosmético: ${m.unlocked.slice(0, 3).map((n) => n.name).join(', ')}${m.unlocked.length > 3 ? ` y ${m.unlocked.length - 3} más` : ''}`, 4500);
+    document.dispatchEvent(new CustomEvent('checkpoint:cosmetics'));
+  });
   socket.on('progress', (m) => {
     if (m.xp) toast(`+${m.xp} XP`, 1800);
     if (m.leveledUp) {
@@ -350,14 +339,6 @@ export function initProgress() {
   $('#screen-progress').addEventListener('click', async (e) => {
     const tab = e.target.closest('[data-ptab]');
     if (tab) return setTab(tab.dataset.ptab);
-    const fl = e.target.closest('[data-flair]');
-    if (fl) {
-      const [kind, id] = fl.dataset.flair.split(':');
-      state.flair = { ...flair(), [kind]: id || null };
-      save();
-      applyFlair();
-      return render();
-    }
     if (e.target.closest('[data-pg="retry"]')) return loadProgress();
     const c = e.target.closest('[data-claim]');
     if (!c || c.disabled) return undefined;

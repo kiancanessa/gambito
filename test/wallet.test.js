@@ -1,4 +1,5 @@
 // Fase 2: cartera verificada en el servidor (oros, XP, inventario) y su migración desde el guardado antiguo.
+import { DEFAULT_EQUIPPED, DEFAULT_OWNED } from '../public/js/data.js';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,8 +42,8 @@ describe('migración desde el guardado antiguo', () => {
     const g = await guest('Nuevo');
     const w = await getWallet(g);
     assert.equal(w.coins, 100);
-    assert.deepEqual(w.owned.sort(), ['board:wood', 'fx:sparks', 'set:classic']);
-    assert.deepEqual(w.equipped, { set: 'classic', board: 'wood', fx: 'sparks' });
+    assert.deepEqual(w.owned.sort(), [...DEFAULT_OWNED].sort());
+    assert.deepEqual(w.equipped, DEFAULT_EQUIPPED);
   });
 
   test('un guardado inflado se recorta: oros con tope y solo objetos del catálogo', async () => {
@@ -53,7 +54,7 @@ describe('migración desde el guardado antiguo', () => {
     assert.equal(w.level, 3);
     assert.ok(w.owned.includes('set:dragon') && w.owned.includes('board:lava'));
     assert.ok(!w.owned.includes('set:inventado'));
-    assert.deepEqual(w.equipped, { set: 'dragon', board: 'wood', fx: 'sparks' });
+    assert.deepEqual(w.equipped, { ...DEFAULT_EQUIPPED, set: 'dragon' });
   });
 
   test('es idempotente: volver a leer o guardar no cambia la cartera', async () => {
@@ -71,7 +72,7 @@ describe('migración desde el guardado antiguo', () => {
     assert.equal(w.coins, 0);
     assert.equal(w.level, 1);
     assert.ok(w.xp < 100);
-    assert.equal(w.owned.length, 3);
+    assert.equal(w.owned.length, DEFAULT_OWNED.length);
   });
 });
 

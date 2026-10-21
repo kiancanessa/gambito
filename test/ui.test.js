@@ -50,7 +50,7 @@ test('la marca es CHECKPOINT en la página, el manifiesto y la política de priv
 
 test('los ids que usa el arranque existen en el HTML (no se rompe ningún enlace al iniciar)', () => {
   // Elementos buscados con $('#id') por los módulos que se inician en main.js sin esperar a ninguna pantalla.
-  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'homeAcademyInfo', 'progressBody', 'progressDot'];
+  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'homeAcademyInfo', 'progressBody', 'progressDot', 'customBody', 'czLive'];
   for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `falta #${id}`);
 });
 
@@ -66,4 +66,12 @@ test('la progresión sustituye a las misiones y la temporada locales: nada de XP
   assert.doesNotMatch(jsSource, /from '\.\/(missions|season)\.js'|addSeasonXp|track\('/);
   assert.ok(jsFiles.includes('progress.js') && jsFiles.includes('progression-data.js'));
   assert.ok(!jsFiles.includes('missions.js') && !jsFiles.includes('season.js'));
+});
+
+test('la personalización sustituye a la tienda antigua: sin cuadrícula de compra local ni equipar desde el cliente', () => {
+  assert.doesNotMatch(html, /id="shopGrid"|id="shopTabs"/);
+  assert.ok(jsFiles.includes('customize.js') && jsFiles.includes('cosmetics-data.js') && jsFiles.includes('cosmetics-art.js'));
+  const main = readFileSync(path.join(PUBLIC, 'js', 'main.js'), 'utf8');
+  assert.match(main, /import\('\.\/customize\.js'\)/, 'la página se carga a demanda');
+  assert.doesNotMatch(main, /renderShop|from '\.\/store\.js'[^;]*equip/);
 });

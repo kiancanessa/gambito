@@ -5,11 +5,12 @@ import { LIMITS, SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
 import { dayId, nextResetAt, puzzleFor, verifySolution } from './daily.js';
 import { createWallets } from './wallet.js';
 import { progressMessage } from './progression.js';
+import { cosmeticMessage } from './cosmetics.js';
 import { seasonAt, SEASONS } from '../public/js/progression-data.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, circuit, social, wallets = createWallets(db), progression, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, social, wallets = createWallets(db), progression, cosmetics, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
 
   // Limitador sencillo en memoria: `max` peticiones por `windowMs` y clave.
@@ -219,6 +220,18 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
       }
 
       // ----- Progresión: la ve y la concede el servidor; el cliente solo pide ver, reclamar o registrar una revisión -----
+      // ----- Cosméticos: inventario y equipamiento. El cliente nunca se otorga un artículo; el servidor valida la propiedad -----
+      if (pathname === '/api/cosmetics' && method === 'GET') return send(res, 200, cosmetics.view(user.id));
+
+      if (pathname === '/api/cosmetics/equip' && method === 'POST') {
+        if (limited(`equip:${user.id}`, 60, 60_000)) return send(res, 429, { error: 'Demasiados cambios seguidos' });
+        const body = await readJson(req, 1024);
+        const out = cosmetics.equip(user.id, { category: body.category, id: body.id });
+        metrics?.inc('cosmetic_equips_total', { result: out.ok ? 'ok' : out.reason });
+        if (!out.ok) return send(res, out.reason === 'owned' ? 403 : 400, { ok: false, reason: out.reason, error: cosmeticMessage(out.reason) });
+        return send(res, 200, { ok: true, equipped: out.equipped });
+      }
+
       if (pathname === '/api/progress' && method === 'GET') return send(res, 200, progression.summary(user.id));
 
       if (pathname === '/api/progress/claim' && method === 'POST') {

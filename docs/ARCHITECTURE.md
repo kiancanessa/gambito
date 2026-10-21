@@ -132,6 +132,11 @@ por jugador y evento) por el libro de cuentas de la cartera (`wallets.grantInTx`
 periodo al reclamarlas (`mission_claims`, `season_claims`); la clasificación de temporada vive en `season_stats`. Detalle y criterios
 de aceptación: **[PROGRESION.md](PROGRESION.md)**.
 
+## Cosméticos (PROMPT 06)
+
+`public/js/cosmetics-data.js` es el catálogo (compartido con el servidor); el inventario vive en la cartera (`owned` / `equipped`) y solo el
+servidor lo amplía: `server/cosmetics.js` concede los artículos de nivel y logro (`sync`) y valida el equipado. Detalle en **[COSMETICOS.md](COSMETICOS.md)**.
+
 ## Social (Fase 5)
 
 `server/social.js` (tablas `friend_codes`, `friendships`, `blocks`, `reports`). Sin email ni chat libre: cada jugador tiene un **código de amigo** de

@@ -77,7 +77,7 @@ export const SEASONS = [
       10: { coins: 150 },
       14: { item: ['set', 'neon'], label: 'Piezas Neón Cyber' },
       18: { item: ['board', 'neon'], label: 'Rejilla Neón' },
-      22: { coins: 200 },
+      22: { item: ['frame', 'canopy'], label: 'Marco Dosel' },
       25: { coins: 300 },
       27: { item: ['set', 'gold'], label: 'Piezas Oro y Obsidiana' },
       30: { item: ['board', 'lava'], label: 'Tablero Magma' },
@@ -97,7 +97,7 @@ export const SEASONS = [
       3: { coins: 60 },
       10: { coins: 150 },
       15: { item: ['fx', 'confetti'], label: 'Efecto Confeti' },
-      20: { coins: 250 },
+      20: { item: ['avatar', 'lotus'], label: 'Avatar Loto' },
       25: { coins: 300 },
       30: { item: ['set', 'dragon'], label: 'Escamas de Dragón' },
     },
@@ -216,19 +216,3 @@ export const ACHIEVEMENTS = [
   { id: 'season_10', name: 'Pase en marcha', text: 'Alcanza el nivel 10 en una temporada', stat: 'seasonLevel', target: 10, coins: 60, xp: 80 },
   { id: 'season_30', name: 'Pase completo', text: 'Completa los 30 niveles de una temporada', stat: 'seasonLevel', target: 30, coins: 250, xp: 250 },
 ];
-
-// ---------- Desbloqueos visuales por nivel de cuenta ----------
-// Puramente estéticos: marcos de avatar y títulos de perfil. Se desbloquean solos al alcanzar el nivel.
-export const LEVEL_UNLOCKS = [
-  { level: 2, kind: 'frame', id: 'bronze', name: 'Marco Bronce', color: '#cd7f32' },
-  { level: 3, kind: 'title', id: 'apprentice', name: 'Aprendiz' },
-  { level: 5, kind: 'frame', id: 'cyan', name: 'Marco Cian', color: '#22e1ff' },
-  { level: 7, kind: 'title', id: 'strategist', name: 'Estratega' },
-  { level: 10, kind: 'frame', id: 'violet', name: 'Marco Violeta', color: '#8b5cf6' },
-  { level: 12, kind: 'title', id: 'tactician', name: 'Táctico' },
-  { level: 15, kind: 'frame', id: 'gold', name: 'Marco Dorado', color: '#ffd24a' },
-  { level: 20, kind: 'title', id: 'master', name: 'Maestro del tablero' },
-  { level: 25, kind: 'frame', id: 'aurora', name: 'Marco Aurora', color: '#34e3a0' },
-  { level: 30, kind: 'title', id: 'legend', name: 'Leyenda de CHECKPOINT' },
-];
-export const unlocksAt = (level) => LEVEL_UNLOCKS.filter((u) => u.level <= level);

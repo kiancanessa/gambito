@@ -114,7 +114,9 @@ export const SHOP = {
   ],
 };
 
-export const DEFAULT_OWNED = ['set:classic', 'board:wood', 'fx:sparks'];
+// Inventario y equipamiento de partida de cualquier cuenta. Los demás artículos (ver cosmetics-data.js) se desbloquean o se compran.
+export const DEFAULT_OWNED = ['set:classic', 'board:wood', 'fx:sparks', 'avatar:pawn', 'frame:none', 'victory:confetti', 'crown:classic', 'badge:none', 'title:none', 'decor:plain'];
+export const DEFAULT_EQUIPPED = { set: 'classic', board: 'wood', fx: 'sparks', avatar: 'pawn', frame: 'none', victory: 'confetti', crown: 'classic', badge: 'none', title: 'none', decor: 'plain' };
 
 // Frases de las piezas del jugador, por evento.
 export const QUIPS = {
