@@ -1,11 +1,10 @@
-// Arranque y navegación: campaña, partida rápida contra la IA, tienda, recompensas y enlaces a los demás modos.
+// Arranque y navegación: Academia (pruebas finales), partida rápida contra la IA, tienda, recompensas y enlaces a los demás modos.
 import {
-  CAMPAIGN, CHAPTER, DAILY_REWARDS, GLYPH, QUICK_LEVELS, RARITY, SHOP, XP_PER_LEVEL,
+  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS, RARITY, SHOP, XP_PER_LEVEL,
 } from './data.js';
 import { dailyPending, enterDaily, initDaily } from './daily.js';
 import { Engine } from './engine.js';
 import { burst, sfx } from './fx.js';
-import { renderMap } from './map.js';
 import { claimableMissions, initMissions, renderMissions, track } from './missions.js';
 import { bootstrap, net, onNet } from './net.js';
 import { enterHub, initOnline, isOnlineGameActive, joinFromLink } from './online.js';
@@ -20,6 +19,8 @@ import {
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
 import { enterCircuit, initCircuit } from './circuit.js';
+import { academySummary, enterAcademy, initAcademy } from './academy.js';
+import { announceRecords, recordsHtml, updateRecords } from './records.js';
 import { initShell } from './shell.js';
 import { enterHistory, initHistory } from './history.js';
 import { enterProfile } from './profile.js';
@@ -66,11 +67,7 @@ function updateHud() {
   $('#shopCoins').textContent = state.coins;
   $('#muteBtn').classList.toggle('is-muted', state.muted);
   $('#muteBtn').setAttribute('aria-pressed', String(state.muted));
-  const next = CAMPAIGN[Math.min(state.campaign.cleared, CAMPAIGN.length - 1)];
-  $('#homeCampaignInfo').textContent =
-    state.campaign.cleared >= CAMPAIGN.length
-      ? `${CHAPTER.name.split('·')[1].trim()} · completado`
-      : `${CHAPTER.name.split('·')[1].trim()} · próximo: ${next.name}`;
+  $('#homeAcademyInfo').textContent = academySummary();
   const s = state.stats;
   $('#homeStats').textContent = `${s.games} partidas · ${s.wins} victorias · ${s.checks} jaques`;
 }
@@ -127,6 +124,10 @@ async function go(name) {
     await enterRanking();
     return;
   }
+  if (name === 'academy') {
+    enterAcademy();
+    return;
+  }
   if (name === 'profile') {
     await enterProfile();
     return;
@@ -149,7 +150,6 @@ async function go(name) {
     refreshHome();
     history.replaceState(null, '', '/');
   }
-  if (name === 'campaign') renderCampaign();
   if (name === 'quick') renderQuick();
   if (name === 'shop') renderShop();
   if (name === 'missions') renderMissions();
@@ -162,92 +162,15 @@ document.addEventListener('click', (e) => {
   if (b) go(b.dataset.go);
 });
 
-// ---------- Campaña: mapa interactivo ----------
-let mapSel = 0;
-
-function progressHtml() {
-  const c = state.campaign.cleared;
-  const total = CAMPAIGN.length;
-  const got = Object.values(state.campaign.stars).reduce((a, b) => a + b, 0);
-  const left = CAMPAIGN.slice(c).reduce((s, n) => s + n.reward, 0);
-  const next = CAMPAIGN[c];
-  return `<p class="eyebrow">Tu progreso</p>
-    <div class="pips">${CAMPAIGN.map((n, i) => `<i class="${i < c ? 'on' : i === c ? 'now' : ''}" title="${n.name}"></i>`).join('')}</div>
-    <p class="big-num"><b>${c}</b> / ${total} <small>rivales superados</small></p>
-    <ul class="mini-stats">
-      <li><span>★ Estrellas</span><b>${got} / ${total * 3}</b></li>
-      <li><span>Victorias</span><b>${state.stats.wins}</b></li>
-      <li><span>${c >= total ? 'Capítulo' : 'Oros por ganar'}</span><b>${c >= total ? '¡Completo!' : `🪙 ${left}`}</b></li>
-    </ul>
-    <p class="muted next-line">${next ? `Próximo: <b>${next.name}</b>` : 'Has liberado el Valle. El Bosque de Alfiles te espera.'}</p>`;
-}
-
-function nodeCardHtml(i) {
-  const c = state.campaign.cleared;
-  if (i >= CAMPAIGN.length) {
-    return `<div class="nc-head"><div class="avatar" style="--c:#2d6a4f">🌲</div><div><b>${CHAPTER.next}</b><small>Nuevo reino</small></div></div>
-      <p class="nc-quote">“Busca en el Bosque de Alfiles... antes de que olvides quién eres.”</p>
-      <button class="btn" disabled>${c >= CAMPAIGN.length ? 'Próximamente' : 'Supera el Valle para llegar'}</button>`;
-  }
-  const n = CAMPAIGN[i];
-  const status = i < c ? 'cleared' : i === c ? 'current' : 'locked';
-  const reward = i < c ? Math.round(n.reward / 2) : n.reward;
-  const best = state.campaign.stars[n.id] || 0;
-  const chip = { cleared: '✓ Superado', current: '▶ Siguiente rival', locked: '🔒 Bloqueado' }[status];
-  return `<div class="nc-head">${avatar(n.glyph, n.color)}<div><b>${n.name}</b><small>${n.title}</small></div></div>
-    <span class="status-chip ${status}">${chip}</span>
-    <p class="nc-quote">“${n.start}”</p>
-    <ul class="mini-stats">
-      <li><span>Dificultad</span><b class="diff">${'⚔'.repeat(i + 1)}<em>${'⚔'.repeat(CAMPAIGN.length - i - 1)}</em></b></li>
-      <li><span>Recompensa${i < c ? ' (repetir)' : ''}</span><b>🪙 ${reward}</b></li>
-      <li><span>Mejor resultado</span><b class="pstars">${best ? starsHtml(best) : '<em>Sin jugar</em>'}</b></li>
-    </ul>
-    <button class="btn ${status === 'locked' ? '' : 'primary'}" data-play="${i}" ${status === 'locked' ? 'disabled' : ''}>${status === 'cleared' ? 'Repetir' : status === 'current' ? 'Jugar' : 'Bloqueado'}</button>`;
-}
-
-function updateCampaignCards() {
-  $('#progressCard').innerHTML = progressHtml();
-  $('#nodeCard').innerHTML = nodeCardHtml(mapSel);
-}
-
-let mapCtl = null;
-function renderCampaign() {
-  $('#chapterName').textContent = CHAPTER.name;
-  const cleared = state.campaign.cleared;
-  const seen = Math.min(state.campaign.seen ?? 0, cleared);
-  mapSel = Math.min(cleared, CAMPAIGN.length - 1);
-  mapCtl?.destroy();
-  mapCtl = renderMap($('#mapHost'), {
-    cleared,
-    stars: state.campaign.stars,
-    selected: mapSel,
-    animateFrom: seen !== cleared ? seen : null,
-    onSelect: (i) => {
-      mapSel = i;
-      sfx.select();
-      updateCampaignCards();
-    },
-    onPlay: (i) => i < CAMPAIGN.length && i <= state.campaign.cleared && startCampaign(i),
-    onArrive: () => sfx.coin(),
-  });
-  state.campaign.seen = cleared;
-  save();
-  updateCampaignCards();
-}
-
-$('#nodeCard').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-play]');
-  if (b) startCampaign(Number(b.dataset.play));
-});
-
-function startCampaign(i) {
+// ---------- Pruebas finales de la Academia: los cinco rivales (antes, la campaña) ----------
+function startTrial(i) {
   const n = CAMPAIGN[i];
   beginGame({
-    mode: 'campaign', index: i, playerColor: 'w',
+    mode: 'trial', index: i, playerColor: 'w',
     ai: { skill: n.skill, depth: n.depth, movetime: n.movetime, blunder: n.blunder },
     opp: { name: n.name, title: n.title, glyph: n.glyph, color: n.color, check: n.check, start: n.start, win: n.win, lose: n.lose },
     reward: i < state.campaign.cleared ? Math.round(n.reward / 2) : n.reward,
-    intro: n.intro,
+    intro: n.intro.filter(([who]) => who !== 'narrator'), // el relato de «Escaquia» ya no existe; los rivales y sus frases, sí
   });
 }
 
@@ -312,7 +235,7 @@ async function beginGame(cfg) {
   });
 }
 app.beginGame = beginGame;
-app.startCampaign = startCampaign;
+app.startTrial = startTrial;
 
 // ---------- Recompensas y resultado ----------
 function computeRewards(cfg, s) {
@@ -347,18 +270,19 @@ async function finishGame(cfg, s) {
   if (s.result === 'win') {
     const clean = !s.usedUndo;
     starsEarned = 1 + (clean && s.lost <= 2 ? 1 : 0) + (clean && s.lost === 0 ? 1 : 0);
-    if (cfg.mode === 'campaign') {
+    if (cfg.mode === 'trial') {
       const id = CAMPAIGN[cfg.index].id;
       state.campaign.stars[id] = Math.max(state.campaign.stars[id] || 0, starsEarned);
     }
   }
   let firstClear = false;
   let chapterDone = false;
-  if (cfg.mode === 'campaign' && s.result === 'win' && cfg.index === state.campaign.cleared) {
+  if (cfg.mode === 'trial' && s.result === 'win' && cfg.index === state.campaign.cleared) {
     state.campaign.cleared += 1;
     firstClear = true;
     chapterDone = state.campaign.cleared >= CAMPAIGN.length;
   }
+  const records = updateRecords({ result: s.result, plies: s.plies, checks: s.checks, mate: /mate/i.test(s.reason) });
   addCoins(total, { source: 'game' });
   const levelUps = addXp(Math.max(10, total), { source: 'game' });
   // Misiones y temporada
@@ -381,7 +305,7 @@ async function finishGame(cfg, s) {
   if (firstClear && !chapterDone) buttons.push(['next', 'Siguiente rival ▶', 'primary']);
   buttons.push(['again', s.result === 'win' ? 'Jugar otra vez' : 'Revancha', buttons.length ? '' : 'primary']);
   buttons.push(['share', '📤 Compartir', '']);
-  buttons.push(['menu', cfg.mode === 'campaign' ? 'Mapa' : 'Menú', '']);
+  buttons.push(['menu', cfg.mode === 'trial' ? 'Academia' : 'Menú', '']);
 
   const html = `<div class="result ${s.result}">
     <p class="eyebrow">${esc(s.reason)}</p>
@@ -390,10 +314,12 @@ async function finishGame(cfg, s) {
     ${quote ? `<blockquote><b>${esc(cfg.opp.name)}:</b> “${esc(quote)}”</blockquote>` : ''}
     <ul class="rewards">${rows.map((r, i) => `<li style="--i:${i}"><span>${r[0]}</span><b>+${r[1]} 🪙</b></li>`).join('')}
       <li class="total" style="--i:${rows.length}"><span>Total</span><b>+${total} 🪙</b></li></ul>
+    ${recordsHtml(records)}
     ${levelUps ? `<p class="levelup">⭐ ¡Subiste al nivel ${state.level}!</p>` : ''}
-    ${firstClear && !chapterDone ? `<p class="levelup">🗺️ Nuevo rival desbloqueado</p>` : ''}
+    ${firstClear && !chapterDone ? `<p class="levelup">🎓 Prueba superada: nuevo rival desbloqueado</p>` : ''}
     <div class="modal-actions">${buttons.map(([v, label, c]) => `<button class="btn ${c}" data-choice="${v}">${label}</button>`).join('')}</div>
   </div>`;
+  announceRecords(records);
   let pick = await choice(html, 'result-card');
   while (pick === 'share') {
     await shareGame({ game: app.game, summary: s, headline: titles[s.result], sub: `vs ${cfg.opp.name}` });
@@ -402,17 +328,16 @@ async function finishGame(cfg, s) {
 
   if (chapterDone) {
     await choice(
-      `<div class="result win"><p class="eyebrow">Fin del capítulo</p><h2>¡Valle de Peones superado!</h2>
-       <p>El Regente Gris se desvanece entre la niebla. Su voz se queda en el aire: <i>“Busca en el Bosque de Alfiles... antes de que olvides quién eres”.</i></p>
-       <p class="muted">${CHAPTER.next} llegará en la próxima versión.</p>
-       <div class="modal-actions"><button class="btn primary" data-choice="ok">Volver al mapa</button></div></div>`,
+      `<div class="result win"><p class="eyebrow">Academia completada</p><h2>¡Te has graduado!</h2>
+       <p>Has superado las cinco pruebas finales: ya juegas como un <b>Maestro</b>. Sigue subiendo de liga, juega el Royale Circuit o repite las pruebas para mejorar tus estrellas.</p>
+       <div class="modal-actions"><button class="btn primary" data-choice="ok">Volver a la Academia</button></div></div>`,
       'result-card',
     );
   }
 
-  if (pick === 'again') beginGame({ ...cfg, intro: null, reward: cfg.mode === 'campaign' ? Math.round(CAMPAIGN[cfg.index].reward / 2) : cfg.reward });
-  else if (pick === 'next') startCampaign(cfg.index + 1);
-  else go(cfg.mode === 'campaign' ? 'campaign' : 'home');
+  if (pick === 'again') beginGame({ ...cfg, intro: null, reward: cfg.mode === 'trial' ? Math.round(CAMPAIGN[cfg.index].reward / 2) : cfg.reward });
+  else if (pick === 'next') startTrial(cfg.index + 1);
+  else go(cfg.mode === 'trial' ? 'academy' : 'home');
 }
 
 // ---------- Acciones de partida ----------
@@ -563,7 +488,7 @@ $('#muteBtn').addEventListener('click', () => {
   save();
 });
 $('#resetBtn').addEventListener('click', async () => {
-  if (await confirmModal('¿Reiniciar progreso?', 'Se borrarán oros, skins, campaña y misiones (también en la nube).', 'Borrar todo', 'Cancelar')) {
+  if (await confirmModal('¿Reiniciar progreso?', 'Se borrarán oros, skins, progreso de la Academia y misiones (también en la nube).', 'Borrar todo', 'Cancelar')) {
     resetAll();
     applySkins();
     toast('Progreso reiniciado');
@@ -584,6 +509,7 @@ initCircuit();
 initSocial();
 initLobby();
 initShell();
+initAcademy();
 initRanking();
 initHistory();
 initSettings();

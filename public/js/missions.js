@@ -1,5 +1,6 @@
 // Misiones diarias y semanales: progreso por eventos de juego, recompensas en oros y XP de temporada.
 import { MISSIONS_DAILY, MISSIONS_WEEKLY } from './data.js';
+import { feedback } from './feedback.js';
 import { sfx } from './fx.js';
 import { addSeasonXp } from './season.js';
 import { addCoins, save, state } from './store.js';
@@ -48,17 +49,17 @@ const defOf = (kind, id) => (kind === 'daily' ? MISSIONS_DAILY : MISSIONS_WEEKLY
 export function track(event, n = 1) {
   if (!n) return;
   ensureMissions();
-  let done = 0;
+  const done = [];
   for (const kind of ['daily', 'weekly']) {
     for (const m of state.missions[kind]) {
       const def = defOf(kind, m.id);
       if (!def || def.event !== event || m.claimed || m.progress >= def.target) continue;
       m.progress = Math.min(def.target, m.progress + n);
-      if (m.progress >= def.target) done += 1;
+      if (m.progress >= def.target) done.push(def.text);
     }
   }
   save();
-  if (done) toast(`🎯 ¡Misión completada! Reclama tu premio en Misiones`, 3500);
+  if (done.length) feedback('mission', { title: done.length > 1 ? `${done.length} misiones completadas` : 'Misión completada', text: `${done.join(' · ')} — reclama tu premio en Misiones` });
 }
 
 export function claimableMissions() {

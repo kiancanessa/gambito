@@ -32,6 +32,7 @@
     <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M22 20a6 6 0 0 0-4-5.6"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
     <symbol id="i-sword" viewBox="0 0 24 24"><path d="M14.5 4.5 20 4l-.5 5.5L9 20l-5-5zM4 20l3-3M9 15l-2 2"/></symbol>
+    <symbol id="i-cap" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5zM6 11.5V16c0 1.5 3 3 6 3s6-1.500 6-3v-4.500M22 9v6"/></symbol>
     <symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></symbol>
     <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 8h4a2 2 0 1 1 4 0h4v4a2 2 0 1 1 0 4v4H4z"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
@@ -47,6 +48,7 @@
     <nav class="main-nav" aria-label="Principal">
       <button class="nav-link" data-go="home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Inicio</span></button>
       <button class="nav-link" data-go="lobby" data-nav="play" data-play><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span>Jugar</span></button>
+      <button class="nav-link" data-go="academy" data-nav="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span>Academia</span></button>
       <button class="nav-link" data-go="circuit" data-nav="circuit" data-flag="circuit"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span>Circuit</span></button>
       <button class="nav-link" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Clasificación</span></button>
       <button class="nav-link" data-go="missions" data-nav="rewards"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span>Misiones</span></button>
@@ -73,7 +75,7 @@
           <button class="play-now" id="playNow" data-go="lobby" data-play><span class="pn-main">PLAY NOW</span><small>Entra al lobby y busca rival</small></button>
           <div class="account-strip" id="homeAccount"></div>
           <div class="tile-grid">
-            <button class="tile" data-go="campaign"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-map"/></svg><span><b>Campaña</b><small id="homeCampaignInfo">Valle de Peones</small></span></button>
+            <button class="tile" data-go="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span><b>Academia</b><small id="homeAcademyInfo">De cero a experto</small></span></button>
             <button class="tile" data-go="online"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sword"/></svg><span><b>Online</b><small>Clasificatoria y amigos</small></span></button>
             <button class="tile" data-go="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-puzzle"/></svg><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span></button>
             <button class="tile" data-go="quick"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span><b>Contra la IA</b><small>Práctica sin presión</small></span></button>
@@ -92,7 +94,7 @@
     <!-- LOBBY COMPETITIVO -->
     <section class="screen" id="screen-lobby" hidden>
       <div class="screen-head"><h2>Jugar</h2></div>
-      <div class="lobby-grid" id="lobbyBody"></div>
+      <div id="lobbyBody"></div>
     </section>
 
     <!-- ROYALE CIRCUIT -->
@@ -113,19 +115,13 @@
       <div class="circuit-body" id="socialBody"></div>
     </section>
 
-    <!-- CAMPAÑA -->
-    <section class="screen" id="screen-campaign" hidden>
+    <!-- ACADEMIA -->
+    <section class="screen" id="screen-academy" hidden>
       <div class="screen-head">
-        <button class="back" data-go="home">← Volver</button>
-        <h2 id="chapterName">Capítulo 1</h2>
+        <h2>Academia</h2>
+        <span class="chip">🎓 De cero a experto</span>
       </div>
-      <div class="campaign-layout">
-        <div class="map-card"><div class="map-host" id="mapHost"></div></div>
-        <aside class="map-side">
-          <div class="progress-card" id="progressCard"></div>
-          <div class="node-card" id="nodeCard"></div>
-        </aside>
-      </div>
+      <div class="academy-body" id="academyBody"></div>
     </section>
 
     <!-- ONLINE -->
@@ -239,6 +235,7 @@
         </div>
 
         <div class="board-col" id="boardCol">
+          <div class="conn-banner" id="connBanner" role="status" aria-live="polite" hidden></div>
           <div class="mode-banner" id="modeBanner" hidden></div>
           <div class="board-frame" id="boardFrame">
             <div class="stage3d" id="stage3d"></div>
@@ -246,6 +243,7 @@
             <div class="fx-layer" id="fxLayer"></div>
             <div class="banner" id="banner" hidden></div>
             <div class="bubble" id="bubble" hidden></div>
+            <button class="game-prefs-btn" id="gamePrefsBtn" aria-label="Preferencias de la partida" title="Sonido, animaciones y resaltados"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
             <button class="view-btn" id="viewBtn" title="Cambiar ángulo de cámara" aria-label="Cambiar ángulo de cámara">🎥 <span id="viewLabel">Vista 3D</span></button>
             <div class="wait-overlay" id="waitOverlay" hidden>
               <div class="wait-card">
@@ -269,6 +267,7 @@
             </div>
           </div>
           <div class="quip" id="quip" hidden></div>
+          <div class="sr-only" id="boardLive" aria-live="polite" aria-atomic="true"></div>
           <div class="emote-bar" id="emoteBar" hidden></div>
           <div class="replay-bar" id="replayBar" hidden>
             <div class="rp-buttons">
@@ -290,6 +289,7 @@
           <div class="player-card me" id="meCard">
             <div class="avatar">♙</div>
             <div class="who"><b id="meName">Tú</b><small id="meSub">Peón sin nombre</small></div>
+            <span class="move-status" id="moveStatus" aria-live="polite" hidden></span>
             <span class="clock" id="meClock" hidden>0:00</span>
           </div>
           <div class="game-actions">
@@ -345,8 +345,10 @@
           <p class="eyebrow">Sonido y pantalla</p>
           <div class="set-row"><span><b>Sonido</b><small>Efectos de jugadas, capturas y recompensas</small></span><button class="switch" id="setSound" role="switch" aria-checked="true" aria-label="Sonido"><i></i></button></div>
           <div class="set-row"><span><b>Reducir movimiento</b><small>Menos animaciones y transiciones</small></span><button class="switch" id="setMotion" role="switch" aria-checked="false" aria-label="Reducir movimiento"><i></i></button></div>
+          <div class="set-row"><span><b>Arena 3D del lobby</b><small>Escenario animado del lobby; se desactiva solo en equipos limitados</small></span><button class="switch" id="setArena" role="switch" aria-checked="true" aria-label="Arena 3D del lobby"><i></i></button></div>
           <div class="set-row"><span><b>Tablero 2D</b><small>Ligero, para equipos sin gráficos 3D (recarga la página)</small></span><button class="switch" id="set2d" role="switch" aria-checked="false" aria-label="Tablero 2D"><i></i></button></div>
         </section>
+        <section class="lb-card" id="setPlay"></section>
         <section class="lb-card" id="setLook"></section>
         <section class="lb-card">
           <p class="eyebrow">Ayuda y datos</p>

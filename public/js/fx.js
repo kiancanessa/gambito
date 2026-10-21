@@ -1,4 +1,5 @@
 // Sonidos sintetizados (WebAudio) y partículas visuales. Todo sin archivos externos.
+import { prefs } from './prefs.js';
 import { state } from './store.js';
 
 let ctx = null;
@@ -24,7 +25,7 @@ function tone(freq, { dur = 0.12, type = 'sine', vol = 0.15, delay = 0, slide = 
   osc.frequency.setValueAtTime(freq, t);
   if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * prefs.volume), t + 0.01); // volumen general de Ajustes
   gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   osc.connect(gain).connect(a.destination);
   osc.start(t);
@@ -50,7 +51,15 @@ export const sfx = {
   win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, { dur: 0.22, type: 'triangle', vol: 0.13, delay: i * 0.12 })),
   lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, { dur: 0.3, type: 'sawtooth', vol: 0.09, delay: i * 0.18 })),
   error: () => tone(120, { dur: 0.12, type: 'square', vol: 0.08 }),
+  // Alerta de poco tiempo: un clic seco por segundo; cada vez más agudo en los últimos 3.
+  tick: (urgent = false) => tone(urgent ? 1180 : 880, { dur: 0.05, type: 'square', vol: urgent ? 0.1 : 0.06 }),
+  record: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, { dur: 0.2, type: 'triangle', vol: 0.11, delay: i * 0.08 })),
+  advance: () => [440, 554, 659, 880].forEach((f, i) => tone(f, { dur: 0.18, type: 'sawtooth', vol: 0.07, delay: i * 0.09 })),
+  confirm: () => tone(740, { dur: 0.04, type: 'sine', vol: 0.05 }),
 };
+
+// Al soltar el control de volumen se oye un ejemplo.
+if (typeof document !== 'undefined') document.addEventListener('checkpoint:test-sound', () => sfx.move());
 
 // ---- Partículas ----
 const FX = {

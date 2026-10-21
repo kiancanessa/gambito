@@ -100,7 +100,7 @@ Las operaciones pendientes se guardan en `localStorage` y se reenvían al volver
 
 Migración idempotente: la primera vez que se pide la cartera se crea desde el guardado antiguo, recortado (máx. 20 000 oros, solo
 objetos del catálogo). Después, el guardado en la nube ya no decide estos campos. `mergeSnapshot` también fusiona estas tablas y
-tolera copias de versiones sin ellas. Lo que sigue en el cliente: temporada (XP), misiones, campaña y estadísticas.
+tolera copias de versiones sin ellas. Lo que sigue en el cliente: temporada (XP), misiones, progreso de la Academia y estadísticas.
 
 ## Repeticiones (Fase 3)
 

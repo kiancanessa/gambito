@@ -8,7 +8,8 @@ import { $, $$, esc, VS } from './ui.js';
 // Qué pestaña de la navegación se ilumina en cada pantalla.
 const SECTION = {
   home: 'home',
-  lobby: 'play', quick: 'play', online: 'play', campaign: 'play', daily: 'play', game: 'play',
+  lobby: 'play', quick: 'play', online: 'play', daily: 'play', game: 'play',
+  academy: 'academy',
   circuit: 'circuit',
   ranking: 'ranking',
   missions: 'rewards', season: 'rewards', shop: 'rewards',
@@ -33,7 +34,7 @@ function renderAccount() {
     return;
   }
   if (!u) {
-    box.innerHTML = `<div class="acc-main"><span class="acc-dot off"></span><span><b>Sin conexión</b><small>Puedes jugar la campaña, el tutorial y partidas contra la IA; tu progreso se guarda en este dispositivo.</small></span></div>
+    box.innerHTML = `<div class="acc-main"><span class="acc-dot off"></span><span><b>Sin conexión</b><small>Puedes seguir la Academia, el tutorial y partidas contra la IA; tu progreso se guarda en este dispositivo.</small></span></div>
       <button class="btn" data-acc="retry">Reintentar</button>`;
     return;
   }

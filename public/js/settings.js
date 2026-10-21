@@ -1,11 +1,13 @@
 // Ajustes y personalización: cuenta, sonido, pantalla (movimiento reducido, tablero 2D) y piezas/tablero/efectos equipados.
 import { RARITY, SHOP } from './data.js';
 import { net } from './net.js';
+import { bindPrefsPanel, onPrefs, prefsPanelHtml } from './prefs.js';
 import { equip, owns, save, state } from './store.js';
-import { $, $$, app, esc, showScreen } from './ui.js';
+import { $, $$, app, choice, esc, showScreen } from './ui.js';
 
 const PREF_REDUCE = 'checkpoint.reduce';
 const PREF_2D = 'checkpoint.2d';
+const PREF_ARENA = 'checkpoint.arena3d'; // '0' = apagada
 const KINDS = [
   { kind: 'set', group: 'sets', label: 'Piezas' },
   { kind: 'board', group: 'boards', label: 'Tablero' },
@@ -15,6 +17,13 @@ const KINDS = [
 const readPref = (key) => {
   try {
     return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+};
+const readPref2 = (key, value) => {
+  try {
+    return localStorage.getItem(key) === value;
   } catch {
     return false;
   }
@@ -55,16 +64,33 @@ function renderSwitches() {
   setSwitch($('#setSound'), !state.muted);
   setSwitch($('#setMotion'), readPref(PREF_REDUCE));
   setSwitch($('#set2d'), readPref(PREF_2D));
+  setSwitch($('#setArena'), !readPref2(PREF_ARENA, '0') && !readPref(PREF_2D));
+  $('#setArena').disabled = readPref(PREF_2D); // con «Tablero 2D» no hay gráficos 3D de ningún tipo
 }
+
+const renderPlayPrefs = () => {
+  $('#setPlay').innerHTML = `<p class="eyebrow">Partida: sonido, animaciones y resaltados</p>${prefsPanelHtml()}`;
+};
 
 export function enterSettings() {
   showScreen('settings');
+  renderPlayPrefs();
   renderAccount();
   renderLook();
   renderSwitches();
 }
 
 export function initSettings() {
+  bindPrefsPanel($('#setPlay'), renderPlayPrefs);
+  // El mismo panel, a un toque durante la partida (engranaje del tablero).
+  bindPrefsPanel($('#modalCard'), () => {
+    const panel = $('#modalCard .prefs-panel');
+    if (panel) panel.innerHTML = prefsPanelHtml();
+  });
+  $('#gamePrefsBtn').addEventListener('click', () =>
+    choice(`<h3>Preferencias de la partida</h3><div class="prefs-panel">${prefsPanelHtml()}</div><div class="modal-actions"><button class="btn primary" data-choice="ok">Listo</button></div>`, 'prefs-card'),
+  );
+  onPrefs(() => app.game?.render?.()); // los resaltados se aplican al instante
   $('#setSound').addEventListener('click', () => {
     state.muted = !state.muted;
     save();
@@ -74,6 +100,17 @@ export function initSettings() {
     const on = !readPref(PREF_REDUCE);
     writePref(PREF_REDUCE, on);
     document.documentElement.classList.toggle('reduce-motion', on);
+    app.disposeArena?.(); // la arena se recrea con la animación que toque
+    renderSwitches();
+  });
+  $('#setArena').addEventListener('click', () => {
+    try {
+      if (readPref2(PREF_ARENA, '0')) localStorage.removeItem(PREF_ARENA);
+      else localStorage.setItem(PREF_ARENA, '0');
+    } catch {
+      /* sin almacenamiento */
+    }
+    app.disposeArena?.();
     renderSwitches();
   });
   $('#set2d').addEventListener('click', () => {

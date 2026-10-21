@@ -1,6 +1,7 @@
 // Tablero y piezas en 3D (three.js): cámara en perspectiva, piezas torneadas, sombras y animaciones.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/RoomEnvironment.js';
+import { animScale, prefs } from './prefs.js';
 
 const FILES = 'abcdefgh';
 const TILE_TOP = 0;
@@ -409,6 +410,21 @@ function pieceMaterial(spec) {
   });
 }
 
+// Pieza suelta para otras escenas (el avatar del lobby). Comparte las geometrías de las piezas del tablero (no las liberes);
+// los materiales son propios: llama a `group.userData.dispose()` al terminar.
+export function createAvatarPiece(type, color) {
+  const spec = { color, roughness: 0.3, metalness: 0.65, emissive: color, emissiveIntensity: 0.16, clearcoat: 0.8 };
+  const mat = pieceMaterial(spec);
+  const accent = pieceMaterial(accentSpec(spec));
+  const group = buildPiece(type, mat, accent, color);
+  group.userData.height = PIECE_HEIGHT[type] ?? 1;
+  group.userData.dispose = () => {
+    mat.dispose();
+    accent.dispose();
+  };
+  return group;
+}
+
 // ---------- Vistas de cámara ----------
 const PRESETS = {
   '3d': { el: 50, dist: 12.6, label: 'Vista 3D' },
@@ -452,6 +468,11 @@ export class Board3D {
     this.selectedObj = null;
     this.interactive = true;
     this.onPick = null;
+    this.drag = null; // arrastre en curso { sq, obj, active }
+    this.dropObj = null; // pieza soltada con éxito: aparece directamente en destino
+    this.onDragCheck = null; // (sq) => ¿se puede arrastrar la pieza de esa casilla?
+    this.onDragBegin = null; // (sq) => el arrastre empieza (selecciona la pieza)
+    this.onDrop = null; // (from, to | null) => se soltó sobre una casilla
     this.pulses = [];
     this.hooks = new Set();
     this.skins = { set: 'classic', board: 'wood' };
@@ -560,6 +581,8 @@ export class Board3D {
     this.hlMats = {
       selected: mk('#4cd6ff', 0.5),
       last: mk('#ffd84a', 0.34),
+      lastPending: mk('#9aa4b8', 0.26), // jugada enviada que el servidor aún no ha confirmado
+      cursor: mk('#22e1ff', 0.28),
       check: mk('#ff2a45', 0.55),
       hint: mk('#4dffa8', 0.55),
       hover: mk('#ffffff', 0.18),
@@ -668,10 +691,27 @@ export class Board3D {
     const from = { x: obj.group.position.x, z: obj.group.position.z };
     const dest = sqXZ(to);
     const dist = Math.hypot(dest.x - from.x, dest.z - from.z);
-    const dur = 0.3 + Math.min(dist, 6) * 0.045 + (jump ? 0.12 : 0);
+    const k = animScale();
+    const dropped = this.dropObj === obj; // soltada con el dedo/ratón: ya está donde debe, no hay que desplazarla
+    if (dropped) this.dropObj = null;
+    if (k === 0 || dropped) {
+      obj.group.position.set(dest.x, TILE_TOP, dest.z);
+      obj.group.rotation.z = 0;
+      onProgress?.(1);
+      if (!dropped) return;
+      obj.busy += 1;
+      await this.tween(0.14 * Math.max(k, 0.5), (p) => {
+        const squash = Math.sin(Math.PI * p) * 0.08;
+        obj.group.scale.set(1 + squash * 0.6, 1 - squash, 1 + squash * 0.6);
+      });
+      obj.group.scale.set(1, 1, 1);
+      obj.busy -= 1;
+      return;
+    }
+    const dur = (0.3 + Math.min(dist, 6) * 0.045 + (jump ? 0.12 : 0)) * k;
     const lift = jump ? 1.15 : 0.42;
     obj.busy += 1;
-    if (delay) await this.tween(delay, () => {}, (p) => p);
+    if (delay) await this.tween(delay * k, () => {}, (p) => p);
     await this.tween(dur, (p) => {
       obj.group.position.x = lerp(from.x, dest.x, p);
       obj.group.position.z = lerp(from.z, dest.z, p);
@@ -682,7 +722,7 @@ export class Board3D {
     obj.group.rotation.z = 0;
     obj.group.position.set(dest.x, TILE_TOP, dest.z);
     // pequeño rebote al aterrizar
-    await this.tween(0.16, (p) => {
+    await this.tween(0.16 * k, (p) => {
       const squash = Math.sin(Math.PI * p) * 0.08;
       obj.group.scale.set(1 + squash * 0.6, 1 - squash, 1 + squash * 0.6);
     });
@@ -691,6 +731,10 @@ export class Board3D {
   }
 
   knockOut(obj) {
+    if (animScale() === 0) {
+      this.piecesGroup.remove(obj.group);
+      return;
+    }
     const g = obj.group;
     const start = g.position.clone();
     const spin = (Math.random() < 0.5 ? -1 : 1) * (2.5 + Math.random() * 2);
@@ -843,7 +887,7 @@ export class Board3D {
   }
 
   // ----- Resaltados -----
-  highlight({ selected, targets = [], lastMove, checkSq, hintMove, interactive }) {
+  highlight({ selected, targets = [], lastMove, checkSq, hintMove, interactive, cursor = null, pending = false }) {
     this.interactive = interactive ?? true;
     while (this.hlGroup.children.length) this.hlGroup.remove(this.hlGroup.children[0]);
     this.pulses = [];
@@ -857,8 +901,9 @@ export class Board3D {
       return m;
     };
     if (lastMove) {
-      put(this.hlGeo.plane, this.hlMats.last, lastMove.from, 0.008);
-      put(this.hlGeo.plane, this.hlMats.last, lastMove.to, 0.008);
+      const mat = pending ? this.hlMats.lastPending : this.hlMats.last;
+      put(this.hlGeo.plane, mat, lastMove.from, 0.008);
+      put(this.hlGeo.plane, mat, lastMove.to, 0.008);
     }
     if (hintMove) {
       put(this.hlGeo.plane, this.hlMats.hint, hintMove.from, 0.012);
@@ -870,8 +915,12 @@ export class Board3D {
       if (m.captured) put(this.hlGeo.ring, this.hlMats.ring, m.to, 0.02);
       else put(this.hlGeo.dot, this.hlMats.dot, m.to, 0.02);
     }
+    if (cursor) {
+      put(this.hlGeo.plane, this.hlMats.cursor, cursor, 0.018);
+      put(this.hlGeo.ring, this.hlMats.cursor, cursor, 0.022);
+    }
     if (this.hover && this.interactive) put(this.hlGeo.plane, this.hlMats.hover, this.hover, 0.006);
-    this.hlState = { selected, targets, lastMove, checkSq, hintMove };
+    this.hlState = { selected, targets, lastMove, checkSq, hintMove, cursor, pending };
 
     const next = selected ? this.pieces.get(selected) : null;
     if (this.selectedObj && this.selectedObj !== next) this.selectedObj.targetY = TILE_TOP;
@@ -880,7 +929,7 @@ export class Board3D {
   }
 
   // Punto de entrada único desde Game.
-  update({ chess, selected, targets, lastMove, hintMove, checkSq, move, interactive }) {
+  update({ chess, selected, targets, lastMove, hintMove, checkSq, move, interactive, cursor, pending }) {
     const placement = chess.fen().split(' ')[0];
     if (move) {
       this.placement = placement;
@@ -888,7 +937,7 @@ export class Board3D {
     } else if (placement !== this.placement) {
       this.setPosition(chess);
     }
-    this.highlight({ selected, targets, lastMove, checkSq, hintMove, interactive });
+    this.highlight({ selected, targets, lastMove, checkSq, hintMove, interactive, cursor, pending });
   }
 
   // ----- Cámara -----
@@ -986,11 +1035,58 @@ export class Board3D {
       }
       return null;
     };
+    // Arrastrar y soltar: se activa al mover más de 8 px sobre una pieza propia; tocar y soltar sigue siendo seleccionar.
+    // El plano del tablero se usa para saber sobre qué casilla está la pieza arrastrada (no se mira a la propia pieza).
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.4);
+    const hit = new THREE.Vector3();
+    const planePoint = (e) => {
+      const r = this.canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, this.camera);
+      return ray.ray.intersectPlane(plane, hit) ? hit : null;
+    };
+    const sqFromPoint = (p) => {
+      const file = Math.round(p.x + 3.5);
+      const rank = Math.round(4.5 - p.z);
+      return file >= 0 && file < 8 && rank >= 1 && rank <= 8 ? FILES[file] + rank : null;
+    };
+    const endDrag = (cancel) => {
+      const d = this.drag;
+      this.drag = null;
+      if (!d) return null;
+      this.canvas.style.cursor = 'default';
+      if (d.active) {
+        d.obj.busy -= 1;
+        d.obj.targetY = TILE_TOP;
+      }
+      return cancel ? null : d;
+    };
     let down = null;
     this.canvas.addEventListener('pointerdown', (e) => {
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
+      if (!prefs.drag || !this.interactive || this.mode !== 'play' || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      const sq = sqAt(e);
+      const obj = sq && this.pieces.get(sq);
+      if (obj && this.onDragCheck?.(sq)) this.drag = { sq, obj, active: false, x: e.clientX, y: e.clientY, id: e.pointerId };
     });
+    this.canvas.addEventListener('pointercancel', () => endDrag(true));
     this.canvas.addEventListener('pointerup', (e) => {
+      const d = endDrag(false);
+      if (d?.active) {
+        down = null;
+        const p = planePoint(e);
+        const to = p ? sqFromPoint(p) : null;
+        d.obj.group.position.set(sqXZ(d.sq).x, TILE_TOP, sqXZ(d.sq).z); // vuelve a su casilla...
+        if (to && to !== d.sq) {
+          const before = d.obj.sq;
+          this.dropObj = d.obj; // ...salvo que la jugada se acepte: entonces aparece ya en destino
+          this.onDrop?.(d.sq, to);
+          if (d.obj.sq === before) this.dropObj = null;
+        } else {
+          this.onDrop?.(d.sq, null);
+        }
+        return;
+      }
       if (!down || !this.interactive || this.mode !== 'play') return;
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       down = null;
@@ -1002,6 +1098,32 @@ export class Board3D {
       const r = this.canvas.getBoundingClientRect();
       this.pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       this.pointer.y = ((e.clientY - r.top) / r.height) * 2 - 1;
+      const d = this.drag;
+      if (d) {
+        if (!d.active && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) {
+          d.active = true;
+          d.obj.busy += 1; // el bucle deja de asentar la pieza: la mueve el puntero
+          try {
+            this.canvas.setPointerCapture?.(d.id); // si el puntero ya no está activo, el arrastre sigue funcionando sin captura
+          } catch {
+            /* sin captura */
+          }
+          this.onDragBegin?.(d.sq);
+        }
+        if (d.active) {
+          const p = planePoint(e);
+          if (p) {
+            d.obj.group.position.set(p.x, 0.62, p.z);
+            const over = sqFromPoint(p);
+            if (over !== this.hover) {
+              this.hover = over;
+              if (this.hlState) this.highlight({ ...this.hlState, interactive: this.interactive });
+            }
+          }
+          this.canvas.style.cursor = 'grabbing';
+          return;
+        }
+      }
       if (e.pointerType !== 'mouse' || this.mode !== 'play') return;
       const sq = sqAt(e);
       if (sq !== this.hover) {

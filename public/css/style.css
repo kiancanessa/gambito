@@ -507,81 +507,9 @@ main { max-width: 1400px; }
 .bubble.opp::after { background: #ffe3e9; }
 @keyframes bubblePop { from { transform: translate(-50%, calc(-100% - 4px)) scale(0.4); opacity: 0; } }
 
-/* =====================================================================
-   Mapa interactivo de la campaña
-   ===================================================================== */
+/* Rejilla de dos columnas (online y desafío diario) */
 .campaign-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (min-width: 980px) { .campaign-layout { grid-template-columns: minmax(0, 1fr) 340px; } }
-.map-card {
-  border-radius: 22px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 0 0 5px #3b2a63, 0 24px 60px rgba(0, 0, 0, 0.5); background: #1e4a47;
-}
-.map-host { width: 100%; line-height: 0; }
-.map-svg { width: 100%; height: auto; display: block; user-select: none; }
-
-.map-svg .river-edge { fill: none; stroke: #1f6e9c; stroke-width: 58; stroke-linecap: round; opacity: 0.55; }
-.map-svg .river { fill: none; stroke: #49b0e6; stroke-width: 44; stroke-linecap: round; }
-.map-svg .river-flow { fill: none; stroke: #bfe9ff; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 18 34; opacity: 0.7; animation: flow 2.4s linear infinite; }
-@keyframes flow { to { stroke-dashoffset: -52; } }
-.map-svg .deco, .map-svg .landmark, .map-svg .mount { font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; text-anchor: middle; pointer-events: none; }
-.map-svg .deco { opacity: 0.95; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.3)); }
-.map-svg .landmark { filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.45)); }
-.map-svg .mount { opacity: 0.85; }
-.map-svg .cloud { fill: #fff; opacity: 0.12; animation: cloud linear infinite; }
-@keyframes cloud { to { transform: translateX(1500px); } }
-
-.map-svg .road-edge { fill: none; stroke: #6b4a22; stroke-width: 24; stroke-linecap: round; }
-.map-svg .road { fill: none; stroke: #d8b676; stroke-width: 16; stroke-linecap: round; }
-.map-svg .road-glow { fill: none; stroke: transparent; stroke-width: 8; stroke-linecap: round; }
-.map-svg .road-trail { fill: none; stroke: transparent; stroke-width: 3; stroke-linecap: round; }
-.map-svg .seg.far { opacity: 0.5; }
-.map-svg .seg.done .road-glow { stroke: #ffd24a; filter: drop-shadow(0 0 6px rgba(255, 210, 74, 0.9)); }
-.map-svg .seg.next .road-trail { stroke: #fff; stroke-dasharray: 2 14; animation: ants 1.1s linear infinite; }
-.map-svg .seg.gate-seg.far .road, .map-svg .seg.gate-seg.next .road { opacity: 0.6; }
-@keyframes ants { to { stroke-dashoffset: -32; } }
-.map-svg .bridge { fill: #a77742; stroke: #5b3a17; stroke-width: 3; }
-.map-svg .plank { stroke: #6a461c; stroke-width: 2; }
-.map-svg .rail { fill: #6a461c; }
-
-/* Nodos */
-.map-svg .mnode { cursor: pointer; outline: none; }
-.map-svg .mnode .node-body, .map-svg .mnode .sel-ring { transform-box: fill-box; transform-origin: center; }
-.map-svg .mnode .node-body { transition: transform 0.2s; }
-.map-svg .mnode:hover .node-body, .map-svg .mnode:focus-visible .node-body { transform: scale(1.1); }
-.map-svg .halo { fill: none; stroke: transparent; stroke-width: 0; }
-.map-svg .mnode.current .halo { fill: rgba(255, 215, 90, 0.28); animation: halo 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes halo { 50% { transform: scale(1.22); fill: rgba(255, 215, 90, 0.12); } }
-.map-svg .ring { fill: #1b1535; stroke: #7a70a8; stroke-width: 5; }
-.map-svg .mnode.cleared .ring { stroke: #ffcf5a; }
-.map-svg .mnode.current .ring { stroke: #fff; filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)); }
-.map-svg .disc { fill: var(--c, #8b6cff); }
-.map-svg .mnode.locked .disc { fill: #4a4568; }
-.map-svg .shine { fill: rgba(255, 255, 255, 0.28); }
-.map-svg .mnode.locked .shine { fill: rgba(255, 255, 255, 0.08); }
-.map-svg .glyph { font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif; font-size: 40px; fill: #1a1030; }
-.map-svg .mnode.locked .glyph { fill: #8d86ab; }
-.map-svg .num-bg { fill: #1b1535; stroke: rgba(255, 255, 255, 0.5); stroke-width: 2; }
-.map-svg .num { font: 700 13px var(--font); fill: #fff; }
-.map-svg .chk-bg { fill: #2fbf71; stroke: #fff; stroke-width: 2; }
-.map-svg .chk { font: 800 15px var(--font); fill: #fff; }
-.map-svg .lock { font-size: 18px; font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; }
-.map-svg .name { font: 700 17px var(--font); fill: #fff; paint-order: stroke; stroke: rgba(10, 6, 30, 0.85); stroke-width: 5px; stroke-linejoin: round; }
-.map-svg .mnode.locked .name { fill: #cfc8ea; }
-.map-svg .sub { font: 700 14px var(--font); fill: #ffe08a; paint-order: stroke; stroke: rgba(10, 6, 30, 0.85); stroke-width: 4px; stroke-linejoin: round; }
-.map-svg .sel-ring { fill: none; stroke: #4cd6ff; stroke-width: 3; stroke-dasharray: 9 7; opacity: 0; }
-.map-svg .mnode.selected .sel-ring { opacity: 1; animation: spin 8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.map-svg .fog-blob { pointer-events: none; }
-.map-svg .gate-disc { fill: #1d3d2f; }
-.map-svg .mnode.gate.open .ring { stroke: #7be0a4; }
-
-/* Token del jugador */
-.map-svg .token { pointer-events: none; }
-.map-svg .token-body { animation: bob 1.6s ease-in-out infinite; }
-@keyframes bob { 50% { transform: translateY(-7px); } }
-.map-svg .tshadow { fill: rgba(0, 0, 0, 0.35); }
-.map-svg .tdisc { fill: #ffd24a; stroke: #fff; stroke-width: 3; filter: drop-shadow(0 0 8px rgba(255, 210, 74, 0.9)); }
-.map-svg .tglyph { font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif; font-size: 26px; fill: #3a2400; }
 
 /* Paneles laterales */
 .map-side { display: grid; gap: 14px; }
@@ -965,3 +893,5 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, .big-btn:focus-vi
 .pdot.play { background: #ff3b5c; box-shadow: 0 0 8px #ff3b5c; }
 .opp-menu { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--glass); border: 1px solid var(--line); font-size: 1.2rem; line-height: 1; display: grid; place-items: center; }
 .opp-menu:hover { background: rgba(120, 100, 220, 0.5); }
+
+@keyframes spin { to { transform: rotate(360deg); } }

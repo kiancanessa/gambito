@@ -1,7 +1,9 @@
 // Controlador de una partida: tablero, reglas (chess.js), turnos de la IA y animaciones.
 import { Chess } from '../vendor/chess.js';
 import { GLYPH, PIECE_NAME, PIECE_VALUE, QUIPS } from './data.js';
+import { feedback } from './feedback.js';
 import { sfx, burst } from './fx.js';
+import { prefs } from './prefs.js';
 
 const FILES = 'abcdefgh';
 const TEXT_VS = '︎'; // fuerza glifo de texto (no emoji) en ♟
@@ -42,16 +44,36 @@ export class Game {
     this.quipTimer = null;
     this.bannerTimer = null;
     this.view = o.view || null; // vista 3D (Board3D); si es null se usa el tablero DOM
+    this.cursor = null; // casilla del cursor de teclado
+    this.pending = false; // mi última jugada está enviada pero el servidor aún no la ha confirmado
+    this.dragSq = null;
     this.onBoardClick = (e) => {
+      if (this.suppressClick) return;
       const sq = e.target.closest('[data-sq]')?.dataset.sq;
       if (sq) this.click(sq);
     };
+    this.onKey = (e) => this.key(e);
+    this.frame = this.els.board.parentElement;
     if (this.view) {
       this.view.setFlipped(this.flipped);
       this.view.onPick = (sq) => this.click(sq);
+      this.view.onDragCheck = (sq) => this.canDrag(sq);
+      this.view.onDragBegin = (sq) => this.beginDrag(sq);
+      this.view.onDrop = (from, to) => this.dropOn(from, to);
     } else {
       this.els.board.addEventListener('click', this.onBoardClick);
+      this.onDown2d = (e) => this.down2d(e);
+      this.els.board.addEventListener('pointerdown', this.onDown2d);
     }
+    // Teclado: el marco del tablero es enfocable; flechas mueven el cursor, Intro/Espacio eligen, Esc cancela.
+    this.frame.tabIndex = 0;
+    this.frame.setAttribute('role', 'application');
+    this.frame.setAttribute('aria-label', 'Tablero de ajedrez. Usa las flechas para moverte, Intro para elegir pieza o destino y Escape para cancelar.');
+    this.frame.addEventListener('keydown', this.onKey);
+    this.onPointer = () => {
+      this.kbd = false;
+    };
+    this.frame.addEventListener('pointerdown', this.onPointer, true);
   }
 
   start() {
@@ -72,7 +94,16 @@ export class Game {
     this.over = true;
     this.o.engine.stop();
     this.els.board.removeEventListener('click', this.onBoardClick);
-    if (this.view) this.view.onPick = null;
+    this.els.board.removeEventListener('pointerdown', this.onDown2d);
+    this.frame.removeEventListener('keydown', this.onKey);
+    this.frame.removeEventListener('pointerdown', this.onPointer, true);
+    this.frame.removeAttribute('tabindex');
+    if (this.view) {
+      this.view.onPick = null;
+      this.view.onDragCheck = null;
+      this.view.onDragBegin = null;
+      this.view.onDrop = null;
+    }
     clearTimeout(this.quipTimer);
     clearTimeout(this.bannerTimer);
     this.hideBubble();
@@ -94,20 +125,134 @@ export class Game {
       if (this.selected === sq) {
         this.deselect();
       } else {
-        this.selected = sq;
-        this.targets = this.chess.moves({ square: sq, verbose: true });
-        this.hintMove = null;
-        sfx.select();
-        this.render();
+        this.select(sq);
       }
     } else if (this.selected) {
       this.deselect();
     }
   }
 
+  select(sq) {
+    this.selected = sq;
+    this.cursor = sq;
+    this.targets = this.chess.moves({ square: sq, verbose: true });
+    this.hintMove = null;
+    sfx.select();
+    this.render();
+    const p = this.chess.get(sq);
+    const dests = [...new Set(this.targets.map((m) => m.to))];
+    this.announce(`${PIECE_NAME[p.type]} ${sq} seleccionado. ${dests.length ? `Destinos: ${dests.join(', ')}.` : 'No tiene movimientos legales.'}`);
+  }
+
   deselect() {
     this.selected = null;
     this.targets = [];
+    this.render();
+    this.announce('Selección cancelada.');
+  }
+
+  // Texto para lectores de pantalla (región aria-live del tablero).
+  announce(text) {
+    if (this.els.live) this.els.live.textContent = text;
+  }
+
+  // ---------- Arrastrar y soltar ----------
+  canDrag(sq) {
+    const p = this.chess.get(sq);
+    return !!p && p.color === this.pc && this.myTurn;
+  }
+
+  beginDrag(sq) {
+    if (!this.canDrag(sq)) return;
+    this.dragSq = sq;
+    this.select(sq);
+  }
+
+  // Suelta la pieza sobre `to` (o fuera del tablero: null). Un destino ilegal no hace nada y deja la pieza elegida.
+  dropOn(from, to) {
+    this.dragSq = null;
+    if (!to || to === from || this.selected !== from || !this.targets.some((m) => m.to === to)) {
+      if (to && to !== from && this.selected === from) sfx.error();
+      this.render();
+      return;
+    }
+    this.tryMove(from, to);
+  }
+
+  // Tablero 2D: arrastre con eventos de puntero (ratón y táctil); se activa tras moverse más de 8 px.
+  down2d(e) {
+    if (!prefs.drag || (e.pointerType === 'mouse' && e.button !== 0) || !this.myTurn) return;
+    const sqEl = e.target.closest('[data-sq]');
+    const pieceEl = e.target.closest('.piece');
+    if (!sqEl || !pieceEl || !this.canDrag(sqEl.dataset.sq)) return;
+    const from = sqEl.dataset.sq;
+    const start = { x: e.clientX, y: e.clientY };
+    let ghost = null;
+    const size = this.els.board.clientWidth / 8;
+    const frameBox = () => this.els.fxLayer.getBoundingClientRect();
+    const place = (ev) => {
+      const b = frameBox();
+      ghost.style.left = `${ev.clientX - b.left}px`;
+      ghost.style.top = `${ev.clientY - b.top}px`;
+    };
+    const move = (ev) => {
+      if (!ghost && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 8) {
+        ghost = pieceEl.cloneNode(true);
+        ghost.classList.add('drag-ghost');
+        ghost.style.cssText = `position:absolute;width:${size}px;height:${size}px;font-size:${size * 0.82}px;pointer-events:none;transform:translate(-50%,-55%);z-index:9;display:grid;place-items:center`;
+        this.els.fxLayer.append(ghost);
+        this.suppressClick = true;
+        this.beginDrag(from);
+        this.els.board.querySelector(`[data-sq="${from}"] .piece`)?.classList.add('drag-src');
+      }
+      if (ghost) place(ev);
+    };
+    const finish = (ev, cancel) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancelFn);
+      if (!ghost) return;
+      ghost.remove();
+      setTimeout(() => (this.suppressClick = false), 0);
+      const under = cancel ? null : document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-sq]');
+      this.dropOn(from, under?.dataset.sq ?? null);
+    };
+    const up = (ev) => finish(ev, false);
+    const cancelFn = (ev) => finish(ev, true);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancelFn);
+  }
+
+  // ---------- Teclado ----------
+  key(e) {
+    this.kbd = true;
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+    if (arrows[e.key]) {
+      e.preventDefault();
+      // Con las negras abajo, «arriba» en pantalla es hacia la fila 1.
+      const [dx, dy] = arrows[e.key].map((v) => (this.flipped ? -v : v));
+      const base = this.cursor ?? this.selected ?? (this.pc === 'w' ? 'e2' : 'e7');
+      const f = Math.min(7, Math.max(0, FILES.indexOf(base[0]) + dx));
+      const r = Math.min(8, Math.max(1, Number(base[1]) + dy));
+      this.cursor = `${FILES[f]}${r}`;
+      this.render();
+      const p = this.chess.get(this.cursor);
+      this.announce(`${this.cursor}, ${p ? `${PIECE_NAME[p.type]} ${p.color === 'w' ? 'blanco' : 'negro'}` : 'vacía'}${this.targets.some((m) => m.to === this.cursor) ? ', destino legal' : ''}`);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!this.cursor) this.cursor = this.pc === 'w' ? 'e2' : 'e7';
+      this.click(this.cursor);
+    } else if (e.key === 'Escape' && this.selected) {
+      e.preventDefault();
+      this.deselect();
+    }
+  }
+
+  // El servidor confirmó mi jugada: la última jugada pasa de gris (pendiente) a amarillo (aceptada).
+  confirmMove() {
+    if (!this.pending) return;
+    this.pending = false;
     this.render();
   }
 
@@ -123,6 +268,7 @@ export class Game {
     this.selected = null;
     this.targets = [];
     this.hintMove = null;
+    this.cursor = to;
     this.play({ from, to, promotion });
   }
 
@@ -160,7 +306,9 @@ export class Game {
     const d = this.view ? 420 : 0;
     const later = (fn, ms = d) => (ms ? setTimeout(() => !this.destroyed && fn(), ms) : fn());
 
+    this.announce(`${mine ? 'Has jugado' : `${m.color === 'w' ? 'Blancas' : 'Negras'} juegan`} ${m.san}${isMate ? '. Jaque mate.' : isCheck ? '. Jaque.' : ''}`);
     if (m.captured) {
+      feedback('capture', { text: `${PIECE_NAME[m.piece]} captura ${PIECE_NAME[m.captured]}`, ms: 1100 });
       later(() => {
         sfx.capture();
         const p = this.squareCenter(m.to);
@@ -170,6 +318,7 @@ export class Game {
       sfx.move();
     }
     if (m.promotion) {
+      feedback('promotion', { pop: false });
       later(() => {
         sfx.promote();
         this.showBanner('¡CORONACIÓN!', 'gold');
@@ -178,6 +327,7 @@ export class Game {
       }, d + 120);
     }
     if (isMate) {
+      feedback('mate', { pop: false });
       const k = this.findKing(c.turn());
       later(() => {
         const p = this.squareCenter(k);
@@ -186,6 +336,7 @@ export class Game {
         this.view?.checkmate(k);
       }, d + 80);
     } else if (isCheck) {
+      feedback('check', { pop: false });
       const k = this.findKing(c.turn());
       later(() => {
         sfx.check();
@@ -205,7 +356,11 @@ export class Game {
       return;
     }
     if (this.o.remote) {
-      if (mine && !this.spectator) this.o.remote.send(m.from + m.to + (m.promotion || ''));
+      if (mine && !this.spectator) {
+        this.pending = true;
+        this.o.remote.send(m.from + m.to + (m.promotion || ''));
+        this.render();
+      }
       return;
     }
     if (this.checkEnd()) return;
@@ -233,6 +388,7 @@ export class Game {
     this.selected = null;
     this.targets = [];
     this.hintMove = null;
+    this.pending = false;
     this.render();
     this.updateSide();
   }
@@ -405,17 +561,20 @@ export class Game {
       this.view.update({
         chess: c,
         selected: this.selected,
-        targets: this.targets,
-        lastMove: this.lastMove,
+        targets: prefs.showLegal ? this.targets : [],
+        lastMove: prefs.showLast ? this.lastMove : null,
         hintMove: this.hintMove,
         checkSq,
         move,
         interactive: !this.over && !this.busy && c.turn() === this.pc,
+        cursor: this.focusedCursor(),
+        pending: this.pending,
       });
       return;
     }
     const board = this.els.board;
-    const targetMap = new Map(this.targets.map((m) => [m.to, m]));
+    const targetMap = new Map((prefs.showLegal ? this.targets : []).map((m) => [m.to, m]));
+    const cursor = this.focusedCursor();
     let html = '';
     for (let row = 0; row < 8; row += 1) {
       for (let col = 0; col < 8; col += 1) {
@@ -426,7 +585,8 @@ export class Game {
         const dark = (file + rank) % 2 === 0;
         const cls = ['sq', dark ? 'dark' : 'light'];
         if (this.selected === sq) cls.push('selected');
-        if (this.lastMove && (this.lastMove.from === sq || this.lastMove.to === sq)) cls.push('last');
+        if (prefs.showLast && this.lastMove && (this.lastMove.from === sq || this.lastMove.to === sq)) cls.push(this.pending ? 'last-pending' : 'last');
+        if (cursor === sq) cls.push('cursor');
         if (checkSq === sq) cls.push('check');
         if (this.hintMove && (this.hintMove.from === sq || this.hintMove.to === sq)) cls.push('hint');
         if (targetMap.has(sq)) cls.push(p ? 'target-cap' : 'target');
@@ -452,6 +612,11 @@ export class Game {
         { duration: 240, easing: 'cubic-bezier(.3,.7,.3,1)' },
       );
     }
+  }
+
+  // El cursor de teclado solo se pinta mientras el tablero tiene el foco (no estorba a quien juega con ratón o dedo).
+  focusedCursor() {
+    return this.kbd && this.cursor && this.frame === document.activeElement ? this.cursor : null;
   }
 
   updateSide() {

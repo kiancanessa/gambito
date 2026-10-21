@@ -35,7 +35,7 @@ async function finish(completed) {
     celebrate();
     const pick = await choice(`<div class="result win"><p class="eyebrow">Tutorial</p><h2>¡Ya sabes jugar!</h2>
       <p>Has completado el tutorial y ganas <b>+100 🪙</b>. Ahora demuestra lo que sabes.</p>
-      <div class="modal-actions"><button class="btn primary" data-choice="campaign">⚔️ A la campaña</button><button class="btn" data-choice="online">🌐 Jugar online</button><button class="btn" data-choice="home">Inicio</button></div></div>`, 'result-card');
+      <div class="modal-actions"><button class="btn primary" data-choice="academy">🎓 A la Academia</button><button class="btn" data-choice="online">🌐 Jugar online</button><button class="btn" data-choice="home">Inicio</button></div></div>`, 'result-card');
     await app.go(pick);
   } else {
     toast(completed ? '¡Tutorial repetido!' : 'Tutorial omitido: puedes repetirlo desde el inicio');

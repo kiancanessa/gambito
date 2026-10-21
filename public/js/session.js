@@ -71,7 +71,7 @@ export function startSession(cfg) {
   const game = new Game({
     els: {
       board: $('#board'), fxLayer: $('#fxLayer'), banner: $('#banner'), quip: $('#quip'), bubble: $('#bubble'),
-      capOpp: $('#capOpp'), capMe: $('#capMe'), moveList: $('#moveList'),
+      capOpp: $('#capOpp'), capMe: $('#capMe'), moveList: $('#moveList'), live: $('#boardLive'),
     },
     engine: app.engine,
     ai: cfg.ai,

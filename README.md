@@ -2,7 +2,7 @@
 
 > Nombre provisional de la marca (antes «Gambito · Crónicas del Tablero»). Sistema visual en [docs/DESIGN.md](docs/DESIGN.md).
 
-Ajedrez 3D con **campaña narrativa**, **partidas online**, **desafío diario**, misiones, pase de temporada y skins.
+Ajedrez 3D con una **Academia** (de cero a experto), **partidas online**, **desafío diario**, misiones, pase de temporada y skins.
 Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegador, en móvil y se instala como app (PWA).
 
 > Idea: que el ajedrez se sienta como un videojuego. Las piezas hablan, el tablero es 3D, hay temporadas y eventos,
@@ -13,9 +13,10 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | Área | Detalle |
 |---|---|
 | **Tablero 3D** | three.js: piezas torneadas, sombras, cámara con 3 ángulos, animaciones de captura, enroque, coronación y rey que cae en mate. Respaldo 2D si no hay WebGL. |
-| **Campaña** | "Valle de Peones": mapa interactivo con 5 rivales, diálogos, jefe y estrellas por rendimiento. |
+| **Academia** | Ruta de aprendizaje de cero a experto: 12 lecciones con 40+ ejercicios verificados con el motor de reglas (piezas, jaque y mate, movimientos especiales, táctica, finales con práctica contra la IA, aperturas y estrategia), pistas, estrellas, recompensas y «saltar de nivel». Los cinco rivales de la antigua campaña son las **pruebas finales**. |
+| **Jugabilidad** | Selección y destinos legales claros, última jugada, jaque/mate, arrastrar y soltar o tocar origen y destino, teclado accesible con lector de pantalla, relojes con alerta de poco tiempo, estado de conexión del rival, y preferencias de sonido, animación y resaltados. El servidor valida jugadas, turno y reloj: las animaciones no afectan al tiempo y el cliente nunca declara resultados. |
 | **Online** | Partida por enlace (`/g/CODIGO`), emparejamiento clasificatorio con Elo y ligas (Peón → Rey), relojes, tablas, revancha, espectadores y emotes (sin chat libre). |
-| **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/campaña, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
+| **Lobby competitivo** | Una sola pantalla con tu liga, cola clasificatoria, partidas con amigos/IA/Academia, desafío diario, misiones, temporada, ranking y partidas en vivo para espectar. Activo con el flag `lobby` (`public/config.js` → `window.GAMBITO_FLAGS`, o `?flag=lobby`). |
 | **Desafío diario** | El mismo mate en 2-3 para todo el mundo, verificado en el servidor, con ranking por tiempo, racha y resultado compartible. |
 | **Misiones y temporada** | Misiones diarias/semanales y pase de temporada (30 niveles gratuitos) con skins y oros. |
 | **Juego limpio y métricas** | Una clasificatoria no puntúa si repite pareja más de 3 veces en 24 h o termina demasiado pronto; alertas de ritmo sospechoso para revisión; métricas en el log y en `/api/metrics`. |
@@ -52,7 +53,7 @@ El estado del servidor (cuentas, guardados, partidas, ranking) vive en un SQLite
 
 ```
 public/            cliente (HTML + CSS + JS modular, sin build)
-  js/main.js         arranque, navegación, campaña, tienda
+  js/main.js         arranque, navegación, pruebas finales, tienda
   js/board3d.js      escena 3D: tablero, piezas, skins, cámara, animaciones
   js/game.js         controlador de partida (IA local, online, tutorial, puzzles)
   js/session.js      prepara la pantalla de partida para cada modo
@@ -67,7 +68,10 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/net.js          API REST, sesión de invitado, nube y WebSocket
   js/daily.js        desafío diario    js/missions.js · js/season.js   progreso
   js/tutorial.js     tutorial          js/share.js   tarjeta y clip
-  js/map.js          mapa de campaña (SVG)
+  js/academy.js      Academia: pantalla de progreso y ejecución de lecciones
+  js/academy-data.js contenido de la Academia y juez de ejercicios (puro, probado)
+  js/prefs.js · feedback.js · records.js   preferencias de partida, avisos y récords personales
+  js/arena3d.js · arena-caps.js   arena 3D del lobby (carga diferida) y detección de capacidades
   vendor/            chess.js, three.js y Stockfish (copiados de npm)
 server/            Node: estáticos + API + WebSocket en un solo puerto
   index.js · api.js · ws.js · rooms.js · matchmaker.js · daily.js · db.js · elo.js · auth.js · static.js
@@ -88,10 +92,10 @@ Una imagen Docker lo contiene todo (`Dockerfile`). Hay una receta **100 % gratui
 ### Hoja de ruta
 
 - [ ] Torneos "Battle" de 32/64 jugadores en vivo y clanes
-- [ ] Capítulo 2 de la campaña (Bosque de Alfiles) y modos de evento (niebla de guerra, 960...)
+- [ ] Más etapas de la Academia (finales avanzados, repertorios) y modos de evento (niebla de guerra, 960...)
 - [ ] Pase premium cosmético, emotes y marcos de perfil
 - [ ] Cuentas con email/OAuth y moderación
-- [ ] Arrastrar y soltar piezas con el ratón, análisis de partidas
+- [ ] Análisis de partidas
 - [ ] Servidor escalable (Redis para salas y emparejamiento)
 
 ## Licencia y créditos

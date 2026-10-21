@@ -108,6 +108,7 @@ export class Room {
       const p = this.players[role];
       p.socks.add(ws);
       p.name = user.name;
+      p.dcAt = 0; // volvió: ya no corre la cuenta atrás de desconexión
       clearTimeout(this.dcTimers[role]);
     }
     this.sockets.add(ws);
@@ -135,6 +136,7 @@ export class Room {
     p?.socks.delete(ws);
     if (p && p.socks.size === 0 && this.status === 'playing') {
       clearTimeout(this.dcTimers[role]);
+      p.dcAt = Date.now() + DISCONNECT_GRACE_MS;
       this.dcTimers[role] = setTimeout(() => {
         if (this.status !== 'playing' || p.socks.size) return;
         if (this.uci.length >= 2) this.end(other(role), 'desconexión');
@@ -154,7 +156,8 @@ export class Room {
   }
 
   snapshot(role) {
-    const pub = (p) => p && { id: p.id, name: p.name, rating: p.rating, online: p.socks.size > 0 };
+    // `dcLeft`: ms que le quedan a un jugador desconectado para volver antes de perder (0 si está conectado).
+    const pub = (p) => p && { id: p.id, name: p.name, rating: p.rating, online: p.socks.size > 0, dcLeft: p.socks.size === 0 && p.dcAt && this.status === 'playing' ? Math.max(0, p.dcAt - Date.now()) : 0 };
     return {
       t: 'state',
       code: this.code,

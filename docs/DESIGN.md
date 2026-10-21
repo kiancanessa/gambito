@@ -50,4 +50,15 @@ mayúsculas y con tracking; texto en `--font`. Si algún día se autoalojan fuen
 ## Pantallas
 
 Inicio · Lobby (`Jugar`) · Royale Circuit · Partida · Clasificaciones · Perfil · Misiones y recompensas (Misiones / Temporada / Personalizar) ·
-Historial y repeticiones · Amigos · Ajustes y personalización · y los modos Campaña, Online, Desafío diario y Contra la IA.
+Historial y repeticiones · Amigos · Ajustes y personalización · y los modos Academia, Online, Desafío diario y Contra la IA.
+
+## Decisión: la campaña se sustituye por la Academia
+
+Evaluación (coste frente a valor): la campaña era un mapa SVG de cinco rivales con historia ("Escaquia") que nadie había pedido,
+no enseñaba ajedrez de forma sistemática ni retenía mejor que la liga y los torneos, y exigía mantener un mapa propio (CSS, SVG, estados).
+El jugador nuevo necesita **aprender**, no avanzar por una trama.
+
+- **Se elimina:** pantalla `campaign`, `map.js`, estilos `.map-svg` y el relato de narrador.
+- **Se conserva:** los cinco rivales y su progreso (`state.campaign`) como **pruebas finales** de la Academia; las partidas ya ganadas siguen contando.
+- **Nuevo:** `academy-data.js` (contenido + juez, comprobado con `chess.js` en `test/academy.test.js`) y `academy.js` (interfaz y progreso).
+- **Recompensas** (fuente `game`, con tope del servidor): primera vez por lección, bonus por etapa; las repeticiones no pagan.

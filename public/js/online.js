@@ -1,6 +1,9 @@
 // Multijugador: partidas con amigos por enlace, emparejamiento clasificatorio, espectadores y emotes.
 import { EMOTES, GLYPH, LEAGUES, TIME_CONTROLS, leagueOf } from './data.js';
+import { feedback } from './feedback.js';
 import { sfx } from './fx.js';
+import { buzz, prefs } from './prefs.js';
+import { announceRecords, recordsHtml, updateRecords } from './records.js';
 import { track } from './missions.js';
 import { flags } from './flags.js';
 import { api, ensureOnline, net, refreshUser, socket } from './net.js';
@@ -18,6 +21,11 @@ const on = {
   last: null, // último estado recibido
   clock: null, // { w, b, running, at }
   pendingUntil: 0, // hasta cuándo se espera la confirmación del servidor de mi jugada
+  statusTimer: null,
+  sendingTimer: null,
+  offline: false, // mi conexión con el servidor está caída
+  oppDcUntil: 0, // hasta cuándo puede volver el rival antes de perder (0 = conectado)
+  lastTickSec: null,
   ended: false,
   wantRematch: false,
   tc: localStorage.getItem('gambito.tc') || 'blitz5',
@@ -27,6 +35,42 @@ const on = {
   hubTimer: null,
   clockTimer: null,
 };
+
+// Estado visible de mi última jugada: «Enviando…» (solo si tarda más de 0,2 s), «✓ Aceptada» o «✗ Rechazada».
+// La confirmación inmediata es el cambio de color de la última jugada (gris → amarillo) cuando el servidor la acepta.
+function moveStatus(kind) {
+  const el = $('#moveStatus');
+  clearTimeout(on.statusTimer);
+  if (!kind) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.className = `move-status ${kind}`;
+  el.textContent = { sending: 'Enviando…', ok: '✓ Aceptada', bad: '✗ Rechazada' }[kind];
+  if (kind !== 'sending') on.statusTimer = setTimeout(() => (el.hidden = true), kind === 'ok' ? 900 : 1600);
+}
+
+// Banner de conexión: mi propia conexión tiene prioridad sobre la del rival.
+function paintBanner() {
+  const b = $('#connBanner');
+  const s = on.last;
+  let text = '';
+  let kind = '';
+  if (on.offline && s?.status === 'playing') {
+    text = 'Sin conexión: reconectando… Tu reloj sigue corriendo y volverás a la partida en cuanto se recupere.';
+    kind = 'warn';
+  } else if (on.oppDcUntil && s?.status === 'playing' && !on.spectator) {
+    const left = Math.max(0, on.oppDcUntil - Date.now());
+    text = `Tu rival se ha desconectado. Si no vuelve en ${fmtClock(left).replace(/\.\d$/, '')}, ganas por desconexión.`;
+    kind = 'rival';
+  }
+  b.hidden = !text;
+  if (text) {
+    b.className = `conn-banner ${kind}`;
+    if (b.textContent !== text) b.textContent = text;
+  }
+}
 
 const tcLabel = (id) => {
   const t = TIME_CONTROLS.find((x) => x.id === id);
@@ -174,6 +218,8 @@ function openGame(s) {
     remote: {
       send: (uci) => {
         on.pendingUntil = Date.now() + 3500;
+        clearTimeout(on.sendingTimer);
+        on.sendingTimer = setTimeout(() => on.game?.pending && moveStatus('sending'), 220);
         socket.send({ t: 'move', uci });
       },
     },
@@ -210,11 +256,21 @@ function handleState(s) {
     if (s.moves.length - local <= 2) for (let i = local; i < s.moves.length; i += 1) g.applyRemote(s.moves[i]);
     else g.loadMoves(s.moves);
     on.pendingUntil = 0;
+    clearTimeout(on.sendingTimer);
+    g.confirmMove(); // el estado del servidor ya incluye mi jugada
+    moveStatus(null);
   } else if (s.moves.length < local) {
     if (Date.now() >= on.pendingUntil) g.loadMoves(s.moves); // jugada rechazada: volver al estado del servidor
   } else {
     on.pendingUntil = 0;
     if (g.chess.fen().split(' ')[0] !== s.fen.split(' ')[0]) g.loadMoves(s.moves);
+    else if (g.pending) {
+      // El servidor aceptó mi jugada: la última jugada pasa a «confirmada» y, si se llegó a mostrar «Enviando…», se confirma.
+      const sending = !$('#moveStatus').hidden;
+      clearTimeout(on.sendingTimer);
+      g.confirmMove();
+      moveStatus(sending ? 'ok' : null);
+    }
   }
 
   // 2) Interfaz: jugadores, relojes, ofertas, espera.
@@ -236,6 +292,11 @@ function handleState(s) {
   setBanner(`<span>${s.circuit ? `🏆 Royale Circuit · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>
     ${s.spectators ? `<span>👀 ${s.spectators}</span>` : ''}${s.status === 'playing' && !s.clocks ? '' : ''}`);
   on.clock = s.clocks ? { ...s.clocks, at: Date.now() } : null;
+  // Conexión del rival: cuenta atrás de desconexión (la calcula el servidor) y aviso al volver.
+  const wasDc = !!on.oppDcUntil;
+  on.oppDcUntil = opp && !opp.online && opp.dcLeft > 0 && s.status === 'playing' ? Date.now() + opp.dcLeft : 0;
+  if (wasDc && !on.oppDcUntil && s.status === 'playing' && !on.spectator) feedback('reconnected', { text: 'Tu rival ha vuelto' });
+  paintBanner();
 
   $('#waitOverlay').hidden = s.status !== 'waiting' || on.spectator;
   if (s.status === 'waiting') {
@@ -275,23 +336,42 @@ function startClockTicker() {
     if (!c) return;
     const now = Date.now();
     const rem = (color) => c[color] - (c.running === color ? now - c.at : 0);
+    const live = on.last?.status === 'playing';
     const paint = (el, color) => {
       const ms = rem(color);
       el.textContent = fmtClock(ms);
+      el.classList.toggle('warn', ms < 30000 && ms >= 10000);
       el.classList.toggle('low', ms < 10000 && ms > 0);
-      el.classList.toggle('running', c.running === color && on.last?.status === 'playing');
+      el.classList.toggle('running', c.running === color && live);
     };
     paint($('#meClock'), on.pc);
     paint($('#oppClock'), on.pc === 'w' ? 'b' : 'w');
+    // Alerta de poco tiempo propio: borde del tablero, un clic por segundo en los últimos 10 s y aviso para lectores de pantalla.
+    const mine = rem(on.pc);
+    const mineRunning = c.running === on.pc && live && !on.spectator;
+    const sec = mineRunning && mine > 0 ? Math.ceil(mine / 1000) : null;
+    $('#boardFrame').classList.toggle('lowtime', mineRunning && mine < 10000 && mine > 0);
+    if (sec !== on.lastTickSec) {
+      on.lastTickSec = sec;
+      if (sec !== null && sec <= 10 && prefs.lowTimeSound) {
+        sfx.tick(sec <= 3);
+        if (sec <= 3) buzz(10);
+      }
+      if (sec === 30 || sec === 10) g.announce(`Te quedan ${sec} segundos.`);
+    }
+    if (on.oppDcUntil) paintBanner();
   }, 200);
 }
 
 // Partida del Royale Circuit: sin recompensas sueltas ni revancha; el servidor lleva el cuadro y los premios.
 async function finishCircuitGame(summary) {
   const game = on.game;
-  const msg = summary.result === 'win' ? '🏆 ¡Pasas de ronda!' : summary.result === 'loss' ? 'Has caído en el Circuit' : '🤝 Tablas: se repite con los colores cambiados';
-  if (summary.result === 'win') celebrate();
-  toast(msg, 4500);
+  if (summary.result === 'win') {
+    celebrate();
+    feedback('advance', { title: '¡Pasas de ronda!', text: on.last?.circuit?.label ? `Superaste: ${on.last.circuit.label}` : 'Sigues en el torneo' });
+  } else {
+    toast(summary.result === 'loss' ? 'Has caído en el Circuit' : '🤝 Tablas: se repite con los colores cambiados', 4500);
+  }
   // Si en unos segundos llega otra partida del torneo (empate o siguiente ronda), el jugador ya está dentro de ella.
   await wait(4500);
   if (on.game !== game || app.screen !== 'game') return;
@@ -356,6 +436,7 @@ async function finishOnline(summary) {
   if (delta !== null && s.ratingDelta?.ratings) {
     net.user = { ...net.user, rating: s.ratingDelta.ratings[on.pc] };
   }
+  const records = updateRecords({ result: summary.result, plies: summary.plies, checks: summary.checks, mate: /mate/i.test(summary.reason), rating: net.user?.rating ?? null });
   const lg = leagueOf(net.user?.rating ?? 1000);
   const oppName = s?.players[on.pc === 'w' ? 'b' : 'w']?.name ?? 'Rival';
   const titles = { win: '¡Victoria!', loss: 'Derrota', draw: 'Tablas' };
@@ -364,12 +445,14 @@ async function finishOnline(summary) {
     <h2>${titles[summary.result]}</h2>
     ${delta !== null ? `<p class="rating-line ${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)} pts · ${net.user.rating} · Liga ${lg.name}</p>` : ''}
     ${rows.length ? `<ul class="rewards">${rows.map((r, i) => `<li style="--i:${i}"><span>${r[0]}</span><b>+${r[1]} 🪙</b></li>`).join('')}<li class="total" style="--i:${rows.length}"><span>Total</span><b>+${total} 🪙</b></li></ul>` : '<p class="muted">Partida muy corta: sin recompensas (mínimo 6 jugadas).</p>'}
+    ${recordsHtml(records)}
     ${levelUps ? `<p class="levelup">⭐ ¡Subiste al nivel ${state.level}!</p>` : ''}
     <div class="modal-actions">
       <button class="btn primary" data-choice="rematch">Revancha</button>
       <button class="btn" data-choice="share">📤 Compartir</button>
       <button class="btn" data-choice="exit">Salir</button>
     </div></div>`;
+  announceRecords(records);
   let pick = await choice(html, 'result-card');
   while (pick === 'share') {
     await shareGame({ game: on.game, summary, headline: titles[summary.result], sub: `vs ${oppName}`, online: true });
@@ -419,7 +502,16 @@ export function initOnline() {
       toast(m.message);
       history.replaceState(null, '', '/');
       app.go(flags.lobby ? 'lobby' : 'online');
-    } else if (m.message) toast(m.message);
+    } else if (m.message) {
+      toast(m.message);
+      if (on.game && on.game.pending) {
+        // Jugada rechazada: el servidor reenvía el estado real justo después y el tablero vuelve a él.
+        on.pendingUntil = 0;
+        clearTimeout(on.sendingTimer);
+        moveStatus('bad');
+        sfx.error();
+      }
+    }
   });
   socket.on('emote', (m) => {
     const g = on.game;
@@ -429,7 +521,15 @@ export function initOnline() {
     g.say(p?.name ?? 'Jugador', EMOTES[m.id] ?? '...', GLYPH.k, g.findKing(role), role === on.pc ? 'me' : 'opp');
   });
   socket.on('connection', (c) => {
-    if (!c.open && on.game && app.game === on.game && !on.ended) toast('Conexión perdida: reconectando…', 4000);
+    const active = on.game && app.game === on.game && !on.ended;
+    if (!c.open && active) {
+      on.offline = true;
+      paintBanner();
+    } else if (c.open && on.offline) {
+      on.offline = false;
+      paintBanner();
+      if (active) feedback('reconnected', { text: 'Conexión recuperada' });
+    }
   });
 
   document.addEventListener('click', async (e) => {

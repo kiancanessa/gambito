@@ -117,7 +117,7 @@ tudominio.com {
 ## Vercel (solo el cliente)
 
 Vercel **no puede ejecutar el servidor** (necesita un proceso persistente para WebSockets y SQLite), pero sí aloja el
-cliente como sitio estático (`vercel.json` publica la carpeta `public/`). Así quedan disponibles la campaña, el tutorial,
+cliente como sitio estático (`vercel.json` publica la carpeta `public/`). Así quedan disponibles la Academia, el tutorial,
 la tienda y las partidas contra la IA; el **modo online, el desafío diario y la nube** requieren el servidor en Fly/Render/VPS.
 
 ```bash

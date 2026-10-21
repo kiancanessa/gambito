@@ -16,6 +16,8 @@ const fresh = () => ({
   missions: { dayKey: '', daily: [], weekKey: '', weekly: [] },
   season: { id: 1, xp: 0, claimed: [] },
   tutorialDone: false,
+  academy: { ex: {}, lessons: {}, unlocked: 1 }, // ejercicios resueltos, estrellas por lección y etapas desbloqueadas (saltar nivel)
+  records: { winStreak: 0, bestWinStreak: 0, peakRating: 0, fastestMate: 0, mostChecks: 0 }, // récords personales
   muted: false,
   cloud: { rev: 0 }, // última revisión sincronizada con el servidor
   updatedAt: 0,
