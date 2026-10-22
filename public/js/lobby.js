@@ -6,7 +6,7 @@
 import { academyContinue, academyNext, academyPips } from './academy.js';
 import { GLYPH, LEAGUES, QUICK_LEVELS, TIME_CONTROLS, XP_PER_LEVEL, leagueOf } from './data.js';
 import { arenaMode, readCapabilities } from './arena-caps.js';
-import { webglSupported } from './board3d.js';
+import { webglSupported } from './arena-caps.js';
 import { circuitClock, circuitHud, circuitList, onCircuit, openCircuit, refreshCircuitPublic, watchCircuitList } from './circuit.js';
 import { flags } from './flags.js';
 import { dailyBrief, onProgress, progressData, seasonBrief } from './progress.js';

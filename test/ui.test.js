@@ -50,7 +50,8 @@ test('la marca es CHECKPOINT en la página, el manifiesto y la política de priv
 
 test('los ids que usa el arranque existen en el HTML (no se rompe ningún enlace al iniciar)', () => {
   // Elementos buscados con $('#id') por los módulos que se inician en main.js sin esperar a ninguna pantalla.
-  const ids = ['profileChip', 'profileBody', 'muteBtn', 'playNow', 'homeAccount', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'set2d', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'homeAcademyInfo', 'progressBody', 'progressDot', 'customBody', 'czLive'];
+  // (El rediseño minimalista quitó del inicio playNow, homeAccount, homeAcademyInfo y progressDot, y el ajuste set2d: el tablero ya es siempre 2D.)
+  const ids = ['profileChip', 'profileBody', 'profileRating', 'muteBtn', 'homeHello', 'hlMineBody', 'hlWorldBody', 'rankTabs', 'rankingBody', 'historyFilter', 'historyBody', 'setSound', 'setMotion', 'setArena', 'setAccount', 'setLook', 'tutorialBtn', 'installBtn', 'resetBtn', 'tabbar', 'lobbyBody', 'circuitBody', 'socialBody', 'academyBody', 'progressBody', 'customBody', 'czLive'];
   for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `falta #${id}`);
 });
 

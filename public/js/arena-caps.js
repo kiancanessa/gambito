@@ -12,6 +12,16 @@ export function arenaMode({ pref = 'auto', board2d = false, webgl = true, cores 
   return { use3d: true, reason: reducedMotion ? 'movimiento-reducido' : 'ok', animate: !reducedMotion };
 }
 
+// Comprobación de WebGL sin cargar three.js (antes vivía en board3d.js, que ya no se importa).
+export const webglSupported = () => {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+  } catch {
+    return false;
+  }
+};
+
 // `?2d` se lee al cargar: la aplicación reescribe la URL al navegar y después ya no estaría.
 const URL_2D = typeof location !== 'undefined' && new URLSearchParams(location.search).has('2d');
 
@@ -25,7 +35,7 @@ export function readCapabilities(webgl) {
     }
   };
   return {
-    pref: read('checkpoint.arena3d') ?? 'auto',
+    pref: read('checkpoint.arena3d') === '1' ? 'auto' : '0', // desde el rediseño minimalista la arena 3D es opcional y empieza apagada
     board2d: read('checkpoint.2d') === '1' || URL_2D,
     webgl,
     cores: navigator.hardwareConcurrency ?? 8,

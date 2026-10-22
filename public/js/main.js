@@ -1,8 +1,8 @@
 // Arranque y navegación: Academia (pruebas finales), partida rápida contra la IA, tienda, recompensas y enlaces a los demás modos.
 import {
-  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS, XP_PER_LEVEL,
+  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS,
 } from './data.js';
-import { dailyPending, enterDaily, initDaily } from './daily.js';
+import { enterDaily, initDaily } from './daily.js';
 import { Engine } from './engine.js';
 import { sfx } from './fx.js';
 import { bootstrap, net, onNet } from './net.js';
@@ -10,15 +10,15 @@ import { enterHub, initOnline, isOnlineGameActive, joinFromLink } from './online
 import { initProfile, refreshIdentity } from './profile.js';
 import { startSession } from './session.js';
 import { shareGame } from './share.js';
-import { initStage, mountHome, stage, stopDemo } from './stage.js';
+import { initStage, stage, stopDemo } from './stage.js';
 import {
   addCoins, addXp, claimDaily, dailyAvailable, onChange, resetAll, save, state,
 } from './store.js';
 import { flags } from './flags.js';
 import { enterLobby, initLobby } from './lobby.js';
 import { enterCircuit, initCircuit } from './circuit.js';
-import { applyFlair, claimableCount, enterProgress, initProgress, onProgress } from './progress.js';
-import { academySummary, enterAcademy, initAcademy } from './academy.js';
+import { applyFlair, enterProgress, initProgress } from './progress.js';
+import { enterAcademy, initAcademy } from './academy.js';
 import { announceRecords, recordsHtml, updateRecords } from './records.js';
 import { initShell } from './shell.js';
 import { enterHistory, initHistory } from './history.js';
@@ -61,25 +61,18 @@ function updateHud() {
   }
   $('#hudCoins').textContent = state.coins;
   $('#hudLevel').textContent = state.level;
-  $('#hudStreak').textContent = state.daily.streak;
+  $('#profileRating').textContent = net.user ? `${net.user.rating} pts` : '—';
   applyFlair();
   refreshIdentity();
-  $('#hudXp').style.width = `${Math.min(100, (state.xp / XP_PER_LEVEL(state.level)) * 100)}%`;
   $('#shopCoins').textContent = state.coins;
   $('#muteBtn').classList.toggle('is-muted', state.muted);
   $('#muteBtn').setAttribute('aria-pressed', String(state.muted));
-  $('#homeAcademyInfo').textContent = academySummary();
-  const s = state.stats;
-  $('#homeStats').textContent = `${s.games} partidas · ${s.wins} victorias · ${s.checks} jaques`;
 }
 
+// Inicio: centro de highlights (se carga a demanda para no pesar en el arranque).
 async function refreshHome() {
   updateHud();
-  const dot = (id, on) => ($(id).hidden = !on);
-  dot('#progressDot', claimableCount() > 0);
-  const pending = await dailyPending();
-  dot('#dailyDot', pending);
-  $('#homeDailyInfo').textContent = state.dailyPuzzle.streak ? `🔥 Racha de ${state.dailyPuzzle.streak} día${state.dailyPuzzle.streak > 1 ? 's' : ''}` : 'Un mate nuevo cada día';
+  (await import('./highlights.js')).enterHighlights();
 }
 app.refreshHome = refreshHome;
 
@@ -154,7 +147,6 @@ async function go(name) {
   }
   showScreen(name);
   if (name === 'home') {
-    mountHome();
     refreshHome();
     history.replaceState(null, '', '/');
   }
@@ -365,9 +357,6 @@ $('#hintBtn').addEventListener('click', async () => {
     toast('💡 Pista: mira las casillas resaltadas');
   }
 });
-$('#viewBtn').addEventListener('click', () => {
-  if (stage) $('#viewLabel').textContent = stage.cyclePreset();
-});
 $('#undoBtn').addEventListener('click', () => {
   if (app.game?.undo()) toast('Jugada deshecha (pierdes el bono impecable)');
 });
@@ -430,7 +419,6 @@ onNet(() => updateHud());
 initOnline();
 initDaily();
 initProgress();
-onProgress(() => $('#progressDot') && ($('#progressDot').hidden = claimableCount() === 0));
 initTutorial();
 initProfile();
 initWallet();

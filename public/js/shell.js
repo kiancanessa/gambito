@@ -1,51 +1,27 @@
-// Estructura común de CHECKPOINT: navegación principal (barra superior y barra inferior móvil), flags y tarjeta de cuenta del inicio.
-import { GLYPH, leagueOf } from './data.js';
+// Estructura común de CHECKPOINT: navegación principal (barra superior y barra inferior móvil) y flags.
 import { flags } from './flags.js';
-import { bootstrap, net, onNet } from './net.js';
-import { onScreen } from './ui.js';
-import { $, $$, esc, VS } from './ui.js';
+import { $$, onScreen } from './ui.js';
 
 // Qué pestaña de la navegación se ilumina en cada pantalla.
 const SECTION = {
   home: 'home',
   lobby: 'play', quick: 'play', online: 'play', daily: 'play', game: 'play',
-  academy: 'academy',
-  watch: 'play',
-  user: 'friends',
+  academy: 'play', watch: 'play',
   circuit: 'circuit',
   ranking: 'ranking',
-  progress: 'rewards', shop: 'rewards',
-  social: 'friends',
-  profile: 'me', history: 'me', settings: 'me',
+  // Todo lo personal cuelga de «Perfil»: progreso, personalización, amigos, historial y ajustes.
+  progress: 'me', shop: 'me', social: 'me', user: 'me', profile: 'me', history: 'me', settings: 'me',
 };
 
 function paintNav(screen) {
   const section = SECTION[screen] ?? 'home';
-  // La barra inferior solo tiene "Perfil"; las secciones sin pestaña propia iluminan la más cercana.
-  const tabFor = { rewards: 'play', friends: 'me' }[section] ?? section;
-  $$('.nav-link').forEach((b) => b.classList.toggle('on', b.dataset.nav === section));
-  $$('.tab').forEach((b) => b.classList.toggle('on', b.dataset.nav === tabFor));
-}
-
-function renderAccount() {
-  const box = $('#homeAccount');
-  if (!box) return;
-  const u = net.user;
-  if (!u && !net.booted) {
-    box.innerHTML = '<div class="acc-main"><span class="acc-dot wait"></span><span><b>Conectando…</b><small>Buscando tu cuenta en el servidor</small></span></div>';
-    return;
+  // Las mismas cinco secciones arriba (escritorio) y abajo (móvil).
+  for (const b of [...$$('.nav-link'), ...$$('.tab')]) {
+    const on = b.dataset.nav === section;
+    b.classList.toggle('on', on);
+    if (on) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
   }
-  if (!u) {
-    box.innerHTML = `<div class="acc-main"><span class="acc-dot off"></span><span><b>Sin conexión</b><small>Puedes seguir la Academia, el tutorial y partidas contra la IA; tu progreso se guarda en este dispositivo.</small></span></div>
-      <button class="btn" data-acc="retry">Reintentar</button>`;
-    return;
-  }
-  const lg = leagueOf(u.rating);
-  box.innerHTML = `<button class="acc-main acc-open" data-go="profile" aria-label="Abrir tu perfil">
-      <span class="emblem" style="--c:${lg.color}"><i>${GLYPH[lg.glyph]}${VS}</i></span>
-      <span><b>${esc(u.name)}</b><small>Liga ${lg.name} · ${u.rating} pts · ${u.wins}V ${u.losses}D ${u.draws}T</small></span>
-    </button>
-    <button class="btn" data-go="profile">Perfil</button>`;
 }
 
 export function initShell() {
@@ -59,15 +35,6 @@ export function initShell() {
   });
   paintNav('home');
   document.body.dataset.screen = 'home';
-
-  renderAccount();
-  onNet(renderAccount);
-  $('#homeAccount')?.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-acc="retry"]')) {
-      await bootstrap();
-      renderAccount();
-    }
-  });
 
   // Preferencias de pantalla guardadas.
   try {

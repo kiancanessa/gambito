@@ -68,7 +68,7 @@ function render(extra) {
           <div class="lg-bar" role="progressbar" aria-valuenow="${Math.round(pr.pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pr.pct}%;color:${pr.next?.color ?? lg.color};background:currentColor"></i></div>
           <small>${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>
         </div>
-        <div class="pf-actions"><button class="btn" data-go="shop">Personalizar</button><button class="btn" data-go="history">Historial</button><button class="btn" data-go="settings">Ajustes</button></div>
+        <div class="pf-actions"><button class="btn" data-go="progress">Progreso</button><button class="btn" data-go="social">Amigos</button><button class="btn" data-go="history">Historial</button><button class="btn" data-go="shop">Personalizar</button><button class="btn ghost" data-go="settings">Ajustes</button></div>
       </section>
 
       <section class="lb-card">

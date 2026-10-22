@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#090b10">
   <title>CHECKPOINT · Ajedrez competitivo</title>
-  <meta name="description" content="CHECKPOINT: ajedrez 3D competitivo con ligas, torneos Royale Circuit, desafío diario, amigos y skins. Gratis y de código abierto.">
+  <meta name="description" content="CHECKPOINT: ajedrez competitivo con ligas, torneos Royale Circuit, desafío diario, amigos y skins. Gratis y de código abierto.">
   <meta property="og:title" content="CHECKPOINT · Ajedrez competitivo">
   <meta property="og:description" content="Sube de liga, gana torneos y colecciona skins. Te reto a una partida.">
   <meta property="og:type" content="website">
@@ -16,6 +16,7 @@
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/checkpoint.css">
+  <link rel="stylesheet" href="/css/minimal.css">
   <script type="importmap">
     { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
   </script>
@@ -48,46 +49,44 @@
     <nav class="main-nav" aria-label="Principal">
       <button class="nav-link" data-go="home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Inicio</span></button>
       <button class="nav-link" data-go="lobby" data-nav="play" data-play><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span>Jugar</span></button>
-      <button class="nav-link" data-go="academy" data-nav="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span>Academia</span></button>
       <button class="nav-link" data-go="circuit" data-nav="circuit" data-flag="circuit"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span>Circuit</span></button>
-      <button class="nav-link" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Clasificación</span></button>
-      <button class="nav-link" data-go="progress" data-nav="rewards"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span>Progreso</span></button>
-      <button class="nav-link" data-go="social" data-nav="friends" data-flag="social"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span>Amigos</span></button>
+      <button class="nav-link" data-go="ranking" data-nav="ranking"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bars"/></svg><span>Ranking</span></button>
+      <button class="nav-link" data-go="profile" data-nav="me"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span>Perfil</span></button>
     </nav>
     <div class="chips">
-      <button class="chip profile-chip" id="profileChip" title="Tu perfil" hidden><span class="chip-idn" id="profileGlyph"></span><b id="profileName">Jugador</b></button>
-      <span class="chip level" title="Nivel de jugador"><em>NV</em><b id="hudLevel">1</b><span class="xpbar"><i id="hudXp"></i></span></span>
-      <span class="chip streak" title="Recompensas diarias reclamadas">🔥 <b id="hudStreak">0</b></span>
       <span class="chip coins" id="coinChip" title="Oros"><i class="coin"></i> <b id="hudCoins">0</b></span>
       <button class="icon-btn" id="muteBtn" aria-label="Sonido" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sound"/></svg></button>
       <button class="icon-btn" data-go="settings" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
+      <button class="profile-chip" id="profileChip" title="Tu perfil" hidden><span class="chip-idn" id="profileGlyph"></span><span class="pc-txt"><b id="profileName">Jugador</b><small id="profileMeta"><span id="profileRating">—</span> · Nv <span id="hudLevel">1</span></small></span></button>
     </div>
   </header>
 
   <main>
     <!-- INICIO -->
     <section class="screen" id="screen-home">
-      <div class="home-grid">
-        <div class="home-copy">
-          <p class="eyebrow">Ajedrez competitivo</p>
-          <h1 class="wordmark">CHECKPOINT</h1>
-          <p class="tagline">Sube de liga, gana torneos y colecciona skins. Cada partida es un punto de control en tu camino.</p>
-          <button class="play-now" id="playNow" data-go="lobby" data-play><span class="pn-main">PLAY NOW</span><small>Entra al lobby y busca rival</small></button>
-          <div class="account-strip" id="homeAccount"></div>
-          <div class="tile-grid">
-            <button class="tile" data-go="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span><b>Academia</b><small id="homeAcademyInfo">De cero a experto</small></span></button>
-            <button class="tile" data-go="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span><b>Espectar</b><small>Partidas y torneos en directo</small></span></button>
-            <button class="tile" data-go="online"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sword"/></svg><span><b>Online</b><small>Clasificatoria y amigos</small></span></button>
-            <button class="tile" data-go="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-puzzle"/></svg><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span></button>
-            <button class="tile" data-go="quick"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span><b>Contra la IA</b><small>Práctica sin presión</small></span></button>
-            <button class="tile" data-go="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg><span><b>Progresión</b><small>Nivel, misiones y temporada</small></span><span class="dot-badge" id="progressDot" hidden>!</span></button>
-            <button class="tile" data-go="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span><b>Personalizar</b><small>Piezas, tableros y efectos</small></span></button>
-            <button class="tile" data-go="history"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg><span><b>Historial</b><small>Repeticiones de tus partidas</small></span></button>
+      <div class="hm">
+        <header class="hm-head">
+          <div>
+            <p class="hm-hello" id="homeHello">Hola</p>
+            <h1 class="hm-title">Cada partida es un punto de control.</h1>
           </div>
-          <p class="home-foot"><span id="homeStats"></span></p>
-          <p class="oss-line">Código abierto (GPL-3.0) · <a href="https://github.com/kiancanessa/gambito" id="repoLink" target="_blank" rel="noopener">GitHub</a> · <a href="/privacidad.html">Privacidad</a></p>
-        </div>
-        <div class="hero-stage" id="heroStage" aria-hidden="true"></div>
+          <div class="hm-cta">
+            <button class="btn primary lg" data-go="lobby" data-play>Jugar</button>
+            <button class="btn lg" data-go="academy">Entrenar</button>
+          </div>
+        </header>
+
+        <section class="hl" id="hlMine" aria-labelledby="hlMineTitle">
+          <div class="hl-head"><h2 id="hlMineTitle">Your best moves</h2><p>Tus momentos más brillantes en el tablero.</p></div>
+          <div class="hl-body" id="hlMineBody"></div>
+        </section>
+
+        <section class="hl" id="hlWorld" aria-labelledby="hlWorldTitle">
+          <div class="hl-head"><h2 id="hlWorldTitle">World-class moves</h2><p>Jugadas extraordinarias. Ideas que puedes aprender.</p></div>
+          <div class="hl-body" id="hlWorldBody"><div class="hl-skeleton" aria-busy="true"><span></span><span></span></div></div>
+        </section>
+
+        <p class="oss-line">Código abierto (GPL-3.0) · <a href="https://github.com/kiancanessa/gambito" id="repoLink" target="_blank" rel="noopener">GitHub</a> · <a href="/privacidad.html">Privacidad</a></p>
       </div>
     </section>
 
@@ -241,13 +240,11 @@
           <div class="conn-banner" id="connBanner" role="status" aria-live="polite" hidden></div>
           <div class="mode-banner" id="modeBanner" hidden></div>
           <div class="board-frame" id="boardFrame">
-            <div class="stage3d" id="stage3d"></div>
             <div class="board" id="board" role="grid" aria-label="Tablero de ajedrez"></div>
             <div class="fx-layer" id="fxLayer"></div>
             <div class="banner" id="banner" hidden></div>
             <div class="bubble" id="bubble" hidden></div>
             <button class="game-prefs-btn" id="gamePrefsBtn" aria-label="Preferencias de la partida" title="Sonido, animaciones y resaltados"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
-            <button class="view-btn" id="viewBtn" title="Cambiar ángulo de cámara" aria-label="Cambiar ángulo de cámara">🎥 <span id="viewLabel">Vista 3D</span></button>
             <div class="wait-overlay" id="waitOverlay" hidden>
               <div class="wait-card">
                 <div class="spinner"></div>
@@ -352,8 +349,7 @@
           <p class="eyebrow">Sonido y pantalla</p>
           <div class="set-row"><span><b>Sonido</b><small>Efectos de jugadas, capturas y recompensas</small></span><button class="switch" id="setSound" role="switch" aria-checked="true" aria-label="Sonido"><i></i></button></div>
           <div class="set-row"><span><b>Reducir movimiento</b><small>Menos animaciones y transiciones</small></span><button class="switch" id="setMotion" role="switch" aria-checked="false" aria-label="Reducir movimiento"><i></i></button></div>
-          <div class="set-row"><span><b>Arena 3D del lobby</b><small>Escenario animado del lobby; se desactiva solo en equipos limitados</small></span><button class="switch" id="setArena" role="switch" aria-checked="true" aria-label="Arena 3D del lobby"><i></i></button></div>
-          <div class="set-row"><span><b>Tablero 2D</b><small>Ligero, para equipos sin gráficos 3D (recarga la página)</small></span><button class="switch" id="set2d" role="switch" aria-checked="false" aria-label="Tablero 2D"><i></i></button></div>
+          <div class="set-row"><span><b>Arena 3D del lobby</b><small>Escenario animado detrás del lobby (desactivado por defecto)</small></span><button class="switch" id="setArena" role="switch" aria-checked="false" aria-label="Arena 3D del lobby"><i></i></button></div>
         </section>
         <section class="lb-card" id="setPlay"></section>
         <section class="lb-card" id="setLook"></section>

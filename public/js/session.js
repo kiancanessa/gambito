@@ -3,7 +3,7 @@
 import { GLYPH, PIECE_NAME } from './data.js';
 import { Game } from './game.js';
 import { state } from './store.js';
-import { stopDemo, mountGame } from './stage.js';
+import { stopDemo } from './stage.js';
 import { $, app, choice, esc, showScreen, toast, VS } from './ui.js';
 
 export async function askPromotion(color) {
@@ -33,14 +33,8 @@ export function startSession(cfg) {
   app.leaveHook = cfg.onLeave ?? null;
   stopDemo();
   showScreen('game');
-  const stage = app.stage;
-  const use3d = !!stage;
-  $('#boardCol').classList.toggle('is3d', use3d);
-  if (use3d) {
-    mountGame();
-    $('#viewLabel').textContent = 'Vista 3D';
-    stage.setPreset('3d');
-  }
+  // El tablero competitivo es 2D (#board); la escena 3D ya no se usa en las partidas.
+  $('#boardCol').classList.remove('is3d');
 
   const ui = { banner: null, meSub: cfg.playerColor === 'w' ? 'Blancas' : 'Negras', hint: true, undo: true, resign: true, resignLabel: '🏳 Rendirse', draw: false, emotes: false, clocks: false, ...cfg.ui };
   $('#oppAvatar').style.setProperty('--c', cfg.opp.color);
@@ -82,7 +76,7 @@ export function startSession(cfg) {
     spectator: cfg.spectator,
     limitMoves: cfg.limitMoves,
     scripted: cfg.scripted,
-    view: use3d ? stage : null,
+    view: null,
     onTurn: (mine) => {
       $('#meCard').classList.toggle('active', mine);
       $('#oppCard').classList.toggle('active', !mine && !app.game?.over);

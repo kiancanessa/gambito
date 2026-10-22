@@ -6,8 +6,7 @@ import { equip, owns, save, state } from './store.js';
 import { $, $$, app, choice, esc, showScreen } from './ui.js';
 
 const PREF_REDUCE = 'checkpoint.reduce';
-const PREF_2D = 'checkpoint.2d';
-const PREF_ARENA = 'checkpoint.arena3d'; // '0' = apagada
+const PREF_ARENA = 'checkpoint.arena3d'; // '1' = encendida (opcional)
 const KINDS = [
   { kind: 'set', group: 'sets', label: 'Piezas' },
   { kind: 'board', group: 'boards', label: 'Tablero' },
@@ -63,9 +62,7 @@ function renderLook() {
 function renderSwitches() {
   setSwitch($('#setSound'), !state.muted);
   setSwitch($('#setMotion'), readPref(PREF_REDUCE));
-  setSwitch($('#set2d'), readPref(PREF_2D));
-  setSwitch($('#setArena'), !readPref2(PREF_ARENA, '0') && !readPref(PREF_2D));
-  $('#setArena').disabled = readPref(PREF_2D); // con «Tablero 2D» no hay gráficos 3D de ningún tipo
+  setSwitch($('#setArena'), readPref2(PREF_ARENA, '1')); // opcional: empieza apagada
 }
 
 const renderPlayPrefs = () => {
@@ -105,17 +102,13 @@ export function initSettings() {
   });
   $('#setArena').addEventListener('click', () => {
     try {
-      if (readPref2(PREF_ARENA, '0')) localStorage.removeItem(PREF_ARENA);
-      else localStorage.setItem(PREF_ARENA, '0');
+      if (readPref2(PREF_ARENA, '1')) localStorage.removeItem(PREF_ARENA);
+      else localStorage.setItem(PREF_ARENA, '1');
     } catch {
       /* sin almacenamiento */
     }
     app.disposeArena?.();
     renderSwitches();
-  });
-  $('#set2d').addEventListener('click', () => {
-    writePref(PREF_2D, !readPref(PREF_2D));
-    location.reload(); // el modo del tablero se decide al arrancar
   });
   $('#screen-settings').addEventListener('change', (e) => {
     const sel = e.target.closest('[data-equip]');

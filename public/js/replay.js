@@ -92,11 +92,13 @@ function renderInfo() {
   const lb = leagueOf(d.black.rating ?? 1000);
   const [cls, text] = d.integrity?.ok ? INTEGRITY[d.integrity.proof] : INTEGRITY.bad;
   const t = d.tournament;
-  const ctx = t ? `<span class="pill live">🏆 ${esc(t.name)}${t.roundLabel ? ` · ${esc(t.roundLabel)}` : ''}</span>${t.champion ? '<span class="pill ok">👑 Campeón</span>' : ''}` : `<span class="pill">${d.rated ? 'Clasificatoria' : 'Partida amistosa'}</span>`;
+  const ctx = d.historic
+    ? `<span class="pill">Partida histórica · ${esc(d.historic.event)} · ${d.historic.year}</span>`
+    : t ? `<span class="pill live">🏆 ${esc(t.name)}${t.roundLabel ? ` · ${esc(t.roundLabel)}` : ''}</span>${t.champion ? '<span class="pill ok">👑 Campeón</span>' : ''}` : `<span class="pill">${d.rated ? 'Clasificatoria' : 'Partida amistosa'}</span>`;
   $('#rpInfo').innerHTML = `
-    <div class="rp-players"><span><b>${esc(d.white.name)}</b> <em>${d.white.rating ?? '—'}</em><small>Blancas · liga ${esc(lw.name)}</small></span><span class="x">vs</span><span><b>${esc(d.black.name)}</b> <em>${d.black.rating ?? '—'}</em><small>Negras · liga ${esc(lb.name)}</small></span></div>
+    <div class="rp-players"><span><b>${esc(d.white.name)}</b>${d.historic ? '' : ` <em>${d.white.rating ?? '—'}</em>`}<small>Blancas${d.historic ? '' : ` · liga ${esc(lw.name)}`}</small></span><span class="x">vs</span><span><b>${esc(d.black.name)}</b>${d.historic ? '' : ` <em>${d.black.rating ?? '—'}</em>`}<small>Negras${d.historic ? '' : ` · liga ${esc(lb.name)}`}</small></span></div>
     <p class="rp-result">${esc(outcomeText(d))}</p>
-    <div class="rp-tags">${ctx}<span class="pill">${esc(tcName(d.tc))}</span><span class="pill">${Math.ceil(d.moves.length / 2)} jugadas</span><span class="pill ${cls}" title="${esc(text)}">${cls === 'ok' ? 'Verificada' : 'Sin verificar'}</span></div>
+    <div class="rp-tags">${ctx}${d.historic ? '' : `<span class="pill">${esc(tcName(d.tc))}</span>`}<span class="pill">${Math.ceil(d.moves.length / 2)} jugadas</span><span class="pill ${cls}" title="${esc(text)}">${cls === 'ok' ? 'Verificada' : 'Sin verificar'}</span></div>
     <small class="muted">${esc(text)}</small>`;
 }
 
@@ -146,7 +148,7 @@ function paint() {
   $('#rpLabel').textContent = rp.i === 0 ? `Posición inicial · ${total} jugadas` : `Jugada ${Math.ceil(rp.i / 2)} · ${rp.i}/${total}`;
   $('#rpSpeed').textContent = `${rp.speed}×`;
   const d = rp.data;
-  setBanner(`<span>🎬 Repetición · ${d.tournament ? `🏆 ${esc(d.tournament.name)}` : d.rated ? 'Clasificatoria' : 'Partida con amigo'} · ${esc(tcName(d.tc))}</span>${rp.i === total ? `<span>🏁 ${esc(outcomeText(d))}</span>` : ''}`);
+  setBanner(`<span>🎬 Repetición · ${d.historic ? `${esc(d.historic.event)}, ${d.historic.year}` : `${d.tournament ? `🏆 ${esc(d.tournament.name)}` : d.rated ? 'Clasificatoria' : 'Partida con amigo'} · ${esc(tcName(d.tc))}`}</span>${rp.i === total ? `<span>🏁 ${esc(outcomeText(d))}</span>` : ''}`);
   renderMoves();
 }
 
@@ -224,6 +226,7 @@ async function revokeLink() {
 async function openShareMenu() {
   const d = rp.data;
   const canRevoke = !rp.publicGame && d.share;
+  if (d.historic) return openClipFor(); // partida histórica: no hay enlace propio, solo el clip
   const pick = await choice(`<h3>Compartir repetición</h3>
     <p>El enlace abre esta partida con los nombres públicos y el resultado. ${rp.publicGame || d.public ? 'Es una partida pública.' : d.share ? 'Tienes un enlace activo: quien lo tenga puede verla.' : 'Tu partida es privada hasta que crees un enlace.'}</p>
     <div class="share-options">
@@ -355,7 +358,11 @@ function bind() {
 export async function openReplay(id, { publicGame = false, ply = null } = {}) {
   const res = await api(`/api/${publicGame ? 'public/' : ''}games/${encodeURIComponent(id)}`, { auth: !publicGame });
   if (!res.ok) return toast(res.status === 404 ? 'Esta repetición no existe o ya no se comparte' : 'No se pudo cargar la repetición');
-  const d = res.json.game;
+  return openReplayData(res.json.game, { publicGame, ply });
+}
+
+// Abre el visor con una partida ya cargada: la del servidor o una histórica de los highlights (`d.historic`), que no tiene enlace.
+export async function openReplayData(d, { publicGame = true, ply = null } = {}) {
   bind();
   const analysis = await import('./analysis.js');
   const moments = await import('./moments.js');
