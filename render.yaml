@@ -24,6 +24,10 @@ services:
       # Dos cuentas de la misma IP no se emparejan en clasificatoria (para jugar juntos en casa: partida con amigo).
       - key: BLOCK_SAME_IP_RANKED
         value: '1'
+      # Proxys de confianza delante del servidor: la IP del cliente es la entrada de X-Forwarded-For contada desde el final.
+      # En Render la cadena termina con la IP del balanceador, así que el cliente es la penúltima (valor medido, ver docs/QA-INFORME.md).
+      - key: TRUSTED_PROXY_HOPS
+        value: '2'
       # Token para leer /api/metrics (secreto, opcional): si no lo defines, el endpoint no existe. Ver docs/DEPLOY.md.
       - key: METRICS_TOKEN
         sync: false
