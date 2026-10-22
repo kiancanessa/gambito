@@ -514,7 +514,7 @@ export async function enterLobby() {
   refresh();
   if (flags.circuit) watchCircuitList(); // los torneos se actualizan solos mientras estás en el lobby
   clearInterval(lb.timer);
-  lb.timer = setInterval(() => (app.screen === 'lobby' ? refresh() : clearInterval(lb.timer)), REFRESH_MS);
+  lb.timer = setInterval(() => (app.screen === 'lobby' ? !document.hidden && refresh() : clearInterval(lb.timer)), REFRESH_MS); // en una pestaña oculta no se consulta
   clearInterval(lb.tick);
   lb.tick = setInterval(() => {
     if (app.screen !== 'lobby') return clearInterval(lb.tick);

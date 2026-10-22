@@ -16,6 +16,7 @@ Gambito es **un único servicio Node** (estáticos + API + WebSocket) con una ba
 | `DB_FILE` | `$DATA_DIR/gambito.db` | Ruta del archivo de base de datos |
 | `HOST` | `0.0.0.0` | Interfaz de escucha |
 | `TRUST_PROXY` | `1` si `NODE_ENV=production` | Usa `X-Forwarded-For` como IP real (límites de peticiones) |
+| `TRUSTED_PROXY_HOPS` | `1` | Cuántos proxys de confianza hay delante del servidor. La IP del cliente es la entrada de `X-Forwarded-For` contada **desde el final** (la primera la escribe el cliente y no se usa). Si tras desplegar todos los usuarios comparten el mismo límite, sube este valor (p. ej. `2` si hay un CDN delante del balanceador) |
 | `ALLOWED_ORIGINS` | *(vacío)* | Otras webs autorizadas a usar la API y el WebSocket (cliente en Vercel), separadas por comas |
 | `DATABASE_URL` | *(vacío)* | Postgres (Neon) donde se copia la base de datos en alojamientos **sin disco**. Si está definida, se restaura al arrancar y se guarda cada 3 min (si hubo cambios) y al apagar |
 | `PERSIST_INTERVAL_MS` | `180000` | Cada cuántos ms se guarda la copia (solo con `DATABASE_URL`) |

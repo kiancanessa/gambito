@@ -89,7 +89,7 @@ export async function enterHub() {
   renderHub();
   refreshHubData();
   clearInterval(on.hubTimer);
-  on.hubTimer = setInterval(() => (app.screen === 'online' ? refreshHubData() : clearInterval(on.hubTimer)), 15000);
+  on.hubTimer = setInterval(() => (app.screen === 'online' ? !document.hidden && refreshHubData() : clearInterval(on.hubTimer)), 15000);
 }
 
 function renderHub() {

@@ -1,16 +1,12 @@
 // WebSocket: partidas con amigos, emparejamiento clasificatorio, espectadores y emotes.
 import { WebSocketServer } from 'ws';
 import { sha256 } from './auth.js';
-import { LIMITS, TRUST_PROXY, allowedOrigins } from './config.js';
+import { LIMITS, allowedOrigins } from './config.js';
+import { clientIp } from './ip.js';
 import { TIME_CONTROLS } from './rooms.js';
 import { circuitMessage } from './tournaments.js';
 
 const KNOWN_MESSAGES = new Set(['auth', 'create', 'join', 'queue', 'dequeue', 'move', 'resign', 'draw', 'emote', 'rematch', 'leave', 'invite', 'circuit_join', 'circuit_leave', 'circuit_sync', 'circuit_watch', 'circuit_unwatch']);
-
-const clientIp = (req) => {
-  const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
-  return fwd || req.socket.remoteAddress || 'unknown';
-};
 
 // ¿Puede este origen abrir sockets? Mismo origen, o uno de ALLOWED_ORIGINS (cliente alojado aparte).
 function originAllowed(req) {

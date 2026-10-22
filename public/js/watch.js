@@ -85,7 +85,7 @@ export async function enterWatch() {
   }
   await load();
   clearInterval(ws.timer);
-  ws.timer = setInterval(() => (app.screen === 'watch' ? load() : clearInterval(ws.timer)), POLL_MS);
+  ws.timer = setInterval(() => (app.screen === 'watch' ? !document.hidden && load() : clearInterval(ws.timer)), POLL_MS);
 }
 
 // Enlace compartido de una repetición (/r/ID).

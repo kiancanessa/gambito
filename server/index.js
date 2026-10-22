@@ -2,7 +2,8 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createApi } from './api.js';
-import { DB_FILE, HOST, PORT, PUBLIC_DIR, TRUST_PROXY } from './config.js';
+import { DB_FILE, HOST, PORT, PUBLIC_DIR } from './config.js';
+import { clientIp } from './ip.js';
 import { loadPuzzles } from './daily.js';
 import { openDb } from './db.js';
 import { Matchmaker } from './matchmaker.js';
@@ -115,13 +116,19 @@ export async function startServer({
         metrics.inc('http_requests_total', { status: `${Math.floor(res.statusCode / 100)}xx` });
       });
     }
-    const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
-    const ip = fwd || req.socket.remoteAddress || 'unknown';
-    if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') {
-      const handled = await api(req, res, url, ip);
-      if (handled !== false) return;
+    const ip = clientIp(req);
+    try {
+      if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') {
+        const handled = await api(req, res, url, ip);
+        if (handled !== false) return;
+      }
+      await serveStatic(req, res, url);
+    } catch (err) {
+      // Nada de lo que envíe un cliente debe tumbar el proceso: se registra y se responde 500.
+      console.error('[http]', err);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Error interno');
     }
-    await serveStatic(req, res, url);
   });
   ws = attachWs(server, { db, rooms, matchmaker, circuit, social, metrics });
   const countRooms = (status) => [...rooms.rooms.values()].filter((r) => r.status === status).length;
@@ -168,6 +175,8 @@ export async function startServer({
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // Un fallo imprevisto en una petición o un temporizador se registra, pero no debe cortar las partidas y torneos en curso.
+  process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
   const app = await startServer();
   console.log(`Gambito escuchando en ${app.url}`);
   const stop = async () => {

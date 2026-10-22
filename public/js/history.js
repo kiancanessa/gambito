@@ -6,12 +6,13 @@ import { $, $$, app, showScreen } from './ui.js';
 let games = [];
 let filter = 'all';
 let loaded = false;
+let failed = false; // la última petición falló: se avisa en vez de decir «no hay partidas»
 
 function paint() {
   $$('#historyFilter button').forEach((b) => b.classList.toggle('on', b.dataset.hf === filter));
   const body = $('#historyBody');
-  if (!net.user) {
-    body.innerHTML = '<section class="lb-card"><p class="eyebrow">Sin conexión</p><h3>No se pudo cargar tu historial</h3><p class="muted">Las partidas online se guardan en el servidor para poder repetirlas.</p><button class="btn primary" data-hs="retry">Reintentar</button></section>';
+  if (!net.user || (failed && !loaded)) {
+    body.innerHTML = '<section class="lb-card" role="alert"><p class="eyebrow">Sin conexión</p><h3>No se pudo cargar tu historial</h3><p class="muted">Las partidas online se guardan en el servidor para poder repetirlas.</p><button class="btn primary" data-hs="retry">Reintentar</button></section>';
     return;
   }
   const w = games.filter((g) => g.result === 'win').length;
@@ -36,6 +37,7 @@ export async function enterHistory() {
   paint();
   if (!(await ensureOnline())) return paint();
   const res = await api('/api/me/games?limit=50');
+  failed = !res.ok;
   if (res.ok) {
     games = res.json.games;
     loaded = true;

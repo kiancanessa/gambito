@@ -55,7 +55,10 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
       req.on('end', () => {
         if (tooBig) return reject(Object.assign(new Error('Cuerpo demasiado grande'), { status: 413 }));
         try {
-          resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {});
+          const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+          // Todas las rutas esperan un objeto: `null`, un array o un número no son un cuerpo válido (antes acababan en un 500).
+          if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('forma');
+          resolve(body);
         } catch {
           reject(Object.assign(new Error('JSON no válido'), { status: 400 }));
         }
@@ -182,7 +185,8 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
           gamesToday: s.gamesToday,
           uptimeSeconds: Math.round(process.uptime()),
           // Copia de la base de datos (solo con DATABASE_URL): cuándo fue la última y si hay error.
-          persist: p && { claimed: p.claimed, degraded: p.degraded, restoredBytes: p.restoredBytes, lastOkAt: p.lastOkAt, lastError: p.lastError, lostOwnership: p.lostOwnership },
+          // Solo el estado: el texto del error puede nombrar el servidor de la base de datos, y eso no es público (está en los registros).
+          persist: p && { claimed: p.claimed, degraded: p.degraded, restoredBytes: p.restoredBytes, lastOkAt: p.lastOkAt, failing: !!p.lastError, lostOwnership: p.lostOwnership },
         });
       }
 

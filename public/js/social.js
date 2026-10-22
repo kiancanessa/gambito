@@ -160,7 +160,7 @@ export async function enterSocial() {
   if (!(await connect())) return;
   await refreshSocial();
   clearInterval(so.timer);
-  so.timer = setInterval(() => (app.screen === 'social' ? refreshSocial() : clearInterval(so.timer)), POLL_MS);
+  so.timer = setInterval(() => (app.screen === 'social' ? !document.hidden && refreshSocial() : clearInterval(so.timer)), POLL_MS);
 }
 
 // ---------- Acciones ----------
