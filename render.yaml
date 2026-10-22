@@ -25,7 +25,8 @@ services:
       - key: BLOCK_SAME_IP_RANKED
         value: '1'
       # Proxys de confianza delante del servidor: la IP del cliente es la entrada de X-Forwarded-For contada desde el final.
-      # En Render la cadena termina con la IP del balanceador, así que el cliente es la penúltima (valor medido, ver docs/QA-INFORME.md).
+      # En Render la cadena termina con dos proxys (Cloudflare y el balanceador), así que el cliente es la 3.ª entrada desde el final
+      # (valor medido contra el despliegue real, ver docs/QA-INFORME.md, R1).
       - key: TRUSTED_PROXY_HOPS
         value: '3'
       # Token para leer /api/metrics (secreto, opcional): si no lo defines, el endpoint no existe. Ver docs/DEPLOY.md.
