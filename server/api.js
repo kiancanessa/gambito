@@ -1,4 +1,5 @@
 // API HTTP/JSON: cuentas de invitado, guardado en la nube, desafío diario, clasificación y estadísticas.
+import { newShareToken, replayPayload } from './replay.js';
 import { bearer, cleanName, defaultName, newId, newRecoveryCode, newToken, normalizeCode, sha256 } from './auth.js';
 import { timingSafeEqual } from 'node:crypto';
 import { LIMITS, SAVE_LIMIT_BYTES, allowedOrigins } from './config.js';
@@ -353,25 +354,27 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
         return send(res, 200, { games });
       }
 
-      const replay = pathname.match(/^\/api\/games\/([\w-]{8,64})$/);
-      if (replay && method === 'GET') {
+      const replay = pathname.match(/^\/api\/games\/([\w-]{8,64})(\/share)?$/);
+      if (replay) {
         const g = db.gameById(replay[1]);
         if (!g || (g.white_id !== user.id && g.black_id !== user.id)) return send(res, 404, { error: 'Partida no encontrada' });
-        return send(res, 200, {
-          game: {
-            id: g.id,
-            code: g.code,
-            you: g.white_id === user.id ? 'w' : 'b',
-            winner: g.winner,
-            reason: g.reason,
-            rated: !!g.rated,
-            tc: g.tc,
-            createdAt: g.created_at,
-            moves: JSON.parse(g.moves),
-            white: { name: g.white_name ?? 'Jugador', rating: g.white_rating },
-            black: { name: g.black_name ?? 'Jugador', rating: g.black_rating },
-          },
-        });
+        // Enlace de repetición: solo quien jugó la partida lo crea o lo revoca; es un token aleatorio y revocable.
+        if (replay[2]) {
+          if (method !== 'POST' && method !== 'DELETE') return send(res, 405, { error: 'Método no permitido' });
+          if (limited(`share:${user.id}`, 20, 60_000)) return send(res, 429, { error: 'Demasiadas acciones seguidas' });
+          if (method === 'DELETE') return send(res, 200, { ok: true, removed: db.community.removeShare(g.id) });
+          const share = db.community.shareOf(g.id) ?? db.community.addShare(g.id, user.id, newShareToken());
+          return send(res, 201, { token: share.token, link: `/r/${share.token}` });
+        }
+        if (method !== 'GET') return send(res, 405, { error: 'Método no permitido' });
+        const share = db.community.shareOf(g.id);
+        let isPublic = false;
+        try {
+          isPublic = !!profiles.publicGame(g.id);
+        } catch {
+          isPublic = false;
+        }
+        return send(res, 200, { game: replayPayload(db, g, { you: g.white_id === user.id ? 'w' : 'b', extra: { share: share ? { token: share.token, link: `/r/${share.token}` } : null, public: isPublic } }) });
       }
 
       // ----- Social: amigos, bloqueos y reportes -----

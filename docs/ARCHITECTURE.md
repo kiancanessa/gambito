@@ -109,6 +109,12 @@ partida en modo espectador sin motor (`remote.send` vacío y `game.over = true`)
 reproducir/siguiente/final, velocidad 0,5×–2× y deslizador. Avanzar de uno en uno anima la jugada; retroceder o saltar reconstruye
 la posición con `loadMoves`. **Compartir** reutiliza `share.js`: tarjeta o clip de las últimas jugadas hasta el punto que estés viendo.
 
+## Repeticiones inteligentes (PROMPT 08)
+
+`server/replay.js` verifica cada partida al leerla (reproduce las jugadas y comprueba el resultado) y arma la respuesta; los enlaces privados son tokens
+revocables en `game_shares`. En el cliente, `public/js/moments.js` (puro, con umbrales auditables), `analysis.js` (Stockfish en un worker),
+`clip.js` (canvas 2D) y el visor de `replay.js`. El análisis nunca viaja al servidor. Detalle en **[REPETICIONES.md](REPETICIONES.md)**.
+
 ## Royale Circuit (Fase 4, rediseñado en el PROMPT 04)
 
 Torneos eliminatorios **programados por un organizador automático** (sin bots, sin salas de usuario). Diseño, estados, reglas,

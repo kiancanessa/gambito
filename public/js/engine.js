@@ -56,11 +56,16 @@ export class Engine {
 
   onLine(line) {
     if (!this.pending) return;
+    if (this.pending.analysis && line.startsWith('info') && !/ (lower|upper)bound/.test(line)) {
+      const m = line.match(/ score (cp|mate) (-?\d+)/);
+      if (m) this.pending.score = { [m[1]]: Number(m[2]) };
+    }
     if (line.startsWith('bestmove')) {
       const uci = line.split(' ')[1];
-      const { resolve } = this.pending;
+      const { resolve, analysis, score } = this.pending;
       this.pending = null;
-      resolve(uci && uci !== '(none)' ? uci : null);
+      const best = uci && uci !== '(none)' ? uci : null;
+      resolve(analysis ? { ...(score ?? {}), best } : best);
     }
   }
 
@@ -77,6 +82,27 @@ export class Engine {
       this.send('stop');
       resolve(null);
     }
+  }
+
+  // Evalúa una posición (análisis de partidas): `{ cp }` o `{ mate }` desde quien mueve, y la mejor jugada UCI. null si el motor no está.
+  async evaluate(fen, { depth = 12, movetime = 300 } = {}) {
+    const ok = await this.init();
+    if (!ok) return null;
+    this.stop();
+    return new Promise((resolve) => {
+      this.pending = { resolve, analysis: true, score: null };
+      this.send('setoption name Skill Level value 20');
+      this.send(`position fen ${fen}`);
+      this.send(`go depth ${depth} movetime ${movetime}`);
+    });
+  }
+
+  // Cierra el hilo del motor (el análisis usa uno propio para no molestar a ninguna partida).
+  dispose() {
+    this.stop();
+    this.worker?.terminate();
+    this.worker = null;
+    this.ready = null;
   }
 
   // Devuelve la mejor jugada UCI (p. ej. "e2e4" o "e7e8q") para un FEN.

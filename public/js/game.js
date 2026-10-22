@@ -638,7 +638,8 @@ export class Game {
     this.els.capMe.innerHTML = mine.html + (diff > 0 ? `<em>+${diff}</em>` : '');
     this.els.capOpp.innerHTML = theirs.html + (diff < 0 ? `<em>+${-diff}</em>` : '');
 
-    // Lista de jugadas
+    // Lista de jugadas (en una repetición la dibuja el visor, con la lista completa y la jugada actual marcada)
+    if (this.els.moveList.classList.contains('rp-moves')) return;
     const sans = hist.map((m) => m.san);
     let out = '';
     for (let i = 0; i < sans.length; i += 2) {

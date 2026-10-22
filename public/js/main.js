@@ -453,6 +453,7 @@ window.addEventListener('resize', () => stage?.resize());
   // El enlace de partida (/g/CODIGO) se lee antes de ir al inicio, porque el inicio limpia la URL.
   const link = location.pathname.match(/^\/g\/([A-Za-z0-9]{4,12})$/);
   const shared = location.pathname.match(/^\/([utr])\/([\w-]{1,64})$/); // perfil, torneo o repetición compartidos
+  const sharedPly = Number(new URLSearchParams(location.search).get('m')) || null; // jugada desde la que abrir una repetición
   await go('home');
   const online = await bootstrap();
   applySkins();
@@ -466,7 +467,7 @@ window.addEventListener('resize', () => stage?.resize());
   if (shared && online) {
     if (shared[1] === 'u') await app.openUser(shared[2]);
     else if (shared[1] === 't') await app.openCircuit?.(shared[2]);
-    else await (await import('./watch.js')).openPublicReplay(shared[2]);
+    else await (await import('./watch.js')).openPublicReplay(shared[2], sharedPly);
     return;
   }
   await maybeLoginBonus();

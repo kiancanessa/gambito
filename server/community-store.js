@@ -1,5 +1,6 @@
 // Persistencia de la capa comunitaria: privacidad, moderación, partidas públicas y eventos de creadores (PROMPT 07).
 // Ninguna tabla guarda correos ni datos personales: solo identificadores de cuenta, nombres públicos y decisiones de privacidad.
+import { roundName } from './bracket.js';
 
 export const COMMUNITY_SCHEMA = `
   CREATE TABLE IF NOT EXISTS user_privacy (
@@ -32,6 +33,12 @@ export const COMMUNITY_SCHEMA = `
     description TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL,
     starts_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS game_shares (
+    token TEXT PRIMARY KEY,
+    game_id TEXT NOT NULL UNIQUE,
+    created_by TEXT NOT NULL,
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_public_games_at ON public_games(created_at);
@@ -74,7 +81,13 @@ export function createCommunityStore(raw) {
     ),
     createdSince: raw.prepare('SELECT COUNT(*) AS n FROM community_events WHERE creator_id = ? AND created_at > ?'),
     setEventStatus: raw.prepare('UPDATE community_events SET status = ? WHERE tournament_id = ?'),
+    shareOfGame: raw.prepare('SELECT token, game_id, created_by, created_at FROM game_shares WHERE game_id = ?'),
+    shareOfToken: raw.prepare('SELECT token, game_id, created_by, created_at FROM game_shares WHERE token = ?'),
+    addShare: raw.prepare('INSERT OR IGNORE INTO game_shares (token, game_id, created_by, created_at) VALUES (?,?,?,?)'),
+    delShare: raw.prepare('DELETE FROM game_shares WHERE game_id = ?'),
   };
+  // Contexto de torneo de una partida: se prepara al usarlo porque las tablas del Circuit las crea otro módulo.
+  let ctxQuery = null;
 
   const toPrivacy = (r) =>
     r && { profile: r.profile, searchable: !!r.searchable, showOnline: !!r.show_online, acceptRequests: !!r.accept_requests, acceptInvites: r.accept_invites };
@@ -97,5 +110,26 @@ export function createCommunityStore(raw) {
     activeEventsOf: (creatorId) => q.activeOf.get(creatorId).n,
     eventsCreatedSince: (creatorId, since) => q.createdSince.get(creatorId, since).n,
     setEventStatus: (tournamentId, status) => q.setEventStatus.run(status, tournamentId),
+    // Enlaces de repetición: un token aleatorio por partida, creado y revocable solo por quien la jugó.
+    shareOf: (gameId) => q.shareOfGame.get(gameId) ?? null,
+    shareByToken: (token) => q.shareOfToken.get(token) ?? null,
+    addShare(gameId, userId, token, now = Date.now()) {
+      q.addShare.run(token, gameId, userId, now);
+      return q.shareOfGame.get(gameId);
+    },
+    removeShare: (gameId) => q.delShare.run(gameId).changes > 0,
+    // Torneo al que pertenece una partida (nombre, ronda y si hubo campeón), o null.
+    tournamentContext(tournamentId, code) {
+      if (!tournamentId) return null;
+      ctxQuery ??= raw.prepare(
+        `SELECT t.name, t.rounds, t.champion_id, t.status, m.round, m.winner_id
+         FROM circuit_tournaments t LEFT JOIN circuit_matches m ON m.tournament_id = t.id AND m.code = ?
+         WHERE t.id = ?`,
+      );
+      const r = ctxQuery.get(code ?? '', tournamentId);
+      if (!r) return null;
+      const round = r.round === null || r.round === undefined ? null : r.round + 1;
+      return { id: tournamentId, name: r.name, round, roundLabel: round && r.rounds ? roundName(r.round, r.rounds) : null, rounds: r.rounds || null, final: round !== null && !!r.rounds && round === r.rounds, championId: r.champion_id ?? null };
+    },
   };
 }

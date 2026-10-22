@@ -5,6 +5,7 @@
 //   public  → todo el mundo ve el perfil completo
 //   friends → los amigos ven todo; el resto, nombre, rating y avatar
 //   private → solo se ve el nombre
+import { replayPayload, SHARE_TOKEN } from './replay.js';
 import { ACHIEVEMENTS } from '../public/js/progression-data.js';
 import { DEFAULT_EQUIPPED } from '../public/js/data.js';
 
@@ -104,25 +105,18 @@ export function createProfiles({ db, social, presence = () => ({}) }) {
       .map((r) => ({ id: r.game_id, kind: r.kind, tournament: r.kind === 'circuit' ? r.ref : null, white: { id: r.white_id, name: r.white_name }, black: { id: r.black_id, name: r.black_name }, winner: r.winner, reason: r.reason, tc: r.tc, plies: r.plies, at: r.created_at }));
   }
 
+  // Repetición abierta a cualquiera: una partida pública (si ninguno de los dos la tiene privada) o un enlace que creó uno de los jugadores.
   function publicGame(gameId) {
+    if (typeof gameId === 'string' && SHARE_TOKEN.test(gameId)) {
+      const share = db.community.shareByToken(gameId);
+      const g = share && db.gameById(share.game_id);
+      if (!g) throw fail(404, 'Partida no encontrada');
+      return replayPayload(db, g, { id: gameId, extra: { shared: true } });
+    }
     const pub = typeof gameId === 'string' && /^[\w-]{8,64}$/.test(gameId) ? db.community.publicGame(gameId) : null;
     const g = pub && db.gameById(gameId);
     if (!g || !visibleGame(g)) throw fail(404, 'Partida no encontrada');
-    return {
-      id: g.id,
-      code: g.code,
-      you: 'w', // quien mira no juega: se ve desde las blancas
-      winner: g.winner,
-      reason: g.reason,
-      rated: !!g.rated,
-      tc: g.tc,
-      createdAt: g.created_at,
-      kind: pub.kind,
-      tournament: pub.kind === 'circuit' ? pub.ref : null,
-      moves: JSON.parse(g.moves),
-      white: { name: g.white_name ?? 'Jugador', rating: g.white_rating },
-      black: { name: g.black_name ?? 'Jugador', rating: g.black_rating },
-    };
+    return replayPayload(db, g);
   }
 
   return { profile, publicGames, publicGame };

@@ -89,4 +89,4 @@ export async function enterWatch() {
 }
 
 // Enlace compartido de una repetición (/r/ID).
-export const openPublicReplay = (id) => openReplay(id, { publicGame: true });
+export const openPublicReplay = (id, ply = null) => openReplay(id, { publicGame: true, ply });

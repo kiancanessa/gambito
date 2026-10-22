@@ -177,6 +177,11 @@ export function mergeSnapshot(db, buffer, tmpFile) {
          INSERT OR IGNORE INTO public_games SELECT * FROM old.public_games;
          INSERT OR IGNORE INTO community_events SELECT * FROM old.community_events;`
       : '';
+    // Enlaces de repetición creados por los jugadores (solo se añaden, y solo de partidas que existen).
+    const shares = oldTables.has('game_shares')
+      ? `INSERT OR IGNORE INTO game_shares (token, game_id, created_by, created_at)
+           SELECT token, game_id, created_by, created_at FROM old.game_shares WHERE game_id IN (SELECT id FROM main.games);`
+      : '';
     const social = ['friend_codes', 'friendships', 'blocks', 'reports'].every((t) => oldTables.has(t))
       ? `INSERT OR IGNORE INTO friend_codes SELECT * FROM old.friend_codes WHERE user_id IN (SELECT id FROM main.users);
          INSERT OR IGNORE INTO friendships SELECT * FROM old.friendships
@@ -207,6 +212,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       ${circuitState}
       ${progress}
       ${community}
+      ${shares}
       ${social}
       ${fair}
       COMMIT;
