@@ -190,13 +190,14 @@ function timeLine(t) {
 
 const communityBadge = (t) => (t.community ? `<span class="pill soon" title="Torneo de la comunidad: sin premios ni XP">Comunidad · ${esc(t.organizer?.name ?? '')}</span>` : '');
 
-function card(t, joined, mine) {
+function card(t, joined, mine, featured = false) {
   const open = t.status === 'open';
   let cta = `<button class="btn" data-cir-open="${esc(t.id)}">Ver torneo</button>`;
   if (open && joined) cta = `<button class="btn danger" data-cir="leave" data-id="${esc(t.id)}">Cancelar inscripción</button>${cta}`;
   else if (open && mine) cta = `<button class="btn" disabled title="Ya estás en otro torneo del Circuit">Ya estás en otro torneo</button>${cta}`;
-  else if (open) cta = `<button class="btn primary" data-cir="join" data-id="${esc(t.id)}">Inscribirme</button>${cta}`;
-  return `<article class="cir-card ${t.status} ${joined ? 'joined' : ''}">
+  else if (open) cta = `<button class="btn ${featured ? 'primary' : ''}" data-cir="join" data-id="${esc(t.id)}">Inscribirme</button>${cta}`;
+  return `<article class="cir-card ${t.status} ${joined ? 'joined' : ''} ${featured ? 'cir-feature' : ''}">
+    ${featured ? '<p class="cir-kicker">Torneo destacado</p>' : ''}
     <div class="card-head"><p class="eyebrow">${esc(t.name)} · ${esc(tcLabel(t.tc))}</p>${pill(t.status)}</div>
     <h3>Eliminatoria de hasta ${t.size} ${communityBadge(t)}</h3>
     ${t.description ? `<p class="muted">${esc(t.description)}</p>` : ''}
@@ -205,24 +206,32 @@ function card(t, joined, mine) {
 }
 
 function hero() {
-  return `<section class="lb-card circuit-hero"><p class="eyebrow">Royale Circuit</p><h3>Torneos eliminatorios</h3>
+  return `<section class="lb-card circuit-hero"><p class="eyebrow">Cómo funciona</p>
     <p class="muted">Eliminación simple: pierdes una partida y quedas fuera. El servidor programa los torneos, valida cada resultado y reparte los premios. La Corona del Circuit es un set de piezas que no se vende en la tienda y nunca da ventaja de juego.</p>
     <ul class="prize-row"><li>Cuartos <b>🪙 30</b></li><li>Semifinal <b>🪙 60</b></li><li>Final <b>🪙 120</b></li><li class="top">Campeón <b>🪙 250 + 👑</b></li></ul></section>`;
 }
 
+// El torneo que más te importa ahora (en el que estás, o el que tiene la inscripción abierta) va primero y en grande;
+// el resto, compactos; cómo funciona y los premios, después.
+function featuredOf(l) {
+  return l.tournaments.find((t) => t.id === l.mine) ?? l.tournaments.find((t) => t.status === 'open') ?? l.tournaments.find((t) => t.status === 'running') ?? l.tournaments[0] ?? null;
+}
+
 function renderList() {
   const l = cs.list;
-  if (!l) return `${hero()}<section class="lb-card"><p class="muted">Cargando torneos…</p></section>`;
-  const cards = l.tournaments.map((t) => card(t, t.joined, l.mine && l.mine !== t.id)).join('');
+  if (!l) return '<section class="lb-card" aria-busy="true"><p class="muted">Cargando torneos…</p></section>';
+  const top = featuredOf(l);
+  const others = l.tournaments.filter((t) => t !== top).map((t) => card(t, t.joined, l.mine && l.mine !== t.id)).join('');
   const recent = l.recent
     .map((r) => `<li><button class="link-row" data-cir-open="${esc(r.id)}"><b>${esc(r.name)}</b>${r.community ? ` <span class="pill soon">Comunidad · ${esc(r.organizer ?? '')}</span>` : ''}<small class="muted">${shortDate(r.finishedAt)} · ${r.status === 'cancelled' ? esc(r.cancelReason ?? 'Cancelado') : `👑 ${esc(r.champion ?? '—')} · ${r.players} jugadores`}</small></button></li>`)
     .join('');
   const champs = l.champions.map((x) => `<li>👑 <b>${esc(x.name)}</b> <small class="muted">${shortDate(x.at)}</small></li>`).join('');
-  return `${hero()}
-    <section class="cir-grid">${cards || '<p class="muted">No hay torneos programados ahora mismo. El organizador abrirá el siguiente en breve.</p>'}</section>
-    <section class="lb-card"><div class="card-head"><p class="eyebrow">Torneos de la comunidad</p><button class="btn primary" data-cir="new-event">➕ Crear un evento</button></div><p class="muted">Organiza tu propio torneo eliminatorio e invita a quien quieras. Es el mismo cuadro y las mismas reglas que el Circuit, pero sin premios ni XP. Hace falta el nivel 3 de cuenta.</p></section>
-    ${recent ? `<section class="lb-card"><p class="eyebrow">Historial de torneos</p><ul class="cir-recent">${recent}</ul></section>` : ''}
-    ${champs ? `<section class="lb-card"><p class="eyebrow">Campeones</p><ul class="champs">${champs}</ul></section>` : ''}`;
+  return `${top ? card(top, top.joined, l.mine && l.mine !== top.id, true) : '<section class="lb-card"><p class="muted">No hay torneos programados ahora mismo. El organizador abrirá el siguiente en breve.</p></section>'}
+    ${others ? `<section class="cir-grid">${others}</section>` : ''}
+    ${champs ? `<section class="lb-card"><p class="eyebrow">Campeones</p><ul class="champs">${champs}</ul></section>` : ''}
+    ${hero()}
+    <section class="lb-card"><div class="card-head"><p class="eyebrow">Torneos de la comunidad</p><button class="btn" data-cir="new-event">Crear un evento</button></div><p class="muted">Organiza tu propio torneo eliminatorio e invita a quien quieras. Es el mismo cuadro y las mismas reglas que el Circuit, pero sin premios ni XP. Hace falta el nivel 3 de cuenta.</p></section>
+    ${recent ? `<section class="lb-card"><p class="eyebrow">Historial de torneos</p><ul class="cir-recent">${recent}</ul></section>` : ''}`;
 }
 
 function actionPanel(c) {

@@ -265,7 +265,7 @@ async function openClipFor() {
   await openClip({
     data,
     moments: picks,
-    onCopyLink: (ply) => copyLink(ply),
+    onCopyLink: data.historic ? null : (ply) => copyLink(ply),
     onOpenAt: (ply) => seek(ply),
   });
 }

@@ -1,4 +1,4 @@
-// Ajustes y personalización: cuenta, sonido, pantalla (movimiento reducido, tablero 2D) y piezas/tablero/efectos equipados.
+// Ajustes y personalización: cuenta, sonido, pantalla (movimiento reducido) y piezas/tablero/efectos equipados.
 import { RARITY, SHOP } from './data.js';
 import { net } from './net.js';
 import { bindPrefsPanel, onPrefs, prefsPanelHtml } from './prefs.js';
@@ -6,7 +6,6 @@ import { equip, owns, save, state } from './store.js';
 import { $, $$, app, choice, esc, showScreen } from './ui.js';
 
 const PREF_REDUCE = 'checkpoint.reduce';
-const PREF_ARENA = 'checkpoint.arena3d'; // '1' = encendida (opcional)
 const KINDS = [
   { kind: 'set', group: 'sets', label: 'Piezas' },
   { kind: 'board', group: 'boards', label: 'Tablero' },
@@ -16,13 +15,6 @@ const KINDS = [
 const readPref = (key) => {
   try {
     return localStorage.getItem(key) === '1';
-  } catch {
-    return false;
-  }
-};
-const readPref2 = (key, value) => {
-  try {
-    return localStorage.getItem(key) === value;
   } catch {
     return false;
   }
@@ -62,7 +54,6 @@ function renderLook() {
 function renderSwitches() {
   setSwitch($('#setSound'), !state.muted);
   setSwitch($('#setMotion'), readPref(PREF_REDUCE));
-  setSwitch($('#setArena'), readPref2(PREF_ARENA, '1')); // opcional: empieza apagada
 }
 
 const renderPlayPrefs = () => {
@@ -97,17 +88,6 @@ export function initSettings() {
     const on = !readPref(PREF_REDUCE);
     writePref(PREF_REDUCE, on);
     document.documentElement.classList.toggle('reduce-motion', on);
-    app.disposeArena?.(); // la arena se recrea con la animación que toque
-    renderSwitches();
-  });
-  $('#setArena').addEventListener('click', () => {
-    try {
-      if (readPref2(PREF_ARENA, '1')) localStorage.removeItem(PREF_ARENA);
-      else localStorage.setItem(PREF_ARENA, '1');
-    } catch {
-      /* sin almacenamiento */
-    }
-    app.disposeArena?.();
     renderSwitches();
   });
   $('#screen-settings').addEventListener('change', (e) => {

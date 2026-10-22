@@ -17,9 +17,6 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/checkpoint.css">
   <link rel="stylesheet" href="/css/minimal.css">
-  <script type="importmap">
-    { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
-  </script>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -310,7 +307,7 @@
     <!-- CLASIFICACIONES -->
     <section class="screen" id="screen-ranking" hidden>
       <div class="screen-head">
-        <h2>Clasificaciones</h2>
+        <h2>Ranking</h2>
         <div class="seg" id="rankTabs" role="tablist">
           <button data-rtab="elo" class="on" role="tab">Liga</button>
           <button data-rtab="daily" role="tab">Desafío diario</button>
@@ -349,7 +346,6 @@
           <p class="eyebrow">Sonido y pantalla</p>
           <div class="set-row"><span><b>Sonido</b><small>Efectos de jugadas, capturas y recompensas</small></span><button class="switch" id="setSound" role="switch" aria-checked="true" aria-label="Sonido"><i></i></button></div>
           <div class="set-row"><span><b>Reducir movimiento</b><small>Menos animaciones y transiciones</small></span><button class="switch" id="setMotion" role="switch" aria-checked="false" aria-label="Reducir movimiento"><i></i></button></div>
-          <div class="set-row"><span><b>Arena 3D del lobby</b><small>Escenario animado detrás del lobby (desactivado por defecto)</small></span><button class="switch" id="setArena" role="switch" aria-checked="false" aria-label="Arena 3D del lobby"><i></i></button></div>
         </section>
         <section class="lb-card" id="setPlay"></section>
         <section class="lb-card" id="setLook"></section>

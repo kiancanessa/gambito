@@ -82,6 +82,7 @@ export function startSession(cfg) {
       $('#oppCard').classList.toggle('active', !mine && !app.game?.over);
     },
     getFx: () => state.equipped.fx,
+    getCrown: () => state.equipped.crown,
     askPromotion,
     onThinking: (on) => ($('#thinking').hidden = !on),
     onEnd: cfg.onEnd,

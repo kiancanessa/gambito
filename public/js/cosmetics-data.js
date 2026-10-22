@@ -38,7 +38,7 @@ const badge = (id, name, desc, icon, color, unlock, rarity = 'rare') => ({ id, c
 const title = (id, name, desc, unlock, rarity = 'common') => ({ id, category: 'title', name, desc, rarity, asset: { text: name }, unlock });
 const decor = (id, name, desc, unlock, rarity = 'common') => ({ id, category: 'decor', name, desc, rarity, asset: { css: `decor-${id}` }, unlock });
 
-// Piezas y tableros nuevos (la referencia visual está en board3d.js y checkpoint.css, clases `set-<id>` / `board-<id>`).
+// Piezas y tableros nuevos (la referencia visual está en checkpoint.css, clases `set-<id>` / `board-<id>`).
 const NEW_SETS = [
   { id: 'marble', name: 'Mármol y Pizarra', desc: 'Marfil pulido frente a pizarra oscura.', rarity: 'rare', unlock: { type: 'achievement', id: 'games_50' } },
   { id: 'cobalt', name: 'Cobalto y Plata', desc: 'Azul profundo contra plata brillante.', rarity: 'epic', unlock: { type: 'level', level: 18 } },
@@ -103,7 +103,7 @@ export const ITEMS = [
   { id: 'aurora', category: 'victory', name: 'Aurora', desc: 'Velos de luz sobre el tablero.', rarity: 'epic', asset: { ref: 'victory-aurora' }, unlock: { type: 'level', level: 18 } },
   { id: 'nova', category: 'victory', name: 'Nova', desc: 'Ondas expansivas de energía.', rarity: 'legendary', asset: { ref: 'victory-nova' }, unlock: { type: 'achievement', id: 'circuit_champion' } },
 
-  // ----- Animaciones de coronación (board3d.js) -----
+  // ----- Animaciones de coronación (game.js → crownFx y minimal.css, clases `crown-<id>`) -----
   { id: 'classic', category: 'crown', name: 'Clásica', desc: 'La pieza nueva aparece con un destello.', rarity: 'common', asset: { ref: 'crown-classic' }, unlock: { type: 'default' } },
   { id: 'rise', category: 'crown', name: 'Ascenso', desc: 'La pieza sube girando desde la casilla.', rarity: 'rare', asset: { ref: 'crown-rise' }, unlock: { type: 'level', level: 5 } },
   { id: 'halo', category: 'crown', name: 'Halo', desc: 'Un aro dorado envuelve la coronación.', rarity: 'epic', asset: { ref: 'crown-halo' }, unlock: { type: 'level', level: 12 } },

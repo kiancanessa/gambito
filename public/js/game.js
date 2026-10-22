@@ -324,6 +324,7 @@ export class Game {
         this.showBanner('¡CORONACIÓN!', 'gold');
         const p = this.squareCenter(m.to);
         burst(this.els.fxLayer, p.x, p.y, fxId, 2.2);
+        this.crownFx(m.to);
       }, d + 120);
     }
     if (isMate) {
@@ -545,6 +546,20 @@ export class Game {
     const f = FILES.indexOf(sq[0]);
     const r = Number(sq[1]) - 1;
     return { col: this.flipped ? 7 - f : f, row: this.flipped ? r : 7 - r };
+  }
+
+  // Animación de coronación (cosmético «Coronación») en el tablero 2D: una capa encima de la casilla, sin tocar la partida.
+  crownFx(sq) {
+    if (this.view || !this.els.fxLayer) return;
+    const style = this.o.getCrown?.() ?? 'classic';
+    const size = this.els.board.clientWidth / 8;
+    const p = this.squareCenter(sq);
+    const el = document.createElement('div');
+    el.className = `crown-fx crown-${style}`;
+    el.style.cssText = `left:${p.x - size / 2}px;top:${p.y - size / 2}px;width:${size}px;height:${size}px`;
+    el.innerHTML = '<i></i><i></i><i></i>';
+    this.els.fxLayer.append(el);
+    setTimeout(() => el.remove(), 1600);
   }
 
   squareCenter(sq) {

@@ -12,15 +12,19 @@ async function renderElo() {
   if (!res.ok) return offline;
   const { top, me } = res.json;
   const meId = net.user?.id;
-  const rows = top.map((r) => {
+  const row = (r) => {
     const lg = leagueOf(r.rating);
-    return `<li class="rk-row ${r.id === meId ? 'me' : ''}">${medal(r.rank)}<span class="emblem sm" style="--c:${lg.color}"><i>${GLYPH[lg.glyph]}${VS}</i></span><span class="rk-name"><b>${esc(r.name)}</b><small>Liga ${lg.name} · ${r.games} partidas</small></span><em>${r.rating}</em></li>`;
-  }).join('');
+    const you = r.id === meId;
+    return `<li class="rk-row ${you ? 'me' : ''}" ${you ? 'aria-current="true"' : ''}>${medal(r.rank)}<span class="emblem sm" style="--c:${lg.color}"><i>${GLYPH[lg.glyph]}${VS}</i></span><span class="rk-name"><b>${esc(r.name)}${you ? ' <span class="rk-you">Tú</span>' : ''}</b><small>Liga ${lg.name} · ${r.games} partida${r.games === 1 ? '' : 's'}</small></span><em>${r.rating}</em></li>`;
+  };
+  let rows = top.map(row).join('');
+  // Si estás fuera del top, tu fila aparece al final, separada (sin inventar variaciones de puesto: no se guardan).
+  if (me && net.user?.games > 0 && !top.some((r) => r.id === meId)) rows += `<li class="rk-gap" aria-hidden="true">···</li>${row({ id: meId, rank: me.rank, rating: me.rating, name: net.user.name, games: net.user.games })}`;
   const mine = me && net.user?.games > 0
     ? `<section class="lb-card rk-me"><p class="eyebrow">Tu posición</p><div class="rk-me-row"><b>#${me.rank}</b><span>${me.rating} pts · Liga ${leagueOf(me.rating).name}</span></div></section>`
     : `<section class="lb-card rk-me"><p class="eyebrow">Tu posición</p><p class="muted">Juega tu primera clasificatoria para entrar en la tabla.</p><button class="btn primary" data-go="lobby">Jugar ahora</button></section>`;
   const ladder = LEAGUES.map((l) => `<li style="--c:${l.color}"><span class="emblem sm" style="--c:${l.color}"><i>${GLYPH[l.glyph]}${VS}</i></span><b>${l.name}</b><small>desde ${l.min}</small></li>`).join('');
-  return `<div class="rank-layout"><section class="lb-card"><div class="card-head"><p class="eyebrow">Top ${top.length}</p><span class="pill">Elo</span></div>
+  return `<div class="rank-layout"><section class="lb-card"><div class="card-head"><p class="eyebrow">${top.length ? `Top ${top.length}` : 'Clasificación'}</p><span class="pill">Elo</span></div>
       ${rows ? `<ol class="rk-list">${rows}</ol>` : '<p class="muted">Aún no hay partidas clasificatorias. ¡Sé el primero!</p>'}</section>
     <aside class="rank-side">${mine}<section class="lb-card"><p class="eyebrow">Ligas</p><ul class="ladder">${ladder}</ul></section></aside></div>`;
 }

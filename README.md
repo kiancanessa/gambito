@@ -2,17 +2,17 @@
 
 > Nombre provisional de la marca (antes «Gambito · Crónicas del Tablero»). Sistema visual en [docs/DESIGN.md](docs/DESIGN.md).
 
-Ajedrez 3D con una **Academia** (de cero a experto), **partidas online**, **desafío diario**, misiones, pase de temporada y skins.
+Ajedrez competitivo con una **Academia** (de cero a experto), **partidas online**, **desafío diario**, misiones, pase de temporada y skins.
 Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegador, en móvil y se instala como app (PWA).
 
-> Idea: que el ajedrez se sienta como un videojuego. Las piezas hablan, el tablero es 3D, hay temporadas y eventos,
+> Idea: que el ajedrez se sienta como un videojuego. Las piezas hablan, hay temporadas y eventos,
 > y todo lo que se compra es cosmético: **nunca se paga por ganar**.
 
 ## Qué incluye (beta)
 
 | Área | Detalle |
 |---|---|
-| **Tablero 3D** | three.js: piezas torneadas, sombras, cámara con 3 ángulos, animaciones de captura, enroque, coronación y rey que cae en mate. Respaldo 2D si no hay WebGL. |
+| **Tablero 2D** | Tablero frontal limpio: resaltado de última jugada, jugadas legales, jaque y mate, coordenadas discretas y animaciones breves; las skins de piezas y tableros y las animaciones de coronación funcionan en 2D. |
 | **Academia** | Ruta de aprendizaje de cero a experto: 12 lecciones con 40+ ejercicios verificados con el motor de reglas (piezas, jaque y mate, movimientos especiales, táctica, finales con práctica contra la IA, aperturas y estrategia), pistas, estrellas, recompensas y «saltar de nivel». Los cinco rivales de la antigua campaña son las **pruebas finales**. |
 | **Jugabilidad** | Selección y destinos legales claros, última jugada, jaque/mate, arrastrar y soltar o tocar origen y destino, teclado accesible con lector de pantalla, relojes con alerta de poco tiempo, estado de conexión del rival, y preferencias de sonido, animación y resaltados. El servidor valida jugadas, turno y reloj: las animaciones no afectan al tiempo y el cliente nunca declara resultados. |
 | **Online** | Partida por enlace (`/g/CODIGO`), emparejamiento clasificatorio con Elo y ligas (Peón → Rey), relojes, tablas, revancha, espectadores y emotes (sin chat libre). |
@@ -25,10 +25,10 @@ Gratis, sin anuncios y de **código abierto** (GPL-3.0). Funciona en el navegado
 | **Royale Circuit** | Torneos eliminatorios programados por el servidor (Blitz de 8 y Rápida de 16, ampliable a 32/64): inscripción con plazo y cupo, cuadro con byes, relojes y resultados validados en el servidor, desempates explícitos, recuperación tras reinicios y pantalla en tiempo real. Sin bots. Ver [docs/CIRCUIT.md](docs/CIRCUIT.md). |
 | **Juego limpio y métricas** | Una clasificatoria no puntúa si repite pareja más de 3 veces en 24 h o termina demasiado pronto; alertas de ritmo sospechoso para revisión; métricas en el log y en `/api/metrics`. |
 | **Amigos** | Código de amigo, lista con presencia, retos e invitaciones a partida, bloqueos y reportes. Sin chat libre ni email (flag `social`). |
-| **Repeticiones** | Historial de tus partidas online en el lobby y visor 3D con reproducción automática, saltos, velocidad y clip para compartir (flag `replays`). Solo quienes jugaron la partida pueden verla. |
+| **Repeticiones** | Historial de tus partidas online en el lobby y visor con reproducción automática, saltos, velocidad y clip para compartir (flag `replays`). Solo quienes jugaron la partida pueden verla. |
 | **Cartera segura** | Oros, XP e inventario se validan en el servidor (flag `wallet`): compras con precio del catálogo, recompensas online calculadas con la partida real y topes en lo que no se puede comprobar. |
 | **Skins** | 6 sets de piezas, 6 tableros y 4 efectos de captura (materiales y texturas procedurales, sin imágenes). |
-| **Compartir** | Tarjeta de imagen con tu tablero 3D y clip de las últimas jugadas (WebM grabado del canvas). |
+| **Compartir** | Tarjeta de imagen con tu tablero y vídeo de las últimas jugadas (WebM grabado de un canvas 2D en el navegador). |
 | **Cuentas** | Cuentas de invitado automáticas + código de recuperación; progreso sincronizado en la nube. Sin email ni contraseñas. |
 | **Tutorial** | 10 mini-retos de 1 minuto que enseñan las piezas, el jaque y el mate. |
 
@@ -57,7 +57,6 @@ El estado del servidor (cuentas, guardados, partidas, ranking) vive en un SQLite
 ```
 public/            cliente (HTML + CSS + JS modular, sin build)
   js/main.js         arranque, navegación, pruebas finales, tienda
-  js/board3d.js      escena 3D: tablero, piezas, skins, cámara, animaciones
   js/game.js         controlador de partida (IA local, online, tutorial, puzzles)
   js/session.js      prepara la pantalla de partida para cada modo
   js/online.js       multijugador (hub, sala, relojes, emotes, revancha)
@@ -77,8 +76,7 @@ public/            cliente (HTML + CSS + JS modular, sin build)
   js/academy.js      Academia: pantalla de progreso y ejecución de lecciones
   js/academy-data.js contenido de la Academia y juez de ejercicios (puro, probado)
   js/prefs.js · feedback.js · records.js   preferencias de partida, avisos y récords personales
-  js/arena3d.js · arena-caps.js   arena 3D del lobby (carga diferida) y detección de capacidades
-  vendor/            chess.js, three.js y Stockfish (copiados de npm)
+  vendor/            chess.js y Stockfish (copiados de npm)
 server/            Node: estáticos + API + WebSocket en un solo puerto
   index.js · api.js · ws.js · rooms.js · matchmaker.js · daily.js · db.js · elo.js · auth.js · static.js
 scripts/           generador de puzzles, bot de desarrollo, iconos
@@ -109,7 +107,7 @@ Una imagen Docker lo contiene todo (`Dockerfile`). Hay una receta **100 % gratui
 Distribuido bajo **GNU GPL v3** (ver [LICENSE](LICENSE)). Se incluye [Stockfish.js](https://github.com/nmrugg/stockfish.js)
 (GPLv3), por lo que el conjunto se publica bajo la misma licencia: quien lo distribuya o lo ofrezca como servicio debe
 mantener el código fuente disponible bajo GPL.
-Otras bibliotecas: [chess.js](https://github.com/jhlywa/chess.js) (BSD-2), [three.js](https://threejs.org) (MIT), [ws](https://github.com/websockets/ws) (MIT).
+Otras bibliotecas: [chess.js](https://github.com/jhlywa/chess.js) (BSD-2), [ws](https://github.com/websockets/ws) (MIT).
 
 ## Honestidad técnica (qué confía en el cliente)
 

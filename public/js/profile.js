@@ -1,4 +1,4 @@
-// Perfil: identidad, liga, estadísticas, trofeos e insignias, y gestión de la cuenta (nombre, código de recuperación, sincronización).
+// Perfil: identidad y rango arriba; debajo, por pestañas, el resumen (estadísticas y trofeos), los logros y la cuenta.
 import { CAMPAIGN, GLYPH, LEAGUES, leagueOf } from './data.js';
 import { api, net, newRecoveryCode, onNet, recoverAccount, renameUser, syncDown, pushNow } from './net.js';
 import { decorClass, identityHtml, titleOf } from './cosmetics-art.js';
@@ -37,6 +37,10 @@ function leagueProgress(rating) {
   return { cur, next, pct: Math.min(100, ((rating - cur.min) / (next.min - cur.min)) * 100), left: next.min - rating };
 }
 
+// Pestañas del perfil: lo importante (identidad y rango) siempre arriba; el resto, a un clic.
+const TABS = [['summary', 'Resumen'], ['badges', 'Logros'], ['account', 'Cuenta']];
+let tab = 'summary';
+
 function render(extra) {
   const body = $('#profileBody');
   const u = net.user;
@@ -52,44 +56,33 @@ function render(extra) {
   const st = state.stats;
   const bs = badges(extra);
   const earned = bs.filter((b) => b.done).length;
-  const stats = [
-    [u.wins, 'Victorias online'], [u.losses, 'Derrotas'], [u.draws, 'Tablas'], [st.games, 'Partidas totales'],
-    [st.checks, 'Jaques'], [st.captures, 'Capturas'], [st.promotions, 'Coronaciones'], [st.dailySolved, 'Desafíos resueltos'],
-  ];
-  body.innerHTML = `
-    <div class="profile-layout">
-      <section class="lb-card pf-hero ${decorClass()}">
-        <div class="pf-emblem" style="--c:${lg.color}">${identityHtml(state.equipped, { size: 84, label: `Avatar de ${esc(u.name)}` })}<span class="emblem sm" style="--c:${lg.color}" title="Liga ${lg.name}"><i>${GLYPH[lg.glyph]}${VS}</i></span></div>
-        <div class="pf-id">
-          <p class="eyebrow">Liga ${lg.name}</p>
-          <h3 class="pf-name">${esc(u.name)}</h3>
-          ${titleOf() ? `<p class="pf-title">${esc(titleOf())}</p>` : ''}
-          <p class="pf-rating"><b>${u.rating}</b> pts${extra.rank && u.games > 0 ? ` · puesto <b>#${extra.rank}</b>` : ''}</p>
-          <div class="lg-bar" role="progressbar" aria-valuenow="${Math.round(pr.pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pr.pct}%;color:${pr.next?.color ?? lg.color};background:currentColor"></i></div>
-          <small>${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>
-        </div>
-        <div class="pf-actions"><button class="btn" data-go="progress">Progreso</button><button class="btn" data-go="social">Amigos</button><button class="btn" data-go="history">Historial</button><button class="btn" data-go="shop">Personalizar</button><button class="btn ghost" data-go="settings">Ajustes</button></div>
-      </section>
+  const head = `
+    <section class="pf-hero ${decorClass()}">
+      <div class="pf-emblem" style="--c:${lg.color}">${identityHtml(state.equipped, { size: 76, label: `Avatar de ${esc(u.name)}` })}</div>
+      <div class="pf-id">
+        <h3 class="pf-name">${esc(u.name)}</h3>
+        ${titleOf() ? `<p class="pf-title">${esc(titleOf())}</p>` : ''}
+        <p class="pf-rating"><span class="pf-league" style="--c:${lg.color}">${GLYPH[lg.glyph]}${VS} Liga ${esc(lg.name)}</span><b>${u.rating}</b> pts${extra.rank && u.games > 0 ? ` · puesto #${extra.rank}` : ''} · nivel ${state.level}</p>
+        <div class="lg-bar" role="progressbar" aria-label="Progreso de liga" aria-valuenow="${Math.round(pr.pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pr.pct}%"></i></div>
+        <small class="muted">${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>
+      </div>
+    </section>
+    <nav class="pf-links" aria-label="Tu cuenta">
+      <button class="btn" data-go="history">Historial</button>
+      <button class="btn" data-go="progress">Progreso y misiones</button>
+      <button class="btn" data-go="shop">Personalizar</button>
+      <button class="btn" data-go="social">Amigos</button>
+    </nav>
+    <div class="seg pf-tabs" role="tablist" aria-label="Secciones del perfil">${TABS.map(([id, l]) => `<button role="tab" data-pft="${id}" aria-selected="${tab === id}" class="${tab === id ? 'on' : ''}">${l}${id === 'badges' ? ` <small>${earned}/${bs.length}</small>` : ''}</button>`).join('')}</div>`;
 
-      <section class="lb-card">
-        <p class="eyebrow">Estadísticas</p>
-        <ul class="stat-grid">${stats.map(([n, l]) => `<li><b>${n}</b><small>${l}</small></li>`).join('')}</ul>
-      </section>
-
-      <section class="lb-card">
-        <div class="card-head"><p class="eyebrow">Trofeos</p><span class="pill">${extra.trophies.length}</span></div>
-        ${extra.trophies.length
-          ? `<ul class="trophy-list">${extra.trophies.map((t) => `<li class="${t.placement}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span><b>${t.label}</b><small>${new Date(t.at).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</small></span></li>`).join('')}</ul>`
-          : '<p class="muted">Aún no tienes trofeos. Juega el Royale Circuit para conseguirlos.</p>'}
-      </section>
-
-      <section class="lb-card">
-        <div class="card-head"><p class="eyebrow">Insignias</p><span class="pill todo">${earned}/${bs.length}</span></div>
-        <p class="muted fine">Los logros verificados por el servidor están en <button class="link-btn" data-go="progress">Progresión</button>.</p><ul class="badge-grid">${bs.map((b) => `<li class="${b.done ? 'done' : ''}" title="${esc(b.text)}"><i>${b.done ? '✔' : ''}</i><b>${esc(b.name)}</b><small>${b.done ? esc(b.text) : `${Math.min(b.have, b.need)}/${b.need} · ${esc(b.text)}`}</small></li>`).join('')}</ul>
-      </section>
-
-      <section class="lb-card pf-account">
-        <p class="eyebrow">Cuenta</p>
+  let section;
+  if (tab === 'badges') {
+    section = `<section class="lb-card">
+        <p class="muted fine">Insignias calculadas con tus datos. Los logros que verifica el servidor (y sus premios) están en <button class="link-btn" data-go="progress">Progreso</button>.</p>
+        <ul class="badge-grid">${bs.map((b) => `<li class="${b.done ? 'done' : ''}" title="${esc(b.text)}"><i>${b.done ? '✔' : ''}</i><b>${esc(b.name)}</b><small>${b.done ? esc(b.text) : `${Math.min(b.have, b.need)}/${b.need} · ${esc(b.text)}`}</small></li>`).join('')}</ul>
+      </section>`;
+  } else if (tab === 'account') {
+    section = `<section class="lb-card pf-account">
         <label class="pf-field">Nombre público
           <span class="pf-row"><input id="pfName" value="${esc(u.name)}" maxlength="16" autocomplete="off"><button class="btn primary" data-pf="rename">Guardar</button></span>
         </label>
@@ -101,9 +94,23 @@ function render(extra) {
         <div class="pf-field">Usar otra cuenta
           <span class="pf-row"><input id="pfRecover" placeholder="XXXX-XXXX-XXXX" maxlength="14" autocomplete="off"><button class="btn" data-pf="recover">Recuperar</button></span>
         </div>
-        <p class="pf-sync">☁ Progreso sincronizado: ${ago(net.lastSync)} · <button class="link-btn" data-pf="sync">Sincronizar ahora</button></p>
+        <p class="pf-sync">Progreso sincronizado: ${ago(net.lastSync)} · <button class="link-btn" data-pf="sync">Sincronizar ahora</button></p>
+      </section>`;
+  } else {
+    const main = [[u.wins, 'Victorias'], [u.losses, 'Derrotas'], [u.draws, 'Tablas'], [u.games, 'Clasificatorias']];
+    const more = [[st.games, 'Partidas en total'], [st.checks, 'Jaques'], [st.captures, 'Capturas'], [st.promotions, 'Coronaciones'], [st.dailySolved, 'Desafíos resueltos']];
+    section = `<section class="lb-card">
+        <ul class="pf-stats">${main.map(([n, l]) => `<li><b>${n}</b><small>${l}</small></li>`).join('')}</ul>
+        <p class="pf-more">${more.map(([n, l]) => `<span><b>${n}</b> ${l.toLowerCase()}</span>`).join('')}</p>
       </section>
-    </div>`;
+      <section class="lb-card">
+        <div class="card-head"><p class="eyebrow">Trofeos</p></div>
+        ${extra.trophies.length
+          ? `<ul class="trophy-list">${extra.trophies.map((t) => `<li class="${t.placement}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trophy"/></svg><span><b>${t.label}</b><small>${new Date(t.at).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</small></span></li>`).join('')}</ul>`
+          : '<p class="muted">Aún no tienes trofeos. Se consiguen llegando a semifinales en el Royale Circuit.</p>'}
+      </section>`;
+  }
+  body.innerHTML = `<div class="pf">${head}${section}</div>`;
 }
 
 // Datos extra del servidor: puesto en la clasificación y trofeos del Circuit.
@@ -130,8 +137,13 @@ export async function enterProfile() {
 }
 
 async function onAction(e) {
+  const t = e.target.closest('[data-pft]');
+  if (t) {
+    tab = t.dataset.pft;
+    return render(current);
+  }
   const b = e.target.closest('[data-pf]');
-  if (!b) return;
+  if (!b) return undefined;
   const act = b.dataset.pf;
   if (act === 'retry') return enterProfile();
   if (act === 'rename') {

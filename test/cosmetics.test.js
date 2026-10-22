@@ -15,7 +15,8 @@ import { createWallets } from '../server/wallet.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const read = (f) => readFileSync(path.join(ROOT, f), 'utf8').split('\r\n').join('\n');
-const SRC = { board3d: read('js/board3d.js'), art: read('js/cosmetics-art.js'), fx: read('js/fx.js'), css: `${read('css/style.css')}\n${read('css/checkpoint.css')}` };
+// El tablero es 2D desde el rediseño minimalista: cada cosmético visual debe existir en CSS (piezas, tableros, coronación) o en JS 2D.
+const SRC = { game: read('js/game.js'), art: read('js/cosmetics-art.js'), fx: read('js/fx.js'), css: `${read('css/style.css')}\n${read('css/checkpoint.css')}\n${read('css/minimal.css')}` };
 
 let seq = 0;
 function setup(start = Date.UTC(2026, 10, 5, 12)) {
@@ -84,30 +85,27 @@ describe('catálogo', () => {
     }
   });
 
-  test('cada artículo visual tiene su recurso: 3D, CSS, partículas o animación (nada roto)', () => {
+  test('cada artículo visual tiene su recurso: CSS, partículas o animación (nada roto)', () => {
     for (const it of itemsOf('set')) {
-      assert.match(SRC.board3d, new RegExp(`\\n  ${it.id}: \\{\\n\\s+w:`), `material 3D de las piezas ${it.id}`);
       if (it.unlock.type !== 'default') assert.match(SRC.css, new RegExp(`\\.set-${it.id}\\b`), `piezas 2D ${it.id}`); // las clásicas usan el estilo base
     }
-    for (const it of itemsOf('board')) {
-      assert.match(SRC.board3d, new RegExp(`\\n  ${it.id}: \\{ light:`), `tablero 3D ${it.id}`);
-      assert.match(SRC.css, new RegExp(`\\.board-${it.id}\\b`), `tablero 2D ${it.id}`);
-    }
+    for (const it of itemsOf('board')) assert.match(SRC.css, new RegExp(`\\.board-${it.id}\\b`), `tablero 2D ${it.id}`);
     for (const it of itemsOf('fx')) assert.match(read('js/fx.js'), new RegExp(`\\n\\s+${it.id}:`), `partículas ${it.id}`);
     for (const it of itemsOf('victory').filter((i) => i.id !== 'confetti')) assert.match(SRC.fx, new RegExp(`case '${it.id === 'fireworks' ? 'fireworks' : it.id}'`), `efecto de victoria ${it.id}`);
-    for (const it of itemsOf('crown').filter((i) => i.id !== 'classic')) assert.match(SRC.board3d, new RegExp(`style === '${it.id}'`), `coronación ${it.id}`);
+    for (const it of itemsOf('crown')) assert.match(SRC.css, new RegExp(`\\.crown-${it.id}\\b`), `coronación ${it.id}`);
+    assert.match(SRC.game, /crown-\$\{style\}/, 'game.js aplica la coronación equipada');
     for (const it of itemsOf('avatar').filter((i) => i.asset.art)) assert.match(SRC.art, new RegExp(`\\n  ${it.asset.art}: `), `ilustración ${it.asset.art}`);
     for (const it of itemsOf('decor').filter((i) => i.unlock.type !== 'default')) assert.match(SRC.css, new RegExp(`\\.decor-${it.id}\\b`), `decoración ${it.id}`);
     for (const it of itemsOf('frame')) assert.ok(['none', 'solid', 'double', 'dashed', 'aurora'].includes(it.asset.style), `estilo de marco ${it.id}`);
   });
 
   test('los artículos son solo estéticos: las piezas nuevas solo cambian materiales y los efectos no tocan la partida', () => {
-    // Un diseño de piezas solo define color/material; nada de geometría, tamaño ni posición
-    const sets = SRC.board3d.slice(SRC.board3d.indexOf('const SETS = {'), SRC.board3d.indexOf('// ---------- Skins de tablero'));
-    assert.doesNotMatch(sets, /scale|geometry|height|radius|position/i);
-    // El efecto de coronación solo anima la pieza que aparece; no se mueve ninguna otra ni se cambia la jugada
-    const crown = SRC.board3d.slice(SRC.board3d.indexOf('async crownAnimation'), SRC.board3d.indexOf('setCosmetics'));
-    assert.doesNotMatch(crown, /chess\.|\.move\(|pieces\.set|pieces\.delete/);
+    // Un diseño de piezas solo define color/material: ninguna regla .set-* cambia el tamaño o la posición de las piezas
+    for (const m of SRC.css.matchAll(/\.set-[\w-]+[^{]*\.piece[^{]*\{([^}]*)\}/g)) assert.doesNotMatch(m[1], /(^|;)\s*(width|height|font-size|position|left|top|margin)\s*:/i, m[0].slice(0, 60));
+    // El efecto de coronación es una capa encima de la casilla: no toca la partida ni el tablero
+    const crown = SRC.game.slice(SRC.game.indexOf('  crownFx(sq) {'), SRC.game.indexOf('  squareCenter(sq) {'));
+    assert.ok(crown.length > 50, 'existe crownFx');
+    assert.doesNotMatch(crown, /chess\.|\.move\(|render\(|els\.board\.innerHTML/);
     // Y los efectos de victoria solo dibujan en la capa de celebración
     const victory = SRC.fx.slice(SRC.fx.indexOf('export function victoryFx'));
     assert.doesNotMatch(victory, /fetch\(|socket|state\./);

@@ -1,7 +1,5 @@
-// Compartir: tarjeta de imagen, clip del final (WebM grabado del canvas 3D) y texto.
-import { Chess } from '../vendor/chess.js';
-import { sfx } from './fx.js';
-import { $, app, choice, copyText, toast, wait } from './ui.js';
+// Compartir: tarjeta de imagen con el tablero 2D, vídeo del final (WebM grabado de un canvas 2D) y texto.
+import { $, choice, copyText, toast } from './ui.js';
 
 const SITE = () => location.origin;
 
@@ -38,141 +36,89 @@ export async function shareText(text) {
   toast((await copyText(text)) ? '📋 Texto copiado' : text, 3500);
 }
 
-const loadImage = (src) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-
-// Tarjeta vertical 1080x1350 con el tablero 3D del momento.
-async function makeCard({ headline, sub, stats }) {
+// Tarjeta vertical 1080x1350 con el tablero 2D del momento.
+async function makeCard({ headline, sub, stats, fen = null, flip = false, mark = null }) {
   const W = 1080;
   const H = 1350;
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
   const g = c.getContext('2d');
-  const bg = g.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#141824');
-  bg.addColorStop(1, '#05060a');
-  g.fillStyle = bg;
-  g.fillRect(0, 0, W, H);
-  const glow = g.createRadialGradient(W / 2, 760, 50, W / 2, 760, 700);
-  glow.addColorStop(0, 'rgba(34,225,255,0.22)');
-  glow.addColorStop(1, 'rgba(34,225,255,0)');
-  g.fillStyle = glow;
+  g.fillStyle = '#080a0e';
   g.fillRect(0, 0, W, H);
 
   g.textAlign = 'center';
-  g.fillStyle = '#f2f5f9';
-  g.font = 'bold 92px Bahnschrift, "Segoe UI", sans-serif';
-  g.fillText('CHECKPOINT', W / 2, 140);
-  g.fillStyle = '#22e1ff';
-  g.font = '30px "Segoe UI", sans-serif';
-  g.fillText('AJEDREZ COMPETITIVO', W / 2, 190);
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = '#f5f7fa';
+  g.font = 'bold 64px Bahnschrift, "Segoe UI", sans-serif';
+  g.fillText('CHECKPOINT', W / 2, 120);
+  g.fillStyle = '#929baa';
+  g.font = '28px "Segoe UI", sans-serif';
+  g.fillText('AJEDREZ COMPETITIVO', W / 2, 165);
 
-  g.fillStyle = '#ffffff';
-  g.font = 'bold 84px Bahnschrift, "Segoe UI", sans-serif';
-  g.fillText(headline, W / 2, 330);
-  g.fillStyle = '#8d97ab';
-  g.font = '40px "Segoe UI", sans-serif';
-  g.fillText(sub, W / 2, 392);
+  g.fillStyle = '#f5f7fa';
+  g.font = 'bold 72px Bahnschrift, "Segoe UI", sans-serif';
+  g.fillText(headline, W / 2, 290, W - 80);
+  g.fillStyle = '#929baa';
+  g.font = '38px "Segoe UI", sans-serif';
+  g.fillText(sub, W / 2, 350, W - 80);
 
-  const shot = app.stage?.captureImage?.();
-  if (shot) {
-    const raw = await loadImage(shot);
-    // Difumina los bordes del fotograma para que se funda con el fondo de la tarjeta.
-    const t = document.createElement('canvas');
-    t.width = raw.width;
-    t.height = raw.height;
-    const tg = t.getContext('2d');
-    tg.drawImage(raw, 0, 0);
-    tg.globalCompositeOperation = 'destination-in';
-    const rg = tg.createRadialGradient(t.width / 2, t.height / 2, Math.min(t.width, t.height) * 0.3, t.width / 2, t.height / 2, Math.max(t.width, t.height) * 0.6);
-    rg.addColorStop(0, '#000');
-    rg.addColorStop(0.65, '#000');
-    rg.addColorStop(1, 'rgba(0,0,0,0)');
-    tg.fillStyle = rg;
-    tg.fillRect(0, 0, t.width, t.height);
-    const img = t;
-    const maxW = 1000;
-    const maxH = 760;
-    const k = Math.min(maxW / img.width, maxH / img.height);
-    const w = img.width * k;
-    const h = img.height * k;
-    g.drawImage(img, (W - w) / 2, 440 + (maxH - h) / 2, w, h);
+  if (fen) {
+    const { boardCanvas } = await import('./clip.js');
+    const size = 760;
+    g.drawImage(boardCanvas(fen, { size, flip, mark }), (W - size) / 2, 410, size, size);
   }
 
-  g.fillStyle = '#22e1ff';
-  g.font = 'bold 44px "Segoe UI", sans-serif';
-  g.fillText(stats, W / 2, 1270 - 40);
-  g.fillStyle = '#5d6779';
-  g.font = '34px "Segoe UI", sans-serif';
-  g.fillText(SITE().replace(/^https?:\/\//, ''), W / 2, 1310);
+  g.fillStyle = '#20ddf3';
+  g.font = 'bold 40px "Segoe UI", sans-serif';
+  g.fillText(stats, W / 2, 1240);
+  g.fillStyle = '#636c7b';
+  g.font = '32px "Segoe UI", sans-serif';
+  g.fillText(SITE().replace(/^https?:\/\//, ''), W / 2, 1300);
   return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
 }
 
-// Graba un clip de las últimas jugadas reproduciéndolas en el tablero 3D.
+// Graba un clip de las últimas jugadas de la partida con el dibujo 2D del clip (MediaRecorder sobre un canvas en memoria).
 async function recordClip(game) {
-  const stage = app.stage;
-  if (!stage || !window.MediaRecorder || !stage.canvas.captureStream) return null;
-  const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
-  if (!mime) return null;
   const plies = game.chess.history({ verbose: true });
   if (!plies.length) return null;
-  const k = Math.min(4, plies.length);
-  const c = new Chess(game.startFen);
-  plies.slice(0, -k).forEach((m) => c.move(m.san));
-
-  const rec = new MediaRecorder(stage.canvas.captureStream(30), { mimeType: mime, videoBitsPerSecond: 5_000_000 });
-  const chunks = [];
-  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-  const stopped = new Promise((r) => (rec.onstop = r));
-
-  stage.setPosition(c);
-  stage.highlight({});
-  rec.start();
-  await wait(700);
-  for (const m of plies.slice(-k)) {
-    const mv = c.move(m.san);
-    stage.update({ chess: c, move: mv, lastMove: { from: mv.from, to: mv.to }, interactive: false });
-    sfx.move();
-    await wait(1100);
-  }
-  if (c.isCheckmate()) {
-    const king = c.board().flat().find((p) => p && p.type === 'k' && p.color === c.turn());
-    stage.checkmate(king.square);
-  }
-  await wait(1900);
-  rec.stop();
-  await stopped;
-  game.render(); // restaura la posición final en el tablero
-  return new Blob(chunks, { type: mime.split(';')[0] });
+  const { recordClipVideo } = await import('./clip.js');
+  const me = $('#meName')?.textContent || 'Tú';
+  const opp = $('#oppName')?.textContent || 'Rival';
+  const data = {
+    fen: game.startFen,
+    moves: plies.map((m) => `${m.from}${m.to}${m.promotion ?? ''}`),
+    white: { name: game.pc === 'w' ? me : opp },
+    black: { name: game.pc === 'w' ? opp : me },
+    you: game.pc,
+    context: 'CHECKPOINT',
+    resultText: game.chess.isCheckmate() ? 'Jaque mate' : game.chess.isDraw() ? 'Tablas' : `${Math.ceil(plies.length / 2)} jugadas`,
+  };
+  return recordClipVideo(data, { from: Math.max(0, plies.length - 4), to: plies.length, title: 'Final de la partida' });
 }
 
 export async function shareGame({ game, summary, headline, sub }) {
-  const text = `${headline} en CHECKPOINT, ajedrez competitivo con ligas, torneos y skins ♟ ${SITE()}`;
+  const text = `${headline} en CHECKPOINT, ajedrez competitivo con ligas y torneos ♟ ${SITE()}`;
   const pick = await choice(`<h3>Compartir partida</h3>
     <p>Elige cómo quieres enseñar tu partida.</p>
     <div class="share-options">
-      <button class="btn primary" data-choice="image">🖼 Tarjeta con el tablero</button>
-      <button class="btn" data-choice="clip">🎬 Clip del final (6 s)</button>
-      <button class="btn" data-choice="text">🔗 Solo texto</button>
-      <button class="btn" data-choice="back">Volver</button>
+      <button class="btn primary" data-choice="image">Tarjeta con el tablero</button>
+      <button class="btn" data-choice="clip">Vídeo del final (WebM)</button>
+      <button class="btn" data-choice="text">Solo texto</button>
+      <button class="btn ghost" data-choice="back">Volver</button>
     </div>`);
   if (pick === 'text') return shareText(text);
   if (pick === 'image') {
-    const blob = await makeCard({ headline, sub, stats: `${summary.moves} jugadas · ${summary.checks} jaques` });
+    const last = game.chess.history({ verbose: true }).at(-1);
+    const blob = await makeCard({ headline, sub, stats: `${summary.moves} jugadas · ${summary.checks} jaques`, fen: game.chess.fen(), flip: game.pc === 'b', mark: last ? { from: last.from, to: last.to } : null });
     return shareBlob(blob, 'checkpoint.png', text);
   }
   if (pick === 'clip') {
     $('#toast').hidden = true;
-    toast('🎬 Grabando el clip...', 9000);
+    toast('Grabando el vídeo…', 9000);
     const blob = await recordClip(game).catch(() => null);
-    if (!blob) return toast('Tu navegador no puede grabar el clip. Prueba con la imagen.');
-    toast('✅ Clip listo');
+    if (!blob) return toast('Tu navegador no puede grabar el vídeo. Prueba con la imagen.');
+    toast('Vídeo listo');
     return shareBlob(blob, 'checkpoint-clip.webm', text);
   }
   return undefined;
