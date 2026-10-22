@@ -24,6 +24,12 @@ function originAllowed(req) {
   return allowedOrigins().includes(origin.replace(/\/$/, ''));
 }
 
+// Invitaciones: una persona no recibe la misma invitación dos veces seguidas ni más de 5 por minuto de cualquiera.
+const INVITE_REPEAT_MS = 30_000;
+const INVITES_PER_TARGET = 5;
+const recentInvites = new Map(); // `${de}:${para}` → ts
+const targetInvites = new Map(); // para → [ts]
+
 export function attachWs(server, { db, rooms, matchmaker, circuit, social, metrics = { inc() {} } }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048 });
   const perIp = new Map();
@@ -162,6 +168,14 @@ export function attachWs(server, { db, rooms, matchmaker, circuit, social, metri
         const to = typeof msg.to === 'string' ? msg.to : '';
         if (!room || room.status !== 'waiting' || meta.role === 's' || !room.hasPlayer(meta.user.id)) return send(ws, { t: 'error', message: 'Crea una partida y espera a tu rival antes de invitar' });
         if (!social.areFriends(meta.user.id, to) || social.isBlocked(meta.user.id, to)) return send(ws, { t: 'error', message: 'Solo puedes invitar a tus amigos' });
+        if (social.privacyOf(to).acceptInvites === 'nobody') return send(ws, { t: 'error', message: 'Esa persona no acepta invitaciones ahora mismo' });
+        const key = `${meta.user.id}:${to}`;
+        if (now - (recentInvites.get(key) ?? 0) < INVITE_REPEAT_MS) return send(ws, { t: 'error', message: 'Ya invitaste a esa persona hace un momento' });
+        const toTimes = (targetInvites.get(to) ?? []).filter((x) => now - x < 60_000);
+        if (toTimes.length >= INVITES_PER_TARGET) return send(ws, { t: 'error', message: 'Esa persona ya ha recibido muchas invitaciones: espera un poco' });
+        recentInvites.set(key, now);
+        targetInvites.set(to, [...toTimes, now]);
+        if (recentInvites.size > 2000) for (const [k, ts] of recentInvites) if (now - ts > INVITE_REPEAT_MS) recentInvites.delete(k);
         meta.invites.push(now);
         const from = { id: meta.user.id, name: meta.user.name, rating: meta.user.rating };
         const delivered = notify(to, { t: 'invite', from, code: room.code, tc: room.tc.id });

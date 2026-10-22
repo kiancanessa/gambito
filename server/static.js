@@ -69,8 +69,8 @@ export function createStatic(publicDir) {
       return;
     }
     let pathname = decodeURIComponent(url.pathname);
-    // Enlaces a partidas (/g/CODIGO) y raíz sirven la app.
-    if (pathname === '/' || /^\/g\/[A-Za-z0-9]{4,12}$/.test(pathname)) pathname = '/index.html';
+    // Enlaces compartibles: partida en vivo (/g/CODIGO), perfil (/u/ID), torneo (/t/ID), repetición pública (/r/ID) y la raíz sirven la app.
+    if (pathname === '/' || /^\/g\/[A-Za-z0-9]{4,12}$/.test(pathname) || /^\/[utr]\/[\w-]{1,64}$/.test(pathname)) pathname = '/index.html';
     if (pathname.split('/').some((seg) => seg.startsWith('.'))) {
       res.writeHead(404).end('Not found');
       return;

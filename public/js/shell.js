@@ -10,6 +10,8 @@ const SECTION = {
   home: 'home',
   lobby: 'play', quick: 'play', online: 'play', daily: 'play', game: 'play',
   academy: 'academy',
+  watch: 'play',
+  user: 'friends',
   circuit: 'circuit',
   ranking: 'ranking',
   progress: 'rewards', shop: 'rewards',

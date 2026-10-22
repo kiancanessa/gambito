@@ -7,7 +7,7 @@ import { flags } from './flags.js';
 import { api, ensureOnline, net, socket } from './net.js';
 import { joinRoom } from './online.js';
 import { queueOp } from './store.js';
-import { $, app, esc, onScreen, showScreen, toast } from './ui.js';
+import { $, app, choice, confirmModal, copyText, esc, onScreen, showScreen, toast } from './ui.js';
 
 const CLAIMED_KEY = 'gambito.circuit.claimed';
 const STATUS = {
@@ -188,6 +188,8 @@ function timeLine(t) {
   }
 }
 
+const communityBadge = (t) => (t.community ? `<span class="pill soon" title="Torneo de la comunidad: sin premios ni XP">Comunidad · ${esc(t.organizer?.name ?? '')}</span>` : '');
+
 function card(t, joined, mine) {
   const open = t.status === 'open';
   let cta = `<button class="btn" data-cir-open="${esc(t.id)}">Ver torneo</button>`;
@@ -196,7 +198,8 @@ function card(t, joined, mine) {
   else if (open) cta = `<button class="btn primary" data-cir="join" data-id="${esc(t.id)}">Inscribirme</button>${cta}`;
   return `<article class="cir-card ${t.status} ${joined ? 'joined' : ''}">
     <div class="card-head"><p class="eyebrow">${esc(t.name)} · ${esc(tcLabel(t.tc))}</p>${pill(t.status)}</div>
-    <h3>Eliminatoria de hasta ${t.size}</h3>
+    <h3>Eliminatoria de hasta ${t.size} ${communityBadge(t)}</h3>
+    ${t.description ? `<p class="muted">${esc(t.description)}</p>` : ''}
     <ul class="cir-facts"><li>👥 <b>${t.players}/${t.size}</b> inscritos <small>(mínimo ${t.minPlayers})</small></li><li>⏱ ${timeLine(t)}</li>${joined ? '<li class="ok">✔ Estás inscrito</li>' : ''}</ul>
     <div class="cir-actions">${cta}</div></article>`;
 }
@@ -212,11 +215,12 @@ function renderList() {
   if (!l) return `${hero()}<section class="lb-card"><p class="muted">Cargando torneos…</p></section>`;
   const cards = l.tournaments.map((t) => card(t, t.joined, l.mine && l.mine !== t.id)).join('');
   const recent = l.recent
-    .map((r) => `<li><button class="link-row" data-cir-open="${esc(r.id)}"><b>${esc(r.name)}</b><small class="muted">${shortDate(r.finishedAt)} · ${r.status === 'cancelled' ? esc(r.cancelReason ?? 'Cancelado') : `👑 ${esc(r.champion ?? '—')} · ${r.players} jugadores`}</small></button></li>`)
+    .map((r) => `<li><button class="link-row" data-cir-open="${esc(r.id)}"><b>${esc(r.name)}</b>${r.community ? ` <span class="pill soon">Comunidad · ${esc(r.organizer ?? '')}</span>` : ''}<small class="muted">${shortDate(r.finishedAt)} · ${r.status === 'cancelled' ? esc(r.cancelReason ?? 'Cancelado') : `👑 ${esc(r.champion ?? '—')} · ${r.players} jugadores`}</small></button></li>`)
     .join('');
   const champs = l.champions.map((x) => `<li>👑 <b>${esc(x.name)}</b> <small class="muted">${shortDate(x.at)}</small></li>`).join('');
   return `${hero()}
     <section class="cir-grid">${cards || '<p class="muted">No hay torneos programados ahora mismo. El organizador abrirá el siguiente en breve.</p>'}</section>
+    <section class="lb-card"><div class="card-head"><p class="eyebrow">Torneos de la comunidad</p><button class="btn primary" data-cir="new-event">➕ Crear un evento</button></div><p class="muted">Organiza tu propio torneo eliminatorio e invita a quien quieras. Es el mismo cuadro y las mismas reglas que el Circuit, pero sin premios ni XP. Hace falta el nivel 3 de cuenta.</p></section>
     ${recent ? `<section class="lb-card"><p class="eyebrow">Historial de torneos</p><ul class="cir-recent">${recent}</ul></section>` : ''}
     ${champs ? `<section class="lb-card"><p class="eyebrow">Campeones</p><ul class="champs">${champs}</ul></section>` : ''}`;
 }
@@ -296,7 +300,10 @@ function renderDetail() {
   const body = ['scheduled', 'open', 'closed', 'cancelled'].includes(c.status) ? renderRegistration(c) : c.matches.length ? renderBracket(c) : '';
   return `<section class="lb-card circuit-hero"><button class="back" data-cir="back">← Torneos</button>
       <div class="card-head"><p class="eyebrow">${esc(c.name)} · ${esc(tcLabel(c.tc))}</p>${pill(c.status)}</div>
-      <h3>Eliminatoria de hasta ${c.size}</h3>
+      <h3>Eliminatoria de hasta ${c.size} ${communityBadge(c)}</h3>
+      ${c.description ? `<p class="muted">${esc(c.description)}</p>` : ''}
+      ${c.organizer ? `<p class="muted">Organiza: <button class="link-btn" data-user="${esc(c.organizer.id)}">${esc(c.organizer.name)}</button> · sin premios ni XP</p>` : ''}
+      <div class="cir-actions"><button class="btn" data-cir="share" data-id="${esc(c.id)}">🔗 Copiar enlace</button>${c.organizer?.id === net.user?.id && ['scheduled', 'open', 'closed'].includes(c.status) ? `<button class="btn danger" data-cir="cancel-event" data-id="${esc(c.id)}">Cancelar evento</button>` : ''}</div>
       <ul class="cir-facts"><li>👥 <b>${c.players}/${c.size}</b> participantes <small>(mínimo ${c.minPlayers})</small></li><li>⏱ ${timeLine(c)}</li></ul>
       <ul class="prize-row">${prizes}</ul></section>
     ${actionPanel(c)}
@@ -342,7 +349,35 @@ export async function enterCircuit(id = null) {
 }
 
 // ---------- Arranque ----------
+// Formulario de torneo de creador: el servidor valida nivel, texto, tamaño, control de tiempo, hora y límites.
+async function createEvent() {
+  const tomorrow = new Date(Date.now() + 3600_000 * 24 - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  const html = `<h3>Crear un evento</h3>
+    <form id="evForm" class="ev-form" novalidate><label>Título<input name="title" maxlength="40" required placeholder="Copa de los viernes" autocomplete="off"></label>
+      <label>Descripción (opcional)<input name="description" maxlength="200" placeholder="Torneo amistoso, todos los niveles" autocomplete="off"></label>
+      <label>Jugadores<select name="size"><option>4</option><option selected>8</option><option>16</option></select></label>
+      <label>Control de tiempo<select name="tc"><option value="blitz3_2">Blitz 3+2</option><option value="blitz5" selected>Blitz 5</option><option value="rapid10">Rápida 10</option></select></label>
+      <label>Empieza<input name="startsAt" type="datetime-local" value="${tomorrow}" required></label>
+      <p class="muted">Sin enlaces. Máximo 2 eventos activos y 3 al día. Sin premios ni XP.</p>
+      <div class="modal-actions"><button class="btn primary" type="button" data-choice="go">Crear</button><button class="btn" type="button" data-choice="no">Cancelar</button></div></form>`;
+  // El diálogo se cierra al elegir: se van guardando los valores del formulario mientras se escribe.
+  const vals = {};
+  const answer = choice(html, 'ev-card');
+  const form = document.querySelector('#evForm');
+  const grab = () => Object.assign(vals, Object.fromEntries(new FormData(form)));
+  form.addEventListener('input', grab);
+  form.addEventListener('change', grab);
+  form.addEventListener('submit', (e) => e.preventDefault());
+  grab();
+  if ((await answer) !== 'go') return;
+  const res = await api('/api/events', { method: 'POST', body: { title: vals.title, description: vals.description, size: Number(vals.size), tc: vals.tc, startsAt: new Date(vals.startsAt).getTime() } });
+  if (!res.ok) return toast(res.json?.error ?? 'No se pudo crear el evento', 4500);
+  toast('🎉 Evento creado');
+  return openCircuit(res.json.id);
+}
+
 export function initCircuit() {
+  app.openCircuit = openCircuit;
   if (!flags.circuit) return;
   onScreen((name) => {
     if (name !== 'circuit' && name !== 'lobby' && cs.watching) {
@@ -390,6 +425,17 @@ export function initCircuit() {
       return render();
     }
     if (act === 'retry') return enterCircuit(cs.id);
+    if (act === 'share') {
+      await copyText(`${location.origin}/t/${btn.dataset.id}`);
+      return toast('🔗 Enlace del torneo copiado');
+    }
+    if (act === 'new-event') return createEvent();
+    if (act === 'cancel-event') {
+      if (!(await confirmModal('¿Cancelar el evento?', 'Los inscritos quedarán libres. No se puede deshacer.', 'Cancelar evento', 'Volver'))) return undefined;
+      const res = await api(`/api/events/${encodeURIComponent(btn.dataset.id)}/cancel`, { method: 'POST', body: {} });
+      toast(res.ok ? 'Evento cancelado' : (res.json?.error ?? 'No se pudo cancelar'));
+      return undefined;
+    }
     if (act === 'join' || act === 'leave') {
       if (!(await connect())) return render();
       socket.send({ t: act === 'join' ? 'circuit_join' : 'circuit_leave', id: btn.dataset.id });

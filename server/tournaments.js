@@ -138,6 +138,9 @@ export class CircuitManager {
       entries: new Map(),
       matches: [],
     };
+    // Torneos de la comunidad: los crea una persona (organizador), no el calendario oficial, y no dan premios ni XP.
+    const ev = this.db.community?.eventOf(row.id);
+    if (ev) t.community = { creatorId: ev.creator_id, creatorName: ev.creator_name, description: ev.description };
     for (const e of row.entries) {
       t.entries.set(e.user_id, { id: e.user_id, name: e.name, rating: e.rating, seed: e.seed, status: e.status, placement: e.placement, joinedAt: e.joined_at, socks: new Set() });
     }
@@ -227,6 +230,29 @@ export class CircuitManager {
     this.tournaments.set(t.id, t);
     this.broadcastList();
     return t;
+  }
+
+  /**
+   * Torneo de un creador (comunidad): reglas y cuadro iguales a los oficiales, pero sin premios, sin XP y sin logros,
+   * para que no se pueda granjear recompensas organizando torneos con cuentas propias.
+   */
+  scheduleCommunity({ creatorId, creatorName, title, description = '', size, tc, startsAt, minPlayers = 4 }, now = Date.now()) {
+    const format = { id: `c-${crypto.randomBytes(4).toString('hex')}`, name: title, size, minPlayers: Math.min(minPlayers, size), tc, everyMs: 0 };
+    const t = this.schedule(format, startsAt, now);
+    t.community = { creatorId, creatorName, description };
+    this.db.community.createEvent({ id: crypto.randomUUID(), tournamentId: t.id, kind: 'tournament', creatorId, title, description, status: 'scheduled', startsAt, createdAt: now });
+    this.broadcast(t);
+    return t;
+  }
+
+  /** El organizador puede cancelar mientras no haya empezado. */
+  cancelByOrganizer(tid, userId) {
+    const t = this.tournaments.get(tid);
+    if (!t?.community || t.community.creatorId !== userId) return { ok: false, reason: 'unknown' };
+    if (!['scheduled', 'open', 'closed'].includes(t.status)) return { ok: false, reason: 'started' };
+    if (!this.cancel(t, 'Cancelado por el organizador')) return { ok: false, reason: 'started' };
+    this.db.community.setEventStatus(tid, 'cancelled');
+    return { ok: true };
   }
 
   // ===== Reloj =====
@@ -364,7 +390,7 @@ export class CircuitManager {
     });
     if (!res.ok) return;
     this.metrics.inc('circuit_started_total');
-    this.safe(() => this.progression?.recordCircuitJoin(present.map((e) => e.id), t.id));
+    if (!t.community) this.safe(() => this.progression?.recordCircuitJoin(present.map((e) => e.id), t.id));
     for (const e of absent) e.status = 'absent';
     present.forEach((e, i) => {
       e.status = 'active';
@@ -496,9 +522,10 @@ export class CircuitManager {
     const champion = this.entry(t, championId);
     champion.placement = 'champion';
     const players = [...t.entries.values()].filter((e) => e.placement || e.id === championId);
-    const results = players.map((e) => ({ userId: e.id, placement: e.placement, ...(this.cfg.prizes[e.placement] ?? {}) }));
+    // Los torneos de la comunidad no pagan: sin premios, sin historial oficial, sin XP ni logros.
+    const results = players.map((e) => ({ userId: e.id, placement: e.placement, ...(t.community ? {} : (this.cfg.prizes[e.placement] ?? {})) }));
     t.championId = championId; // el puesto del campeón ya está fijado; la base de datos lo confirma en `finish`
-    const legacy = { tc: t.tc, size: t.size, champion: champion.name, bracket: JSON.stringify(this.bracketOf(t)), createdAt: t.createdAt };
+    const legacy = t.community ? null : { tc: t.tc, size: t.size, champion: champion.name, bracket: JSON.stringify(this.bracketOf(t)), createdAt: t.createdAt };
     let res;
     try {
       res = this.store.finish({ tid: t.id, championId, now, legacy, results });
@@ -508,7 +535,8 @@ export class CircuitManager {
     }
     if (!res.ok) return;
     this.metrics.inc('circuit_finished_total');
-    this.safe(() => this.progression?.recordCircuitResults(results.map((r) => ({ userId: r.userId, placement: r.placement, xp: r.xp ?? 0 })), t.id));
+    if (!t.community) this.safe(() => this.progression?.recordCircuitResults(results.map((r) => ({ userId: r.userId, placement: r.placement, xp: r.xp ?? 0 })), t.id));
+    else this.db.community.setEventStatus(t.id, 'finished');
     champion.status = 'champion';
     t.status = 'finished';
     t.finishedAt = now;
@@ -554,6 +582,9 @@ export class CircuitManager {
       roundName: current >= 0 ? roundName(current, t.rounds) : null,
       champion: champion ? { id: champion.id, name: champion.name } : null,
       cancelReason: t.cancelReason,
+      community: !!t.community,
+      organizer: t.community ? { id: t.community.creatorId, name: t.community.creatorName } : null,
+      description: t.community?.description ?? '',
       live: t.matches.flat().filter((m) => m.status === 'playing' && m.code).length,
     };
   }
@@ -582,7 +613,7 @@ export class CircuitManager {
         })),
       ),
       rules: RULES,
-      prizes: this.cfg.prizes,
+      prizes: t.community ? {} : this.cfg.prizes,
       you: mine
         ? { id: mine.id, status: mine.status, out: mine.status === 'out', placement: mine.placement, prize: mine.placement ? (this.cfg.prizes[mine.placement] ?? null) : null, matchCode: matchCode ?? null }
         : null,
@@ -610,7 +641,7 @@ export class CircuitManager {
       formats: this.cfg.formats.map((f) => ({ id: f.id, name: f.name, size: f.size, minPlayers: f.minPlayers, tc: f.tc, everyMs: f.everyMs })),
       tournaments: live.map((t) => ({ ...this.summary(t), joined: ['registered', 'active'].includes(t.entries.get(userId)?.status) })),
       mine,
-      recent: this.store.recent(8).map((r) => ({ id: r.id, name: r.name, tc: r.tc, size: r.size, status: r.status, finishedAt: r.finished_at, cancelReason: r.cancel_reason, champion: r.champion_name, players: r.players })),
+      recent: this.store.recent(12).map((r) => ({ id: r.id, name: r.name, tc: r.tc, size: r.size, status: r.status, finishedAt: r.finished_at, cancelReason: r.cancel_reason, champion: r.champion_name, championId: r.champion_id, players: r.players, community: !!r.community, organizer: r.organizer ?? null })),
       champions: this.db.recentChampions(5),
       rules: RULES,
       prizes: this.cfg.prizes,

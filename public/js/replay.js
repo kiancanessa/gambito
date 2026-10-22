@@ -60,7 +60,7 @@ function seek(n, { animate = false } = {}) {
   rp.i = target;
   paint();
   // Llegar a la última jugada de una partida propia cuenta como revisarla (el servidor lo valida y lo da una sola vez).
-  if (target === total && total > 0 && !rp.reported) {
+  if (target === total && total > 0 && !rp.reported && !rp.publicGame) {
     rp.reported = true;
     reportReview(rp.data.id, total);
   }
@@ -117,8 +117,9 @@ function bind() {
   });
 }
 
-export async function openReplay(id) {
-  const res = await api(`/api/games/${encodeURIComponent(id)}`);
+// `publicGame`: repetición de una partida pública (clasificatoria o de torneo) que no es tuya; se ve desde las blancas.
+export async function openReplay(id, { publicGame = false } = {}) {
+  const res = await api(`/api/${publicGame ? 'public/' : ''}games/${encodeURIComponent(id)}`, { auth: !publicGame });
   if (!res.ok) return toast('No se pudo cargar la repetición');
   const d = res.json.game;
   bind();
@@ -139,7 +140,7 @@ export async function openReplay(id) {
     ui: { hint: false, undo: false, resign: false, meName: me.name, meSub: `${d.you === 'w' ? 'Blancas' : 'Negras'} · ${me.rating ?? '—'} pts` },
   });
   game.over = true; // no hay nada que jugar ni que confirmar al salir
-  rp = { moves: d.moves, i: 0, timer: null, speed: 1, game, data: d };
+  rp = { moves: d.moves, i: 0, timer: null, speed: 1, game, data: d, publicGame };
   $('#replayBar').hidden = false;
   paint();
   play();

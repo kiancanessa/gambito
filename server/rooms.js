@@ -46,7 +46,7 @@ export function hasMatingMaterial(chess, color) {
 }
 
 export class Room {
-  constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null, strict = false, circuit = null }) {
+  constructor(manager, { code, tcId = 'none', rated = false, colorPref = 'r', reserved = null, strict = false, circuit = null, specDelay = 0 }) {
     this.m = manager;
     this.code = code;
     this.tc = TIME_CONTROLS[tcId] ?? TIME_CONTROLS.none;
@@ -56,6 +56,10 @@ export class Room {
     this.strict = strict; // con `reserved`, solo esos usuarios pueden sentarse (torneos); el resto entra como espectador
     this.circuit = circuit; // { id, round, label } si es una partida del Royale Circuit
     this.onOver = null; // gancho al terminar la partida (lo usan los torneos)
+    // Retraso (ms) con el que los ESPECTADORES reciben el estado: en competiciones oficiales evita que alguien ayude en directo a un jugador.
+    this.specDelay = specDelay;
+    this.specQueue = []; // [{ at, snap }] estados pendientes de enseñar a los espectadores
+    this.specTimers = new Set();
     this.players = { w: null, b: null };
     this.sockets = new Set();
     this.chess = new Chess();
@@ -114,6 +118,7 @@ export class Room {
     this.sockets.add(ws);
     ws.meta.room = this.code;
     ws.meta.role = role;
+    if (role === 's' && this.specDelay > 0) this.sendSpectator(ws); // quien llega ve el estado de hace `specDelay` ms, no el de ahora
     if (this.status === 'waiting' && this.players.w && this.players.b) {
       this.status = 'playing';
       this.lastMoveAt = Date.now();
@@ -179,6 +184,7 @@ export class Room {
       spectators: this.spectatorCount(),
       circuit: this.circuit,
       unrated: this.unrated,
+      delayMs: role === 's' ? this.specDelay : 0, // retraso con el que ve la partida un espectador (0 = en directo)
     };
   }
 
@@ -187,13 +193,48 @@ export class Room {
   }
 
   broadcast() {
-    for (const ws of this.sockets) this.send(ws, this.snapshot(ws.meta.role));
+    for (const ws of this.sockets) {
+      if (ws.meta.role === 's' && this.specDelay > 0) continue; // los espectadores reciben su copia retrasada
+      this.send(ws, this.snapshot(ws.meta.role));
+    }
+    if (this.specDelay > 0) this.queueForSpectators();
+  }
+
+  // ----- Espectadores con retraso -----
+  // El estado que ve un espectador es el último anterior a `ahora - retraso` (o el más antiguo si la partida es más reciente).
+  delayedSnapshot() {
+    const cutoff = Date.now() - this.specDelay;
+    let pick = this.specQueue[0]?.snap ?? this.snapshot('s');
+    for (const item of this.specQueue) {
+      if (item.at > cutoff) break;
+      pick = item.snap;
+    }
+    return pick;
+  }
+
+  sendSpectator(ws) {
+    this.send(ws, this.specDelay > 0 ? this.delayedSnapshot() : this.snapshot('s'));
+  }
+
+  queueForSpectators() {
+    this.specQueue.push({ at: Date.now(), snap: structuredClone(this.snapshot('s')) }); // copia: el estado no debe cambiar después con las jugadas
+    if (this.specQueue.length > 600) this.specQueue.shift();
+    const timer = setTimeout(() => {
+      this.specTimers.delete(timer);
+      const snap = this.delayedSnapshot();
+      for (const ws of this.sockets) if (ws.meta.role === 's') this.send(ws, snap);
+      const cutoff = Date.now() - this.specDelay;
+      while (this.specQueue.length > 1 && this.specQueue[1].at <= cutoff) this.specQueue.shift(); // se descarta lo que ya no hará falta
+    }, this.specDelay + 20);
+    timer.unref?.();
+    this.specTimers.add(timer);
   }
 
   // ----- Acciones -----
   fail(ws, message) {
     this.send(ws, { t: 'error', message });
-    this.send(ws, this.snapshot(ws.meta.role)); // resincroniza al cliente
+    if (ws.meta.role === 's') this.sendSpectator(ws);
+    else this.send(ws, this.snapshot(ws.meta.role)); // resincroniza al cliente
   }
 
   move(ws, uci) {
@@ -323,14 +364,17 @@ export class Room {
 
   dispose() {
     clearTimeout(this.flagTimer);
+    this.specTimers.forEach(clearTimeout);
     Object.values(this.dcTimers).forEach(clearTimeout);
   }
 }
 
 export class RoomManager {
   /** @param {ReturnType<import('./db.js').openDb>} db */
-  constructor(db, { metrics = nullMetrics } = {}) {
+  // `spectatorDelays` (ms): retraso para los espectadores de cada tipo de partida. Las del Circuit son oficiales; las clasificatorias, por defecto en directo.
+  constructor(db, { metrics = nullMetrics, spectatorDelays = {} } = {}) {
     this.db = db;
+    this.delays = { circuit: 20_000, ranked: 0, ...spectatorDelays };
     this.metrics = metrics;
     this.rooms = new Map();
     this.sweeper = setInterval(() => this.sweep(), 60_000);
@@ -341,7 +385,8 @@ export class RoomManager {
     let code;
     do code = genCode();
     while (this.rooms.has(code));
-    const room = new Room(this, { code, tcId, rated, colorPref, reserved, strict, circuit });
+    const specDelay = circuit ? this.delays.circuit : rated ? this.delays.ranked : 0;
+    const room = new Room(this, { code, tcId, rated, colorPref, reserved, strict, circuit, specDelay });
     this.rooms.set(code, room);
     return room;
   }
@@ -356,16 +401,21 @@ export class RoomManager {
   }
 
   // Partidas clasificatorias en curso para el lobby ("en vivo"). Las partidas con amigo no se listan: son privadas por enlace.
-  liveGames(limit = 6) {
+  // `visible(room)` permite ocultar las partidas de quien tiene el perfil privado.
+  liveGames(limit = 6, visible = null) {
     const list = [];
     for (const room of this.rooms.values()) {
-      if (!room.rated || room.status !== 'playing' || !room.isFull()) continue;
+      if (!(room.rated || room.circuit) || room.status !== 'playing' || !room.isFull()) continue; // las partidas con amigo son privadas por enlace
+      if (visible && !visible(room)) continue;
       const { w, b } = room.players;
       list.push({
         code: room.code,
         tc: room.tc.id,
         moves: room.uci.length,
         spectators: room.spectatorCount(),
+        kind: room.circuit ? 'circuit' : 'ranked',
+        circuit: room.circuit ? { id: room.circuit.id, label: room.circuit.label, tournament: room.circuit.tournament ?? null } : null,
+        delayMs: room.specDelay,
         w: { name: w.name, rating: w.rating },
         b: { name: b.name, rating: b.rating },
       });

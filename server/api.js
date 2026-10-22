@@ -10,7 +10,7 @@ import { seasonAt, SEASONS } from '../public/js/progression-data.js';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || lo));
 
-export function createApi({ db, rooms, matchmaker, circuit, social, wallets = createWallets(db), progression, cosmetics, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
+export function createApi({ db, rooms, matchmaker, circuit, social, wallets = createWallets(db), progression, cosmetics, profiles, community, metrics = null, presence = () => ({}), notify = () => 0, onlineCount, puzzles, persistStatus = () => null }) {
   const buckets = new Map();
 
   // Limitador sencillo en memoria: `max` peticiones por `windowMs` y clave.
@@ -142,6 +142,34 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
         return send(res, 200, metrics.snapshot());
       }
 
+      // Moderación: solo con ADMIN_TOKEN (si no, estas rutas ni existen). Ver scripts/moderate.js.
+      // No hay sanciones automáticas: aquí se revisan los reportes y se marca una cuenta como «restricted» a mano.
+      if (pathname.startsWith('/api/admin/')) {
+        const token = process.env.ADMIN_TOKEN;
+        if (!token) return send(res, 404, { error: 'No encontrado' });
+        if (limited(`admin:${ip}`, 30, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
+        const given = bearer(req) ?? '';
+        if (!(given.length === token.length && timingSafeEqual(Buffer.from(given), Buffer.from(token)))) return send(res, 401, { error: 'No autorizado' });
+        if (pathname === '/api/admin/reports' && method === 'GET') {
+          const rows = db.raw
+            .prepare(
+              `SELECT r.target_id AS id, COALESCE(u.name, '(cuenta borrada)') AS name, COUNT(DISTINCT r.reporter_id) AS people, COUNT(*) AS total,
+                      GROUP_CONCAT(DISTINCT r.reason) AS reasons, MAX(r.created_at) AS last, COALESCE(m.status, 'ok') AS status
+               FROM reports r LEFT JOIN users u ON u.id = r.target_id LEFT JOIN moderation m ON m.user_id = r.target_id
+               GROUP BY r.target_id ORDER BY people DESC, last DESC LIMIT 50`,
+            )
+            .all();
+          return send(res, 200, { reports: rows });
+        }
+        if (pathname === '/api/admin/moderate' && method === 'POST') {
+          const body = await readJson(req, 1024);
+          if (!['ok', 'review', 'restricted'].includes(body.status) || typeof body.userId !== 'string' || !db.userById(body.userId)) return send(res, 400, { error: 'Petición no válida' });
+          db.community.setModeration(body.userId, body.status, typeof body.note === 'string' ? body.note.slice(0, 200) : null);
+          return send(res, 200, { ok: true, status: body.status });
+        }
+        return send(res, 404, { error: 'No encontrado' });
+      }
+
       if (pathname === '/api/stats' && method === 'GET') {
         const s = db.stats();
         const p = persistStatus();
@@ -172,7 +200,28 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
         return send(res, 200, progression.leaderboard(season.id, authUser(req)?.id ?? null));
       }
 
-      if (pathname === '/api/live' && method === 'GET') return send(res, 200, { games: rooms.liveGames(6) });
+      // ----- Capa comunitaria pública (solo lectura): perfiles, partidas públicas y partidas en directo -----
+      // El perfil respeta la privacidad de cada persona; un visitante sin sesión se trata como un desconocido.
+      const profileMatch = pathname.match(/^\/api\/users\/([\w-]{1,40})$/);
+      if (profileMatch && profileMatch[1] !== 'search' && method === 'GET') {
+        if (limited(`pub:${ip}`, 120, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
+        return send(res, 200, { profile: profiles.profile(authUser(req)?.id ?? null, profileMatch[1]) });
+      }
+      if (pathname === '/api/public/games' && method === 'GET') {
+        if (limited(`pub:${ip}`, 120, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
+        return send(res, 200, { games: profiles.publicGames(clamp(url.searchParams.get('limit') ?? 12, 1, 30)) });
+      }
+      const publicGameMatch = pathname.match(/^\/api\/public\/games\/([\w-]{8,64})$/);
+      if (publicGameMatch && method === 'GET') {
+        if (limited(`pub:${ip}`, 120, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
+        return send(res, 200, { game: profiles.publicGame(publicGameMatch[1]) });
+      }
+
+      if (pathname === '/api/live' && method === 'GET') {
+        // Partidas clasificatorias y de torneo en curso; se omiten las de quien tiene el perfil privado.
+        const open = (room) => ['w', 'b'].every((c) => room.players[c] && social.privacyOf(room.players[c].id).profile !== 'private');
+        return send(res, 200, { games: rooms.liveGames(8, open) });
+      }
 
       if (pathname === '/api/leaderboard' && method === 'GET') {
         const user = authUser(req);
@@ -220,6 +269,37 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
       }
 
       // ----- Progresión: la ve y la concede el servidor; el cliente solo pide ver, reclamar o registrar una revisión -----
+      // ----- Social: búsqueda, privacidad, enfrentamientos y rivalidades -----
+      if (pathname === '/api/users/search' && method === 'GET') {
+        if (limited(`search:${user.id}`, 30, 60_000)) return send(res, 429, { error: 'Demasiadas búsquedas seguidas' });
+        return send(res, 200, { users: social.search(user.id, url.searchParams.get('q')) });
+      }
+      const h2hMatch = pathname.match(/^\/api\/users\/([\w-]{1,40})\/h2h$/);
+      if (h2hMatch && method === 'GET') {
+        const other = h2hMatch[1];
+        if (!db.userById(other) || social.isBlocked(user.id, other)) return send(res, 404, { error: 'Jugador no encontrado' });
+        return send(res, 200, { h2h: social.headToHead(user.id, other, clamp(url.searchParams.get('limit') ?? 10, 1, 25)) });
+      }
+      if (pathname === '/api/me/privacy' && method === 'GET') return send(res, 200, { privacy: social.privacyOf(user.id) });
+      if (pathname === '/api/me/privacy' && method === 'PATCH') {
+        if (limited(`privacy:${user.id}`, 20, 60_000)) return send(res, 429, { error: 'Demasiados cambios seguidos' });
+        return send(res, 200, { privacy: social.setPrivacy(user.id, await readJson(req, 1024)) });
+      }
+      if (pathname === '/api/me/rivals' && method === 'GET') return send(res, 200, { rivals: social.rivals(user.id) });
+
+      // ----- Eventos de comunidad: torneos de creadores -----
+      if (pathname === '/api/events' && method === 'POST') {
+        if (limited(`event:${user.id}`, 10, 60_000)) return send(res, 429, { error: 'Demasiadas peticiones' });
+        const t = community.create(user.id, await readJson(req, 4096));
+        return send(res, 200, { id: t.id, tournament: circuit.detail(t.id, user.id) });
+      }
+      const eventCancel = pathname.match(/^\/api\/events\/([\w-]{1,64})\/cancel$/);
+      if (eventCancel && method === 'POST') {
+        community.cancel(user.id, eventCancel[1]);
+        return send(res, 200, { ok: true });
+      }
+      if (pathname === '/api/events/rules' && method === 'GET') return send(res, 200, { rules: community.rules });
+
       // ----- Cosméticos: inventario y equipamiento. El cliente nunca se otorga un artículo; el servidor valida la propiedad -----
       if (pathname === '/api/cosmetics' && method === 'GET') return send(res, 200, cosmetics.view(user.id));
 
@@ -310,7 +390,7 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
             const target = social.userByCode(body.code);
             if (!target) return send(res, 404, { error: 'Código no válido' });
             targetId = target.id;
-          } else if (id && canInteract(id)) targetId = id;
+          } else if (id) targetId = id; // desde la búsqueda o un perfil; la privacidad y los límites los aplica social.request
           else return send(res, 404, { error: 'No encontrado' });
           const r = social.request(user.id, targetId);
           if (r.status === 'pending') notify(targetId, { t: 'friend_request', from: { id: user.id, name: user.name } });
@@ -337,7 +417,9 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
           return send(res, 200, { ok: true });
         }
         if (pathname === '/api/report') {
-          if (!id || !canInteract(id)) return send(res, 404, { error: 'No encontrado' });
+          // Se puede reportar a quien ha compartido partida contigo o, desde su perfil o la búsqueda, por un nombre abusivo u otro motivo.
+          const fromProfile = typeof body.ctx === 'string' && /^(profile|search)/.test(body.ctx);
+          if (!id || !(canInteract(id) || (fromProfile && !social.isBlocked(user.id, id)))) return send(res, 404, { error: 'No encontrado' });
           return send(res, 200, social.report(user.id, id, body.reason, body.ctx));
         }
         return send(res, 404, { error: 'No encontrado' });
@@ -367,7 +449,7 @@ export function createApi({ db, rooms, matchmaker, circuit, social, wallets = cr
     } catch (err) {
       const status = err.status || 500;
       if (status === 500) console.error('[api]', err);
-      return send(res, status, { error: status === 500 ? 'Error interno' : err.message });
+      return send(res, status, { error: status === 500 ? 'Error interno' : err.message, ...(err.reason ? { reason: err.reason } : {}) });
     }
   };
 }

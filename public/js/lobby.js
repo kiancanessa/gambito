@@ -435,7 +435,7 @@ function renderLive() {
     const w = leagueOf(g.w.rating);
     const b = leagueOf(g.b.rating);
     return `<li><div class="vs">${glyph(w.glyph, w.color)}<b>${esc(g.w.name)}</b><em>${g.w.rating}</em><span class="x">vs</span>${glyph(b.glyph, b.color)}<b>${esc(g.b.name)}</b><em>${g.b.rating}</em></div>
-      <small>${tcName(g.tc)} · ${Math.ceil(g.moves / 2)} jugadas${g.spectators ? ` · 👀 ${g.spectators}` : ''}</small>
+      <small>${g.kind === 'circuit' ? '🏆 Torneo · ' : ''}${tcName(g.tc)} · ${Math.ceil(g.moves / 2)} jugadas${g.spectators ? ` · 👀 ${g.spectators}` : ''}</small>
       <button class="btn" data-spectate="${esc(g.code)}">Ver</button></li>`;
   }).join('');
   let body;
@@ -443,7 +443,7 @@ function renderLive() {
   else if (loadingData()) body = skeleton(2);
   else if (!online()) body = empty('sword', 'Sin conexión', 'Conéctate para ver partidas en directo.');
   else body = empty('sword', 'Ninguna partida en directo', 'No hay clasificatorias en curso. Empieza una y deja que otros te vean jugar.');
-  $('#lbLive').innerHTML = `<div class="card-head"><p class="eyebrow"><i class="dot live"></i> Partidas en vivo</p></div>${body}`;
+  $('#lbLive').innerHTML = `<div class="card-head"><p class="eyebrow"><i class="dot live"></i> Partidas en vivo</p><button class="link-btn" data-go="watch">Ver todas</button></div>${body}`;
 }
 
 function renderHistory() {

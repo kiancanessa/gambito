@@ -137,6 +137,12 @@ de aceptación: **[PROGRESION.md](PROGRESION.md)**.
 `public/js/cosmetics-data.js` es el catálogo (compartido con el servidor); el inventario vive en la cartera (`owned` / `equipped`) y solo el
 servidor lo amplía: `server/cosmetics.js` concede los artículos de nivel y logro (`sync`) y valida el equipado. Detalle en **[COSMETICOS.md](COSMETICOS.md)**.
 
+## Comunidad (PROMPT 07)
+
+`server/community-store.js` (tablas `user_privacy`, `moderation`, `public_games`, `community_events`), `server/profiles.js` (perfiles recortados por
+privacidad), `server/community.js` (reglas de eventos de creadores) y el retraso de espectadores en `server/rooms.js`. Detalle, límites y variables
+(`SPECTATOR_DELAY_*_MS`, `ADMIN_TOKEN`) en **[COMUNIDAD.md](COMUNIDAD.md)**.
+
 ## Social (Fase 5)
 
 `server/social.js` (tablas `friend_codes`, `friendships`, `blocks`, `reports`). Sin email ni chat libre: cada jugador tiene un **código de amigo** de

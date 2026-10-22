@@ -15,7 +15,8 @@
     "puzzles": "node scripts/gen-puzzles.js",
     "smoke": "node scripts/smoke.js",
     "check:neon": "node scripts/check-neon.js",
-    "reports": "node scripts/reports.js"
+    "reports": "node scripts/reports.js",
+    "moderate": "node scripts/moderate.js"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

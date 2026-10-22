@@ -996,3 +996,18 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--cp-cyan); o
 
 .cz-layout > *, .cz-catalog, .cz-preview { min-width: 0; }
 .cz-info { flex-wrap: wrap; }
+
+/* ---------- 23 · Comunidad: perfiles, espectadores y eventos ---------- */
+.us-hero { display: grid; gap: 14px 18px; grid-template-columns: auto 1fr; align-items: center; background-color: var(--cp-graphite); }
+.us-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.us-games, .wt-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.us-games li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-radius: var(--cp-r-sm); background: rgba(255, 255, 255, 0.04); }
+.us-games small, .wt-meta small, .wt-list li > div > small { display: block; }
+#screen-watch .screen-head, #screen-user .screen-head { flex-wrap: wrap; gap: 8px; }
+.us-res { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.us-res.win, b.win { color: var(--cp-good); } .us-res.loss, b.loss { color: #ff8a98; } .us-res.draw, b.draw { color: var(--cp-muted); }
+.wt-meta { display: grid; gap: 2px; }
+.wt-note { border-color: rgba(34, 225, 255, 0.3); }
+.ev-form { display: grid; gap: 10px; text-align: left; }
+.ev-form label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--cp-muted); }
+.ev-form input, .ev-form select { padding: 8px 10px; border-radius: var(--cp-r-sm); border: 1px solid var(--cp-line); background: var(--cp-obsidian); color: var(--cp-text); }

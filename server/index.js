@@ -15,7 +15,16 @@ import { createSocial } from './social.js';
 import { createProgression } from './progression.js';
 import { createWallets } from './wallet.js';
 import { createCosmetics } from './cosmetics.js';
+import { createProfiles } from './profiles.js';
+import { createCommunity } from './community.js';
 import { createMetrics } from './metrics.js';
+
+function spectatorEnvDelays() {
+  const out = {};
+  if (process.env.SPECTATOR_DELAY_CIRCUIT_MS !== undefined) out.circuit = Number(process.env.SPECTATOR_DELAY_CIRCUIT_MS) || 0;
+  if (process.env.SPECTATOR_DELAY_RANKED_MS !== undefined) out.ranked = Number(process.env.SPECTATOR_DELAY_RANKED_MS) || 0;
+  return out;
+}
 
 function circuitEnvOptions() {
   const every = Number(process.env.CIRCUIT_EVERY_MS);
@@ -42,6 +51,8 @@ export async function startServer({
   // actividad, no gasta cuota. Además se guarda siempre al apagar (SIGTERM). Ajustable con PERSIST_INTERVAL_MS.
   persistIntervalMs = Number(process.env.PERSIST_INTERVAL_MS) || 3 * 60_000,
   persistOptions = {},
+  // Retraso (ms) con el que los espectadores ven cada tipo de partida. El Circuit, oficial, por defecto 20 s: evita que alguien ayude en directo.
+  spectatorDelays = spectatorEnvDelays(),
   // Tiempos del Royale Circuit (pruebas). CIRCUIT_EVERY_MS / CIRCUIT_MIN_PLAYERS / CIRCUIT_LEAD_MS acortan el calendario para probarlo a mano.
   circuitOptions = circuitEnvOptions(),
   // Cada cuántos ms se escribe una línea de métricas en el log (0 la desactiva).
@@ -55,7 +66,7 @@ export async function startServer({
   }
   const db = openDb(dbFile);
   persistence?.start(db);
-  const rooms = new RoomManager(db, { metrics });
+  const rooms = new RoomManager(db, { metrics, spectatorDelays });
   const social = createSocial(db);
   // No se empareja a quien se ha bloqueado ni, con BLOCK_SAME_IP_RANKED=1, a dos cuentas de la misma IP (reparto de puntos entre cuentas propias).
   const matchmaker = new Matchmaker(rooms, {
@@ -66,8 +77,14 @@ export async function startServer({
   const cosmetics = createCosmetics({ db, wallets, notify: (id, msg) => ws?.notify(id, msg) });
   // Al ganar XP o un logro, el servidor concede por su cuenta los cosméticos que se desbloquean por nivel o por logro.
   const progression = createProgression({ db, wallets, notify: (id, msg) => ws?.notify(id, msg), after: (id) => cosmetics.sync(id) });
-  rooms.onGameSaved = (room) => progression.recordGame(room);
+  // Al terminar una partida: progresión y registro de partidas públicas (clasificatorias y de torneo), para repetirlas y mirarlas.
+  rooms.onGameSaved = (room) => {
+    progression.recordGame(room);
+    if (room.gameId && (room.rated || room.circuit) && room.result?.reason !== 'abortada') db.community.addPublicGame(room.gameId, room.circuit ? 'circuit' : 'ranked', room.circuit?.id);
+  };
   const circuit = new CircuitManager({ rooms, db, options: circuitOptions, metrics, progression });
+  const community = createCommunity({ db, circuit, wallets });
+  const profiles = createProfiles({ db, social, presence: (ids) => ws?.presence(ids) ?? {} });
   const api = createApi({
     db,
     rooms,
@@ -78,6 +95,8 @@ export async function startServer({
     wallets,
     progression,
     cosmetics,
+    profiles,
+    community,
     presence: (ids) => ws?.presence(ids) ?? {},
     notify: (id, msg) => ws?.notify(id, msg),
     onlineCount: () => ws?.count() ?? 0,

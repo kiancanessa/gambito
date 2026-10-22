@@ -100,7 +100,9 @@ export function createCircuitStore(raw) {
     recent: raw.prepare(
       `SELECT t.id, t.format, t.name, t.tc, t.size, t.status, t.starts_at, t.finished_at, t.cancel_reason, t.champion_id, t.rounds,
               (SELECT name FROM circuit_entries c WHERE c.tournament_id = t.id AND c.user_id = t.champion_id) AS champion_name,
-              (SELECT COUNT(*) FROM circuit_entries c WHERE c.tournament_id = t.id AND c.status IN ('active','out','champion')) AS players
+              (SELECT COUNT(*) FROM circuit_entries c WHERE c.tournament_id = t.id AND c.status IN ('active','out','champion')) AS players,
+              (SELECT 1 FROM community_events ce WHERE ce.tournament_id = t.id) AS community,
+              (SELECT u.name FROM community_events ce JOIN users u ON u.id = ce.creator_id WHERE ce.tournament_id = t.id) AS organizer
        FROM circuit_tournaments t WHERE t.status IN ('finished','cancelled') ORDER BY t.finished_at DESC LIMIT ?`,
     ),
     mineRecent: raw.prepare(
@@ -209,8 +211,10 @@ export function createCircuitStore(raw) {
       return tx(() => {
         if (q.finishT.run(now, championId, tid).changes !== 1) return { ok: false, reason: 'state' };
         if (q.champEntry.run(tid, championId).changes !== 1) throw new Error('el campeón no estaba en competición');
-        q.legacyT.run(tid, legacy.tc, legacy.size, legacy.champion, legacy.bracket, legacy.createdAt, now);
-        for (const r of results) q.legacyR.run(tid, r.userId, r.placement, r.coins ?? 0, r.xp ?? 0, r.item ?? null, now);
+        if (legacy) {
+          q.legacyT.run(tid, legacy.tc, legacy.size, legacy.champion, legacy.bracket, legacy.createdAt, now);
+          for (const r of results) q.legacyR.run(tid, r.userId, r.placement, r.coins ?? 0, r.xp ?? 0, r.item ?? null, now);
+        } // sin `legacy` (torneo de la comunidad): no hay historial oficial ni premios
         return { ok: true };
       });
     },

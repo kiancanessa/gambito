@@ -16,7 +16,7 @@ test('cada data-go del HTML y del JS apunta a una pantalla que existe', () => {
   const targets = new Set([...html.matchAll(/data-go="([\w-]+)"/g), ...jsSource.matchAll(/data-go="([\w-]+)"/g)].map((m) => m[1]));
   const missing = [...targets].filter((t) => !screens.has(t));
   assert.deepEqual(missing, [], `pantallas sin sección en index.html: ${missing.join(', ')}`);
-  for (const must of ['home', 'lobby', 'circuit', 'ranking', 'profile', 'history', 'settings', 'progress', 'shop', 'social', 'academy']) {
+  for (const must of ['home', 'lobby', 'circuit', 'ranking', 'profile', 'history', 'settings', 'progress', 'shop', 'social', 'academy', 'watch']) {
     assert.ok(screens.has(must), `falta la pantalla ${must}`);
   }
 });

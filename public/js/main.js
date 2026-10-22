@@ -128,6 +128,10 @@ async function go(name) {
     enterAcademy();
     return;
   }
+  if (name === 'watch') {
+    await (await import('./watch.js')).enterWatch(); // carga diferida
+    return;
+  }
   if (name === 'progress' || name === 'missions' || name === 'season') {
     await enterProgress(name === 'progress' ? null : name);
     return;
@@ -161,6 +165,13 @@ async function go(name) {
   }
 }
 app.go = go;
+app.openUser = async (id) => (await import('./userprofile.js')).enterUser(id);
+document.addEventListener('click', (e) => {
+  const u = e.target.closest('[data-user]');
+  if (u) app.openUser(u.dataset.user);
+  const t = e.target.closest('[data-open-tournament]');
+  if (t) app.openCircuit?.(t.dataset.openTournament);
+});
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-go]');
@@ -441,6 +452,7 @@ window.addEventListener('resize', () => stage?.resize());
 (async () => {
   // El enlace de partida (/g/CODIGO) se lee antes de ir al inicio, porque el inicio limpia la URL.
   const link = location.pathname.match(/^\/g\/([A-Za-z0-9]{4,12})$/);
+  const shared = location.pathname.match(/^\/([utr])\/([\w-]{1,64})$/); // perfil, torneo o repetición compartidos
   await go('home');
   const online = await bootstrap();
   applySkins();
@@ -449,6 +461,12 @@ window.addEventListener('resize', () => stage?.resize());
   if (link) {
     if (online) joinFromLink(link[1]);
     else toast('No hay conexión con el servidor para unirte a esa partida');
+    return;
+  }
+  if (shared && online) {
+    if (shared[1] === 'u') await app.openUser(shared[2]);
+    else if (shared[1] === 't') await app.openCircuit?.(shared[2]);
+    else await (await import('./watch.js')).openPublicReplay(shared[2]);
     return;
   }
   await maybeLoginBonus();

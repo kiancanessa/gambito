@@ -10,7 +10,8 @@ const INVITE_TTL = 2 * 60_000;
 const PRESENCE = { online: ['En línea', 'on'], queue: ['Buscando partida', 'queue'], playing: ['Jugando', 'play'], offline: ['Desconectado', 'off'] };
 const REASONS = { abuso: '🤬 Comportamiento abusivo', trampas: '🤖 Trampas', nombre: '✏️ Nombre inapropiado', otro: '❓ Otro motivo' };
 
-const so = { data: null, invites: [], timer: null, listeners: new Set() };
+const so = { data: null, invites: [], timer: null, listeners: new Set(), rivals: [], privacy: null, results: [], query: '', searching: false, searchTimer: null };
+const REL_TEXT = { friends: '✔ Amigos', pending_out: '📨 Solicitud enviada', pending_in: '↩ Te ha enviado una solicitud' };
 
 export const socialData = () => so.data;
 export const onSocial = (fn) => so.listeners.add(fn);
@@ -32,7 +33,9 @@ async function connect() {
 
 export async function refreshSocial() {
   if (!net.user) return null;
-  const res = await api('/api/social');
+  const [res, priv, riv] = await Promise.all([api('/api/social'), api('/api/me/privacy'), api('/api/me/rivals')]);
+  if (priv.ok) so.privacy = priv.json.privacy;
+  if (riv.ok) so.rivals = riv.json.rivals;
   if (res.ok) {
     so.data = res.json;
     changed();
@@ -44,10 +47,69 @@ export async function refreshSocial() {
 const post = (path, body) => api(path, { method: 'POST', body });
 const errText = (res, fallback) => res.json?.error ?? fallback;
 
+// ---------- Búsqueda, rivalidades y privacidad ----------
+function searchHtml() {
+  if (so.searching) return '<li><span class="muted">Buscando…</span></li>';
+  if (!so.query || so.query.length < 2) return '<li><span class="muted">Escribe al menos 2 letras. No se muestran cuentas que han elegido no aparecer.</span></li>';
+  if (!so.results.length) return '<li><span class="muted">Nadie coincide con esa búsqueda.</span></li>';
+  return so.results
+    .map((u) => `<li><span class="fr-name"><b>${esc(u.name)}</b> <small class="muted">${u.rating} pts${REL_TEXT[u.relation] ? ` · ${REL_TEXT[u.relation]}` : ''}</small></span>
+      <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(u.id)}">Ver perfil</button>${u.relation === 'none' || u.relation === 'pending_in' ? `<button class="btn primary" data-so="add" data-id="${esc(u.id)}" data-name="${esc(u.name)}">${u.relation === 'pending_in' ? 'Aceptar' : '➕ Añadir'}</button>` : ''}</span></li>`)
+    .join('');
+}
+
+function rivalsHtml() {
+  if (!so.rivals.length) return '';
+  return `<section class="lb-card"><p class="eyebrow">Rivalidades</p><p class="muted">Con quién más has jugado.</p><ul class="fr-list">${so.rivals
+    .map((r) => `<li><span class="fr-name"><b>${esc(r.name)}</b> <small class="muted">${r.games} partidas · <b class="win">${r.wins}</b>-<b class="draw">${r.draws}</b>-<b class="loss">${r.losses}</b></small></span><span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(r.id)}">Ver perfil</button></span></li>`)
+    .join('')}</ul></section>`;
+}
+
+function privacyHtml() {
+  const p = so.privacy;
+  if (!p) return '';
+  const sw = (key, label, hint) => `<label class="set-row"><span><b>${label}</b><small>${hint}</small></span><input type="checkbox" data-priv="${key}" ${p[key] ? 'checked' : ''}></label>`;
+  return `<section class="lb-card"><p class="eyebrow">Privacidad</p>
+    <label class="set-row"><span><b>Quién ve tu perfil</b><small>Tu enlace de perfil respeta esta elección.</small></span>
+      <select data-priv="profile" aria-label="Quién ve tu perfil">${[['public', 'Todo el mundo'], ['friends', 'Solo mis amigos'], ['private', 'Nadie (solo mi nombre)']].map(([v, l]) => `<option value="${v}" ${p.profile === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    ${sw('searchable', 'Aparecer en la búsqueda', 'Si lo apagas, solo te encuentran con tu código de amigo.')}
+    ${sw('showOnline', 'Mostrar si estoy en línea', 'Solo lo ven tus amigos.')}
+    ${sw('acceptRequests', 'Aceptar solicitudes de amistad', 'Si lo apagas, nadie nuevo puede añadirte.')}
+    <label class="set-row"><span><b>Invitaciones a partida</b><small>Quién puede invitarte a una partida amistosa.</small></span>
+      <select data-priv="acceptInvites" aria-label="Quién puede invitarte">${[['friends', 'Mis amigos'], ['nobody', 'Nadie']].map(([v, l]) => `<option value="${v}" ${p.acceptInvites === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <button class="btn" data-so="myprofile">Ver mi perfil público</button></section>`;
+}
+
+async function runSearch(q) {
+  so.query = q;
+  so.searching = q.length >= 2;
+  const box = $('#searchResults');
+  if (box) box.innerHTML = searchHtml();
+  if (q.length < 2) return;
+  const res = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
+  if (so.query !== q) return; // llegó tarde: ya se buscó otra cosa
+  so.searching = false;
+  so.results = res.ok ? res.json.users : [];
+  if (!res.ok) toast(res.json?.error ?? 'No se pudo buscar', 3000);
+  const again = $('#searchResults');
+  if (again) again.innerHTML = searchHtml();
+}
+
+async function savePrivacy(key, value) {
+  const res = await api('/api/me/privacy', { method: 'PATCH', body: { [key]: value } });
+  if (res.ok) {
+    so.privacy = res.json.privacy;
+    toast('🔒 Privacidad actualizada', 1800);
+  } else {
+    toast(res.json?.error ?? 'No se pudo guardar', 3000);
+  }
+  render();
+}
+
 // ---------- Pantalla de amigos ----------
 function render() {
   const body = $('#socialBody');
-  if (!body) return;
+  if (!body || document.activeElement?.id === 'searchInput') return;
   const d = so.data;
   if (!d) {
     body.innerHTML = '<section class="lb-card"><p class="muted">Cargando…</p></section>';
@@ -67,7 +129,7 @@ function render() {
     .map((f) => {
       const [label, cls] = PRESENCE[f.presence] ?? PRESENCE.offline;
       return `<li><span class="fr-name"><i class="pdot ${cls}" title="${label}"></i><b>${esc(f.name)}</b> <small class="muted">${f.rating} pts · ${label}</small></span>
-        <span class="row-actions">${f.presence === 'offline' ? '' : `<button class="btn primary" data-so="challenge" data-id="${esc(f.id)}" data-name="${esc(f.name)}">⚔ Retar</button>`}
+        <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(f.id)}" aria-label="Ver el perfil de ${esc(f.name)}">👤</button>${f.presence === 'offline' ? '' : `<button class="btn primary" data-so="challenge" data-id="${esc(f.id)}" data-name="${esc(f.name)}">⚔ Retar</button>`}
         <button class="btn" data-so="remove" data-id="${esc(f.id)}" data-name="${esc(f.name)}" aria-label="Quitar a ${esc(f.name)}">✖</button>
         <button class="btn" data-so="block" data-id="${esc(f.id)}" data-name="${esc(f.name)}" aria-label="Bloquear a ${esc(f.name)}">🚫</button></span></li>`;
     })
@@ -79,12 +141,17 @@ function render() {
       <div class="friend-code"><b id="myFriendCode">${esc(d.code)}</b><button class="btn" data-so="copy">📋 Copiar</button></div>
       <p class="muted">Compártelo con quien quieras como amigo. Solo se usa para enviarte solicitudes.</p>
       <form class="join-form" id="addFriendForm"><input id="addFriendCode" placeholder="Código de un amigo (ABCD-EFGH)" autocomplete="off" maxlength="12" aria-label="Código de amigo"><button class="btn primary" type="submit">Añadir</button></form></section>
+    <section class="lb-card"><p class="eyebrow">Buscar jugadores</p>
+      <form class="join-form" id="searchForm" role="search"><input id="searchInput" type="search" value="${esc(so.query)}" placeholder="Busca por nombre (mínimo 2 letras)" autocomplete="off" maxlength="16" aria-label="Buscar jugadores por nombre"><button class="btn" type="submit">Buscar</button></form>
+      <ul class="fr-list" id="searchResults" aria-live="polite">${searchHtml()}</ul></section>
     ${invites ? `<section class="lb-card"><p class="eyebrow">Invitaciones</p><ul class="fr-list">${invites}</ul></section>` : ''}
     ${incoming ? `<section class="lb-card"><p class="eyebrow">Solicitudes recibidas</p><ul class="fr-list">${incoming}</ul></section>` : ''}
     <section class="lb-card"><div class="card-head"><p class="eyebrow">Amigos</p><span class="pill ${online ? 'ok' : ''}">${online} en línea</span></div>
       ${friends ? `<ul class="fr-list">${friends}</ul>` : '<p class="muted">Aún no tienes amigos. Pide su código o comparte el tuyo.</p>'}</section>
+    ${rivalsHtml()}
     ${outgoing ? `<section class="lb-card"><p class="eyebrow">Solicitudes enviadas</p><ul class="fr-list">${outgoing}</ul></section>` : ''}
-    ${blocked ? `<section class="lb-card"><p class="eyebrow">Bloqueados</p><ul class="fr-list">${blocked}</ul></section>` : ''}`;
+    ${blocked ? `<section class="lb-card"><p class="eyebrow">Bloqueados</p><ul class="fr-list">${blocked}</ul></section>` : ''}
+    ${privacyHtml()}`;
 }
 
 export async function enterSocial() {
@@ -122,6 +189,16 @@ async function act(el) {
     return toast('Código copiado');
   }
   if (action === 'join') return joinRoom(code);
+  if (action === 'profile') return app.openUser?.(id);
+  if (action === 'myprofile') return app.openUser?.(net.user.id);
+  if (action === 'add') {
+    const res = await post('/api/social/request', { id });
+    toast(res.ok ? (res.json.status === 'friends' ? `🎉 Ahora eres amigo de ${name}` : `📨 Solicitud enviada a ${name}`) : errText(res, 'No se pudo enviar la solicitud'), 3500);
+    so.results = so.results.map((u) => (u.id === id && res.ok ? { ...u, relation: res.json.status === 'friends' ? 'friends' : 'pending_out' } : u));
+    const box = $('#searchResults');
+    if (box) box.innerHTML = searchHtml();
+    return refreshSocial();
+  }
   if (action === 'challenge') return challenge(id, name);
   if (action === 'accept' || action === 'decline') {
     const res = await post('/api/social/respond', { id, accept: action === 'accept' });
@@ -218,7 +295,23 @@ export function initSocial() {
     const el = e.target.closest('[data-so]');
     if (el) act(el);
   });
+  $('#screen-social').addEventListener('input', (e) => {
+    if (e.target.id !== 'searchInput') return;
+    clearTimeout(so.searchTimer);
+    const q = e.target.value.trim();
+    so.searchTimer = setTimeout(() => runSearch(q), 350);
+  });
+  $('#screen-social').addEventListener('change', (e) => {
+    const key = e.target.dataset?.priv;
+    if (key) savePrivacy(key, e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+  });
   $('#screen-social').addEventListener('submit', (e) => {
+    if (e.target.id === 'searchForm') {
+      e.preventDefault();
+      clearTimeout(so.searchTimer);
+      runSearch($('#searchInput').value.trim());
+      return;
+    }
     if (e.target.id !== 'addFriendForm') return;
     e.preventDefault();
     const code = $('#addFriendCode').value.trim();

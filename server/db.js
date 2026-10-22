@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { CIRCUIT_SCHEMA, createCircuitStore } from './circuit-store.js';
+import { COMMUNITY_SCHEMA, createCommunityStore } from './community-store.js';
 import { PROGRESS_SCHEMA } from './progression.js';
 import { MIN_RATING, START_RATING } from './elo.js';
 
@@ -133,6 +134,7 @@ export function openDb(file) {
   `);
   db.exec(CIRCUIT_SCHEMA);
   db.exec(PROGRESS_SCHEMA);
+  db.exec(COMMUNITY_SCHEMA);
 
   const q = {
     insertUser: db.prepare('INSERT INTO users (id,name,token_hash,recovery_hash,created_at,last_seen) VALUES (?,?,?,?,?,?)'),
@@ -186,6 +188,7 @@ export function openDb(file) {
   return {
     raw: db,
     circuit: createCircuitStore(db),
+    community: createCommunityStore(db),
     close: () => db.close(),
     createUser({ id, name, tokenHash, recoveryHash }) {
       const now = Date.now();

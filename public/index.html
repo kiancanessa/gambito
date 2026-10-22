@@ -76,6 +76,7 @@
           <div class="account-strip" id="homeAccount"></div>
           <div class="tile-grid">
             <button class="tile" data-go="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cap"/></svg><span><b>Academia</b><small id="homeAcademyInfo">De cero a experto</small></span></button>
+            <button class="tile" data-go="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg><span><b>Espectar</b><small>Partidas y torneos en directo</small></span></button>
             <button class="tile" data-go="online"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sword"/></svg><span><b>Online</b><small>Clasificatoria y amigos</small></span></button>
             <button class="tile" data-go="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-puzzle"/></svg><span><b>Desafío diario</b><small id="homeDailyInfo">Un mate nuevo cada día</small></span><span class="dot-badge" id="dailyDot" hidden>!</span></button>
             <button class="tile" data-go="quick"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"/></svg><span><b>Contra la IA</b><small>Práctica sin presión</small></span></button>
@@ -112,6 +113,18 @@
         <span class="chip">👥 Social</span>
       </div>
       <div class="circuit-body" id="socialBody"></div>
+    </section>
+
+    <!-- PERFIL PÚBLICO -->
+    <section class="screen" id="screen-user" hidden>
+      <div class="screen-head"><button class="back" data-go="social">← Amigos</button><h2>Perfil</h2></div>
+      <div class="circuit-body" id="userBody"></div>
+    </section>
+
+    <!-- ESPECTAR -->
+    <section class="screen" id="screen-watch" hidden>
+      <div class="screen-head"><h2>Espectar</h2><span class="chip">👀 Solo lectura</span></div>
+      <div class="circuit-body" id="watchBody"></div>
     </section>
 
     <!-- ACADEMIA -->

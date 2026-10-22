@@ -117,11 +117,12 @@ describe('amigos', () => {
     assert.equal((await social(a)).outgoing.length, 0);
   });
 
-  test('por id solo con quien se ha jugado; nunca con un desconocido ni un bot', async () => {
+  test('por id (búsqueda o perfil) se puede pedir amistad si la persona lo permite; nunca a un bot; reportar exige trato o perfil', async () => {
     const [a, b, c] = [await guest('Gala'), await guest('Hugo'), await guest('Ines')];
-    assert.equal((await post(a, '/api/social/request', { id: c.user.id })).status, 404);
     assert.equal((await post(a, '/api/social/request', { id: 'bot-1234' })).status, 404);
-    assert.equal((await post(a, '/api/report', { id: c.user.id, reason: 'abuso' })).status, 404, 'tampoco se puede reportar a un desconocido');
+    assert.equal((await post(a, '/api/report', { id: c.user.id, reason: 'abuso' })).status, 404, 'no se reporta a un desconocido sin pasar por su perfil');
+    assert.equal((await post(a, '/api/report', { id: c.user.id, reason: 'nombre', ctx: 'profile' })).status, 200, 'desde su perfil sí, por un nombre abusivo');
+    assert.equal((await post(a, '/api/social/request', { id: c.user.id })).json.status, 'pending', 'desde la búsqueda o el perfil se puede pedir amistad');
 
     const [wa, wb] = [await connect(a), await connect(b)];
     wa.send({ t: 'create', tc: 'blitz5', color: 'w' });

@@ -168,6 +168,15 @@ export function mergeSnapshot(db, buffer, tmpFile) {
            WHERE o.user_id IN (SELECT id FROM main.users)
              AND NOT EXISTS (SELECT 1 FROM main.season_stats m WHERE m.season_id = o.season_id AND m.user_id = o.user_id AND m.games >= o.games);`
       : '';
+    // Comunidad: privacidad y moderación (gana lo más reciente), partidas públicas y eventos (solo se añaden).
+    const community = ['user_privacy', 'moderation', 'public_games', 'community_events'].every((x) => oldTables.has(x))
+      ? `INSERT OR REPLACE INTO user_privacy SELECT o.* FROM old.user_privacy o WHERE o.user_id IN (SELECT id FROM main.users)
+           AND NOT EXISTS (SELECT 1 FROM main.user_privacy m WHERE m.user_id = o.user_id AND m.updated_at >= o.updated_at);
+         INSERT OR REPLACE INTO moderation SELECT o.* FROM old.moderation o WHERE o.user_id IN (SELECT id FROM main.users)
+           AND NOT EXISTS (SELECT 1 FROM main.moderation m WHERE m.user_id = o.user_id AND m.updated_at >= o.updated_at);
+         INSERT OR IGNORE INTO public_games SELECT * FROM old.public_games;
+         INSERT OR IGNORE INTO community_events SELECT * FROM old.community_events;`
+      : '';
     const social = ['friend_codes', 'friendships', 'blocks', 'reports'].every((t) => oldTables.has(t))
       ? `INSERT OR IGNORE INTO friend_codes SELECT * FROM old.friend_codes WHERE user_id IN (SELECT id FROM main.users);
          INSERT OR IGNORE INTO friendships SELECT * FROM old.friendships
@@ -197,6 +206,7 @@ export function mergeSnapshot(db, buffer, tmpFile) {
       ${circuit}
       ${circuitState}
       ${progress}
+      ${community}
       ${social}
       ${fair}
       COMMIT;

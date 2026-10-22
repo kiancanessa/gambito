@@ -287,8 +287,9 @@ function handleState(s) {
   if (human) Object.assign(menu.dataset, { id: opp.id, name: opp.name });
   if (on.spectator) $('#meName').textContent = s.players.w?.name ?? 'Blancas';
   if (me) $('#meSub').textContent = `${on.spectator ? 'Espectador' : on.pc === 'w' ? 'Blancas' : 'Negras'} · ${me.rating} pts`;
-  setBanner(`<span>${s.circuit ? `🏆 Royale Circuit · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>
-    ${s.spectators ? `<span>👀 ${s.spectators}</span>` : ''}${s.status === 'playing' && !s.clocks ? '' : ''}`);
+  setBanner(`<span>${s.circuit ? `🏆 ${esc(s.circuit.tournament ?? 'Royale Circuit')} · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>
+    ${on.spectator ? `<span>👀 Espectador · solo lectura${s.delayMs ? ` · ⏱ retraso de ${Math.round(s.delayMs / 1000)} s` : ''}</span>` : ''}${s.circuit && on.spectator ? `<button class="link-btn" data-open-tournament="${esc(s.circuit.id)}">Ver torneo</button>` : ''}
+    ${s.spectators ? `<span>👀 ${s.spectators}</span>` : ''}`);
   on.clock = s.clocks ? { ...s.clocks, at: Date.now() } : null;
   // Conexión del rival: cuenta atrás de desconexión (la calcula el servidor) y aviso al volver.
   const wasDc = !!on.oppDcUntil;
