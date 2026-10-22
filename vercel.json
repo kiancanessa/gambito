@@ -8,6 +8,18 @@
     {
       "source": "/g/:code",
       "destination": "/index.html"
+    },
+    {
+      "source": "/u/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/t/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/r/:id",
+      "destination": "/index.html"
     }
   ],
   "headers": [
