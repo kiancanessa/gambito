@@ -3,7 +3,7 @@
 // Las cuentas no llevan contraseña ni correo: cada cuenta tiene un código de recuperación (XXXX-XXXX-XXXX) que se muestra al crearla.
 // «Entrar» es escribir ese código; «Crear cuenta» genera una cuenta nueva con el nombre público que elijas. Al cerrar sesión se
 // recuerda guardar el código, porque es la única forma de volver a esa cuenta.
-import { createAccount, logout, net, recoverAccount } from './net.js';
+import { claimAccount, createAccount, createGuestAccount, logout, net, recoverAccount } from './net.js';
 import { $, choice, copyText, esc, toast } from './ui.js';
 
 const NAME_OK = /^[\p{L}\p{N} _.-]{3,16}$/u;
@@ -25,14 +25,14 @@ function loginPane() {
     </form>`;
 }
 
-function createPane() {
-  return `<form class="auth-form" data-auth-form="create" autocomplete="off">
+function createPane(claim = false) {
+  return `<form class="auth-form" data-auth-form="${claim ? 'claim' : 'create'}" autocomplete="off">
       <label>Nombre público <small>(opcional)</small>
         <input id="authName" placeholder="Entre 3 y 16 letras o números" maxlength="16" spellcheck="false" aria-describedby="authHelp">
       </label>
       <p class="auth-help" id="authHelp">Es lo que verán los demás. No pedimos correo ni contraseña: al crear la cuenta te daremos un código para volver a entrar.</p>
       ${errorBox()}
-      <button class="btn primary lg" type="submit" data-auth="create">Crear cuenta</button>
+      <button class="btn primary lg" type="submit" data-auth="create">${claim ? 'Crear mi cuenta' : 'Crear cuenta'}</button>
     </form>`;
 }
 
@@ -52,16 +52,23 @@ function codePane(user, code, note) {
  * Diálogo de entrar / crear cuenta. Resuelve `true` si el jugador acaba con sesión (la página se recarga) y `false` si lo cierra.
  * `mode`: pestaña inicial ('login' | 'create').
  */
-export function openAuth({ mode = 'login', title = 'Entra a CHECKPOINT' } = {}) {
-  let tab = mode;
+export function openAuth({ mode = 'login', title = null, welcome = false } = {}) {
+  const claim = mode === 'claim'; // el invitado guarda su cuenta (nombre y código) sin perder lo jugado
+  let tab = claim ? 'create' : mode;
   let resolveLogged = false;
-  const shell = () => `<h3>${esc(title)}</h3>
-    <div class="seg auth-tabs" role="tablist" aria-label="Cuenta">
-      <button type="button" role="tab" data-auth-tab="login" aria-selected="${tab === 'login'}" class="${tab === 'login' ? 'on' : ''}">Entrar</button>
+  const heading = title ?? (claim ? 'Guarda tu cuenta' : welcome ? 'Bienvenido a CHECKPOINT' : 'Entra a CHECKPOINT');
+  const shell = () => `<h3>${esc(heading)}</h3>
+    ${claim ? '<p class="auth-help">Ahora juegas como invitado. Elige tu nombre y guarda tu código: así no pierdes tu progreso ni tu rating.</p>' : ''}
+    ${claim ? '' : `<div class="seg auth-tabs" role="tablist" aria-label="Cuenta">
       <button type="button" role="tab" data-auth-tab="create" aria-selected="${tab === 'create'}" class="${tab === 'create' ? 'on' : ''}">Crear cuenta</button>
+      <button type="button" role="tab" data-auth-tab="login" aria-selected="${tab === 'login'}" class="${tab === 'login' ? 'on' : ''}">Entrar</button>
+    </div>`}
+    <div id="authPane">${tab === 'login' ? loginPane() : createPane(claim)}</div>
+    <div class="auth-foot">
+      ${claim ? '' : `<button class="btn" data-auth="guest" type="button">Jugar como invitado</button>`}
+      <button class="btn ghost" data-choice="close" type="button">${claim ? 'Ahora no' : 'Ahora no'}</button>
     </div>
-    <div id="authPane">${tab === 'login' ? loginPane() : createPane()}</div>
-    <p class="auth-foot"><button class="btn ghost" data-choice="close" type="button">Seguir sin cuenta</button></p>`;
+    ${claim ? '' : '<p class="auth-help auth-foot-note">Como invitado puedes jugar ya mismo; tu rating aparecerá cuando termines tu primera clasificatoria y podrás crear tu cuenta cuando quieras.</p>'}`;
 
   const done = choice(shell(), 'auth-card');
   const card = $('#modalCard');
@@ -96,6 +103,20 @@ export function openAuth({ mode = 'login', title = 'Entra a CHECKPOINT' } = {}) 
       if (e.target.closest('[data-auth="done"]')) {
         resolveLogged = true;
         reload();
+        return;
+      }
+      const guestBtn = e.target.closest('[data-auth="guest"]');
+      if (guestBtn) {
+        busy(guestBtn, true, 'Entrando…');
+        createGuestAccount().then((res) => {
+          if (!res.ok) {
+            busy(guestBtn, false, 'Jugar como invitado');
+            showError(res.status === 0 ? 'No hay conexión con el servidor. Inténtalo de nuevo.' : res.status === 429 ? 'Demasiadas cuentas nuevas desde esta red: espera un rato.' : 'No se pudo entrar como invitado.');
+            return;
+          }
+          resolveLogged = true;
+          reload();
+        });
       }
     },
     { signal: off.signal },
@@ -123,18 +144,19 @@ export function openAuth({ mode = 'login', title = 'Entra a CHECKPOINT' } = {}) 
       }
       const wanted = $('#authName').value.trim();
       if (wanted && !NAME_OK.test(wanted)) return showError('El nombre debe tener entre 3 y 16 letras, números, espacios, «.», «_» o «-».');
+      const claiming = form.dataset.authForm === 'claim';
       busy(btn, true, 'Creando…');
-      const res = await createAccount(wanted);
+      const res = await (claiming ? claimAccount(wanted) : createAccount(wanted));
       if (!res.ok) {
-        busy(btn, false, 'Crear cuenta');
-        return showError(res.status === 0 ? 'No hay conexión con el servidor. Inténtalo de nuevo.' : res.status === 429 ? 'Demasiadas cuentas nuevas desde esta red: espera un rato.' : 'No se pudo crear la cuenta.');
+        busy(btn, false, claiming ? 'Crear mi cuenta' : 'Crear cuenta');
+        return showError(res.status === 0 ? 'No hay conexión con el servidor. Inténtalo de nuevo.' : res.status === 429 ? 'Demasiadas cuentas nuevas desde esta red: espera un rato.' : (claiming && res.json?.error) || 'No se pudo crear la cuenta.');
       }
       // El servidor puede rechazar un nombre (palabras no permitidas) y asignar uno automático: se avisa.
-      const note = wanted && res.json.user.name !== wanted ? `Ese nombre no está permitido, así que te hemos asignado «${res.json.user.name}». Puedes cambiarlo en tu perfil.` : '';
+      const note = wanted && res.json.user?.name !== wanted ? `Ese nombre no está permitido, así que te hemos asignado «${res.json.user.name}». Puedes cambiarlo en tu perfil.` : '';
       $('#authPane').innerHTML = codePane(res.json.user, res.json.recovery, note);
       card.querySelector('h3').hidden = true;
-      card.querySelector('.auth-tabs').hidden = true;
-      card.querySelector('.auth-foot').hidden = true;
+      card.querySelector('.auth-tabs')?.setAttribute('hidden', '');
+      card.querySelectorAll('.auth-foot, .auth-foot-note, .auth-card > .auth-help').forEach((el) => (el.hidden = true));
       return undefined;
     },
     { signal: off.signal },

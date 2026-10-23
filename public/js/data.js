@@ -169,6 +169,11 @@ export const LEAGUES = [
 ];
 export const leagueOf = (rating) => [...LEAGUES].reverse().find((l) => rating >= l.min) ?? LEAGUES[0];
 
+// El rating inicial (1000) es solo el punto de partida del emparejamiento: no es un resultado. Hasta la primera partida
+// clasificatoria no se enseña ni se asigna liga: «Sin clasificar».
+export const isRanked = (u) => (u?.games ?? 0) > 0;
+export const ratingText = (u) => (isRanked(u) ? `${u.rating} pts` : 'Sin clasificar');
+
 export const TIME_CONTROLS = [
   { id: 'bullet', label: 'Bala', sub: '1 min' },
   { id: 'blitz3', label: 'Blitz', sub: '3 min' },

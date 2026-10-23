@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#090b10">
+  <!-- La app es oscura por diseño: se declara para que el modo oscuro forzado de algunos navegadores (Samsung Internet, Chrome en Android)
+       no invierta los colores del tablero y de las piezas. -->
+  <meta name="color-scheme" content="dark">
+  <meta name="darkreader-lock">
   <title>CHECKPOINT · Ajedrez competitivo</title>
   <meta name="description" content="CHECKPOINT: ajedrez competitivo con ligas, torneos Royale Circuit, desafío diario, amigos y skins. Gratis y de código abierto.">
   <meta property="og:title" content="CHECKPOINT · Ajedrez competitivo">
@@ -242,7 +246,6 @@
             <div class="fx-layer" id="fxLayer"></div>
             <div class="banner" id="banner" hidden></div>
             <div class="bubble" id="bubble" hidden></div>
-            <button class="game-prefs-btn" id="gamePrefsBtn" aria-label="Preferencias de la partida" title="Sonido, animaciones y resaltados"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
             <div class="wait-overlay" id="waitOverlay" hidden>
               <div class="wait-card">
                 <div class="spinner"></div>
@@ -295,6 +298,7 @@
             <span class="clock" id="meClock" hidden>0:00</span>
           </div>
           <div class="game-actions">
+            <button class="btn game-prefs-btn" id="gamePrefsBtn" aria-label="Preferencias de la partida" title="Sonido, animaciones y resaltados"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gear"/></svg></button>
             <button class="btn" id="hintBtn" title="Pista (10 oros)">💡 Pista <small>10🪙</small></button>
             <button class="btn" id="undoBtn" title="Deshacer tu última jugada">↩ Deshacer</button>
             <button class="btn" id="drawBtn" hidden>🤝 Tablas</button>

@@ -30,16 +30,46 @@ before(async () => {
 after(() => app.close());
 
 describe('cuentas en el cliente', () => {
-  test('al arrancar sin sesión se crea una cuenta de invitado con código de recuperación', async () => {
-    assert.equal(await mod.bootstrap(), true);
-    assert.ok(net.user?.id);
+  test('quien llega por primera vez NO recibe una cuenta sin preguntar: se le ofrece crear, entrar o jugar como invitado', async () => {
+    assert.equal(net.loggedOut, true, 'primera visita = sin sesión');
+    assert.equal(await mod.bootstrap(), false);
+    assert.equal(net.user, null);
+    assert.equal(users(), 0, 'el servidor no creó ninguna cuenta');
+  });
+
+  test('«Jugar como invitado» crea una cuenta marcada como invitado, con código de recuperación', async () => {
+    const res = await mod.createGuestAccount();
+    assert.equal(res.ok, true);
+    assert.equal(net.guest, true);
+    assert.equal(localStorage.getItem('gambito.guest.v1'), '1');
+    assert.equal(net.loggedOut, false);
     assert.match(net.auth.recovery, /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     assert.equal(users(), 1);
+    globalThis.__first = { id: net.user.id, code: net.auth.recovery };
+  });
+
+  test('un invitado sin partidas no tiene rating que enseñar: «Sin clasificar», aunque el servidor guarde 1000 para emparejar', async () => {
+    const { isRanked, ratingText } = await import('../public/js/data.js');
+    assert.equal(net.user.rating, 1000);
+    assert.equal(isRanked(net.user), false);
+    assert.equal(ratingText(net.user), 'Sin clasificar');
+    assert.equal(ratingText({ rating: 1016, games: 1 }), '1016 pts');
+    assert.equal(isRanked(null), false);
+  });
+
+  test('reclamar la cuenta: un nombre no válido se rechaza y sigue siendo invitado; uno válido la convierte en cuenta propia', async () => {
+    const bad = await mod.claimAccount('a!');
+    assert.equal(bad.ok, false);
+    assert.equal(net.guest, true);
+    const ok = await mod.claimAccount('Clara QA');
+    assert.equal(ok.ok, true);
+    assert.equal(net.guest, false);
+    assert.equal(localStorage.getItem('gambito.guest.v1'), null);
+    assert.equal(net.user.name, 'Clara QA');
+    assert.equal(net.user.id, globalThis.__first.id, 'es la misma cuenta: no se pierde lo jugado');
   });
 
   test('cerrar sesión borra la sesión local, marca la salida y deja el progreso limpio', async () => {
-    const first = { id: net.user.id, code: net.auth.recovery };
-    globalThis.__first = first;
     const { state, save } = await import('../public/js/store.js');
     state.coins = 999;
     state.level = 7;
@@ -48,6 +78,7 @@ describe('cuentas en el cliente', () => {
     assert.equal(net.user, null);
     assert.equal(net.auth, null);
     assert.equal(net.loggedOut, true);
+    assert.equal(net.guest, false);
     assert.equal(localStorage.getItem('gambito.auth.v1'), null);
     assert.equal(localStorage.getItem('gambito.loggedout.v1'), '1');
     assert.equal(state.coins, 100, 'los oros de la cuenta anterior no se quedan en el dispositivo');
@@ -61,14 +92,14 @@ describe('cuentas en el cliente', () => {
     assert.equal(users(), before);
   });
 
-  test('crear cuenta con nombre: se usa el nombre y se devuelve el código; la bandera de sesión cerrada se limpia', async () => {
-    const res = await mod.createAccount('Clara QA');
+  test('crear cuenta con nombre: no es invitada, usa el nombre y devuelve el código', async () => {
+    const res = await mod.createAccount('Dani QA');
     assert.equal(res.ok, true);
-    assert.equal(res.json.user.name, 'Clara QA');
+    assert.equal(res.json.user.name, 'Dani QA');
     assert.match(res.json.recovery, /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+    assert.equal(net.guest, false);
     assert.equal(net.loggedOut, false);
     assert.equal(localStorage.getItem('gambito.loggedout.v1'), null);
-    assert.equal(net.user.name, 'Clara QA');
     globalThis.__second = { id: net.user.id, code: net.auth.recovery };
   });
 
@@ -88,6 +119,7 @@ describe('cuentas en el cliente', () => {
     assert.equal(net.user.id, id);
     assert.equal(net.auth.recovery, code, 'se guarda como XXXX-XXXX-XXXX');
     assert.equal(net.loggedOut, false);
+    assert.equal(net.guest, false, 'quien entra con su código no es un invitado');
   });
 
   test('un código incorrecto no inicia sesión ni cambia la cuenta actual', async () => {
@@ -95,6 +127,14 @@ describe('cuentas en el cliente', () => {
     const res = await mod.recoverAccount('AAAA-BBBB-CCCC');
     assert.equal(res.ok, false);
     assert.equal(net.user.id, id);
+  });
+
+  test('una sesión caducada (servidor sin esa cuenta) no deja colgado a quien ya jugaba: se crea una invitada nueva', async () => {
+    localStorage.setItem('gambito.auth.v1', JSON.stringify({ token: 'caducado', recovery: 'AAAA-BBBB-CCCC' }));
+    net.user = null;
+    assert.equal(await mod.bootstrap(), true);
+    assert.ok(net.user?.id);
+    assert.equal(net.guest, true);
   });
 
   test('cada cuenta conserva lo suyo: la otra cuenta sigue existiendo en el servidor tras cerrar sesión', async () => {

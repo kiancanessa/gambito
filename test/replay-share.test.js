@@ -270,3 +270,16 @@ describe('integridad: nadie puede falsificar una repetición', () => {
     assert.equal(last, 429);
   });
 });
+
+describe('perfil público: clasificado o no', () => {
+  test('quien nunca ha jugado una clasificatoria aparece «sin clasificar» aunque el servidor guarde 1000 para emparejar', async () => {
+    const a = await guest('NuevoQA');
+    const b = await guest('VeteranoQA');
+    const c = await guest('RivalQA');
+    assert.equal((await call(null, 'GET', `/api/users/${a.user.id}`)).json.profile.ranked, false);
+    play(b.user, c.user, { script: MATE });
+    assert.equal((await call(null, 'GET', `/api/users/${b.user.id}`)).json.profile.ranked, true);
+    assert.equal((await call(null, 'GET', `/api/users/${a.user.id}`)).json.profile.ranked, false, 'sigue sin partidas');
+  });
+});
+

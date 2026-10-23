@@ -4,7 +4,7 @@
 // el modo principal disponible es la partida contra la IA. Todo sale de datos reales (net, store, API); donde no hay nada,
 // un estado vacío; mientras carga o falla, un esqueleto o un aviso.
 import { academyContinue, academyNext, academyPips } from './academy.js';
-import { GLYPH, QUICK_LEVELS, TIME_CONTROLS, leagueOf } from './data.js';
+import { GLYPH, QUICK_LEVELS, TIME_CONTROLS, isRanked, leagueOf } from './data.js';
 import { circuitClock, circuitHud, onCircuit, openCircuit, refreshCircuitPublic, watchCircuitList } from './circuit.js';
 import { flags } from './flags.js';
 import { api, bootstrap, ensureOnline, net, onNet, refreshUser } from './net.js';
@@ -72,9 +72,11 @@ function renderHero() {
   const u = net.user;
   const lg = leagueOf(u?.rating ?? 1000);
   const st = lb.data.stats;
-  const meta = u
-    ? `<span class="pl-league" style="--c:${lg.color}">${GLYPH[lg.glyph]}${VS} Liga ${esc(lg.name)}</span><span>${u.rating} pts</span>${lb.data.me && u.games > 0 ? `<span>Puesto #${lb.data.me.rank}</span>` : ''}`
-    : '';
+  const meta = !u
+    ? ''
+    : isRanked(u)
+      ? `<span class="pl-league" style="--c:${lg.color}">${GLYPH[lg.glyph]}${VS} Liga ${esc(lg.name)}</span><span>${u.rating} pts</span>${lb.data.me ? `<span>Puesto #${lb.data.me.rank}</span>` : ''}`
+      : '<span>Sin clasificar: tu liga y tu rating aparecen al terminar tu primera partida.</span>';
   let action;
   if (q.active) {
     const s = Math.floor((Date.now() - q.since) / 1000);

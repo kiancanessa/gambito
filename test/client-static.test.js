@@ -84,3 +84,14 @@ test('el cliente no usa eval ni new Function, ni escribe HTML con document.write
     assert.doesNotMatch(code, /\beval\s*\(|new\s+Function\s*\(|document\.write\s*\(/, file);
   }
 });
+
+test('la app declara su tema oscuro (meta y CSS) para que el modo oscuro forzado del navegador no invierta tablero y piezas', () => {
+  assert.match(html, /<meta name="color-scheme" content="dark">/);
+  assert.match(readFileSync(path.join(PUBLIC, 'css', 'minimal.css'), 'utf8'), /:root\s*\{\s*color-scheme:\s*dark;\s*\}/);
+});
+
+test('el botón de preferencias de la partida no está sobre el tablero (tapaba la casilla a8)', () => {
+  const frame = html.slice(html.indexOf('id="boardFrame"'), html.indexOf('<div class="quip"'));
+  assert.doesNotMatch(frame, /gamePrefsBtn/);
+  assert.match(html, /game-actions">\s*<button class="btn game-prefs-btn" id="gamePrefsBtn"/);
+});

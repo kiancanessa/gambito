@@ -64,9 +64,9 @@ function render() {
   ].join('');
   const head = `<section class="lb-card us-hero ${decorClass(eq)}">
     <div class="us-id">${identityHtml(eq, { size: 96, label: `Avatar de ${esc(p.name)}` })}</div>
-    <div class="us-name"><p class="eyebrow">${p.rating !== undefined ? `Liga ${esc(lg.name)} · ${GLYPH[lg.glyph]}${VS}` : 'Jugador'}</p><h3>${esc(p.name)}</h3>
+    <div class="us-name"><p class="eyebrow">${p.rating !== undefined && p.ranked ? `Liga ${esc(lg.name)} · ${GLYPH[lg.glyph]}${VS}` : 'Jugador'}</p><h3>${esc(p.name)}</h3>
       ${title ? `<p class="pf-title">${esc(title)}</p>` : ''}
-      <p class="muted">${p.level ? `Nivel ${p.level}` : ''}${p.rating !== undefined ? ` · ${p.rating} pts` : ''}${p.rank ? ` · puesto #${p.rank}` : ''}${p.presence && p.presence !== 'offline' ? ` · <b class="ok">${PRESENCE[p.presence]}</b>` : ''}</p></div>
+      <p class="muted">${p.level ? `Nivel ${p.level}` : ''}${p.rating !== undefined ? (p.ranked ? ` · ${p.rating} pts` : ' · Sin clasificar') : ''}${p.rank ? ` · puesto #${p.rank}` : ''}${p.presence && p.presence !== 'offline' ? ` · <b class="ok">${PRESENCE[p.presence]}</b>` : ''}</p></div>
     <div class="us-actions">${actions}</div></section>`;
   let rest = '';
   if (p.limited) {

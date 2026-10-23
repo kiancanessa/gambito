@@ -1,5 +1,5 @@
 // Perfil: identidad y rango arriba; debajo, por pestañas, el resumen (estadísticas y trofeos), los logros y la cuenta.
-import { CAMPAIGN, GLYPH, LEAGUES, RARITY, leagueOf } from './data.js';
+import { CAMPAIGN, GLYPH, LEAGUES, RARITY, isRanked, leagueOf } from './data.js';
 import { CATEGORIES, ITEMS, findItem, isObtainable, itemKey } from './cosmetics-data.js';
 import { api, net, newRecoveryCode, onNet, renameUser, syncDown, pushNow } from './net.js';
 import { decorClass, identityHtml, titleOf } from './cosmetics-art.js';
@@ -78,6 +78,7 @@ function render(extra) {
       <button class="btn primary" data-pf="retry">Reintentar</button></section>`;
     return;
   }
+  const ranked = isRanked(u);
   const lg = leagueOf(u.rating);
   const pr = leagueProgress(u.rating);
   const st = state.stats;
@@ -89,9 +90,13 @@ function render(extra) {
       <div class="pf-id">
         <h3 class="pf-name">${esc(u.name)}</h3>
         ${titleOf() ? `<p class="pf-title">${esc(titleOf())}</p>` : ''}
-        <p class="pf-rating"><span class="pf-league" style="--c:${lg.color}">${GLYPH[lg.glyph]}${VS} Liga ${esc(lg.name)}</span><b>${u.rating}</b> pts${extra.rank && u.games > 0 ? ` · puesto #${extra.rank}` : ''} · nivel ${state.level}</p>
+        ${ranked
+    ? `<p class="pf-rating"><span class="pf-league" style="--c:${lg.color}">${GLYPH[lg.glyph]}${VS} Liga ${esc(lg.name)}</span><b>${u.rating}</b> pts${extra.rank ? ` · puesto #${extra.rank}` : ''} · nivel ${state.level}</p>
         <div class="lg-bar" role="progressbar" aria-label="Progreso de liga" aria-valuenow="${Math.round(pr.pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pr.pct}%"></i></div>
-        <small class="muted">${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>
+        <small class="muted">${pr.next ? `${pr.left} pts para la liga ${pr.next.name}` : 'Liga máxima alcanzada'}</small>`
+    : `<p class="pf-rating"><b>Sin clasificar</b> · nivel ${state.level}</p>
+        <small class="muted">Tu liga y tu rating aparecen al terminar tu primera partida clasificatoria.</small>`}
+        ${net.guest ? '<p class="pf-guest"><span class="pill">Invitado</span> <button class="link-btn" data-pf="claim">Crear cuenta</button> para guardar tu progreso y tu nombre.</p>' : ''}
       </div>
     </section>
     <nav class="pf-links" aria-label="Tu cuenta">
@@ -181,7 +186,8 @@ async function onAction(e) {
   if (!b) return undefined;
   const act = b.dataset.pf;
   if (act === 'retry') return enterProfile();
-  if (act === 'login' || act === 'create') return (await import('./auth.js')).openAuth({ mode: act });
+  if (act === 'login' || act === 'create') return (await import('./auth.js')).openAuth({ mode: act, welcome: true });
+  if (act === 'claim') return (await import('./auth.js')).openAuth({ mode: 'claim' });
   if (act === 'logout') return (await import('./auth.js')).confirmLogout();
   if (act === 'rename') {
     const res = await renameUser($('#pfName').value);
@@ -214,7 +220,7 @@ export function refreshIdentity() {
 
 export function initProfile() {
   $('#profileChip').addEventListener('click', () => app.go('profile'));
-  $('#loginBtn').addEventListener('click', async () => (await import('./auth.js')).openAuth({ mode: net.loggedOut ? 'login' : 'create' }));
+  $('#loginBtn').addEventListener('click', async () => (await import('./auth.js')).openAuth(net.guest && net.user ? { mode: 'claim' } : { mode: net.firstVisit ? 'create' : 'login', welcome: true }));
   $('#profileBody').addEventListener('click', onAction);
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-open="profile"]')) app.go('profile');
@@ -222,7 +228,10 @@ export function initProfile() {
   onNet(() => {
     const chip = $('#profileChip');
     chip.hidden = !net.user;
-    $('#loginBtn').hidden = !!net.user || !net.loggedOut; // quien cerró la sesión ve «Entrar» arriba
+    // Sin sesión: «Entrar». Invitado: «Crear cuenta» (guarda su cuenta sin perder lo jugado).
+    const login = $('#loginBtn');
+    login.hidden = !(net.loggedOut || (net.guest && net.user));
+    login.textContent = net.guest && net.user ? 'Crear cuenta' : 'Entrar';
     if (net.user) {
       const lg = leagueOf(net.user.rating);
       void lg;

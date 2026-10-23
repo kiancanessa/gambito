@@ -1,5 +1,5 @@
 // Multijugador: partidas con amigos por enlace, emparejamiento clasificatorio, espectadores y emotes.
-import { EMOTES, GLYPH, LEAGUES, TIME_CONTROLS, leagueOf } from './data.js';
+import { EMOTES, GLYPH, LEAGUES, TIME_CONTROLS, isRanked, leagueOf } from './data.js';
 import { feedback } from './feedback.js';
 import { sfx } from './fx.js';
 import { buzz, prefs } from './prefs.js';
@@ -96,7 +96,7 @@ function renderHub() {
   const u = net.user;
   const lg = leagueOf(u.rating);
   $('#onlineProfile').innerHTML = `${avatar(lg.glyph, lg.color)}
-    <div class="who"><b>${esc(u.name)}</b><small>Liga ${lg.name} · ${u.rating} pts · ${u.wins}V ${u.losses}D ${u.draws}T</small></div>
+    <div class="who"><b>${esc(u.name)}</b><small>${isRanked(u) ? `Liga ${lg.name} · ${u.rating} pts · ${u.wins}V ${u.losses}D ${u.draws}T` : 'Sin clasificar · juega tu primera partida clasificatoria'}</small></div>
     <button class="btn" data-open="profile">Perfil</button>`;
   $('#tcGrid').innerHTML = TIME_CONTROLS.filter((t) => t.id !== 'none')
     .map((t) => `<button class="tc-chip ${t.id === on.tc ? 'on' : ''}" data-tc="${t.id}"><b>${t.sub}</b><small>${t.label}</small></button>`)
@@ -286,7 +286,7 @@ function handleState(s) {
   menu.hidden = !(flags.social && human);
   if (human) Object.assign(menu.dataset, { id: opp.id, name: opp.name });
   if (on.spectator) $('#meName').textContent = s.players.w?.name ?? 'Blancas';
-  if (me) $('#meSub').textContent = `${on.spectator ? 'Espectador' : on.pc === 'w' ? 'Blancas' : 'Negras'} · ${me.rating} pts`;
+  if (me) $('#meSub').textContent = `${on.spectator ? 'Espectador' : on.pc === 'w' ? 'Blancas' : 'Negras'}${s.rated && !(net.user?.games > 0) && me.id === net.user?.id ? ' · sin clasificar' : ` · ${me.rating} pts`}`;
   setBanner(`<span>${s.circuit ? `🏆 ${esc(s.circuit.tournament ?? 'Royale Circuit')} · ${esc(s.circuit.label)}` : `🌐 ${s.rated ? 'Clasificatoria' : 'Partida con amigo'}`} · ${esc(tcLabel(s.tc))}</span>
     ${on.spectator ? `<span>👀 Espectador · solo lectura${s.delayMs ? ` · ⏱ retraso de ${Math.round(s.delayMs / 1000)} s` : ''}</span>` : ''}${s.circuit && on.spectator ? `<button class="link-btn" data-open-tournament="${esc(s.circuit.id)}">Ver torneo</button>` : ''}
     ${s.spectators ? `<span>👀 ${s.spectators}</span>` : ''}`);

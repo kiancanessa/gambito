@@ -3,6 +3,8 @@ import { onChange, progressScore, replaceState, save, state } from './store.js';
 
 const AUTH_KEY = 'gambito.auth.v1';
 const LOGOUT_KEY = 'gambito.loggedout.v1'; // «1» = el jugador cerró la sesión a propósito: no se crea una cuenta sola
+const WELCOMED_KEY = 'gambito.welcomed.v1'; // «1» = ya eligió cómo entrar alguna vez (si no, quien llega nuevo ve la bienvenida)
+const GUEST_KEY = 'gambito.guest.v1'; // «1» = juega como invitado (cuenta creada sin elegir nombre ni guardar el código)
 
 // URL base del servidor. Vacía = mismo origen que la página. Si el cliente se sirve aparte (Vercel),
 // `public/config.js` define `window.GAMBITO_API` con la URL del servidor.
@@ -20,7 +22,9 @@ export const net = {
   syncing: false,
   lastSync: 0,
   booted: false, // ya se intentó conectar al menos una vez (para no mostrar "sin conexión" mientras se conecta)
-  loggedOut: false, // cerró la sesión: hay que entrar o crear una cuenta para jugar online
+  loggedOut: false, // sin sesión (nuevo o cerrada a propósito): hay que entrar, crear una cuenta o jugar como invitado
+  firstVisit: false, // nunca ha elegido cómo entrar en este dispositivo
+  guest: false, // juega como invitado: puede reclamar la cuenta con nombre y código en cualquier momento
 };
 
 const readAuth = () => {
@@ -35,6 +39,7 @@ const writeAuth = (auth) => {
   try {
     if (auth) {
       localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+      localStorage.setItem(WELCOMED_KEY, '1');
       localStorage.removeItem(LOGOUT_KEY);
     } else localStorage.removeItem(AUTH_KEY);
   } catch {
@@ -51,8 +56,21 @@ const setLoggedOut = (on) => {
     /* sin almacenamiento */
   }
 };
+const setGuest = (on) => {
+  net.guest = on;
+  try {
+    if (on) localStorage.setItem(GUEST_KEY, '1');
+    else localStorage.removeItem(GUEST_KEY);
+  } catch {
+    /* sin almacenamiento */
+  }
+};
 try {
-  net.loggedOut = localStorage.getItem(LOGOUT_KEY) === '1' && !localStorage.getItem(AUTH_KEY);
+  const hasAuth = !!localStorage.getItem(AUTH_KEY);
+  // Quien llega por primera vez (sin cuenta y sin haber elegido nunca) ve la bienvenida; no se le crea una cuenta sin preguntar.
+  net.loggedOut = !hasAuth && (localStorage.getItem(LOGOUT_KEY) === '1' || localStorage.getItem(WELCOMED_KEY) !== '1');
+  net.firstVisit = net.loggedOut && localStorage.getItem(LOGOUT_KEY) !== '1' && localStorage.getItem(WELCOMED_KEY) !== '1';
+  net.guest = hasAuth && localStorage.getItem(GUEST_KEY) === '1';
 } catch {
   /* sin almacenamiento */
 }
@@ -80,10 +98,11 @@ const readyHooks = new Set();
 export const onReady = (fn) => readyHooks.add(fn);
 const emit = () => listeners.forEach((fn) => fn(net));
 
-async function createGuest(name) {
+async function createGuest(name, { guest = !name } = {}) {
   const res = await api('/api/guest', { method: 'POST', body: name ? { name } : {}, auth: false });
   if (!res.ok) return res;
   writeAuth({ token: res.json.token, recovery: res.json.recovery });
+  setGuest(guest);
   net.user = res.json.user;
   return res;
 }
@@ -153,6 +172,7 @@ export async function recoverAccount(code) {
   const res = await api('/api/recover', { method: 'POST', body: { code }, auth: false });
   if (!res.ok) return res;
   const flat = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  setGuest(false);
   writeAuth({ token: res.json.token, recovery: flat.length === 12 ? `${flat.slice(0, 4)}-${flat.slice(4, 8)}-${flat.slice(8)}` : flat }); // siempre con el formato XXXX-XXXX-XXXX
   net.user = res.json.user;
   state.cloud.rev = 0; // fuerza a comparar con el guardado de esa cuenta
@@ -163,9 +183,27 @@ export async function recoverAccount(code) {
 
 // Crea una cuenta nueva (con el nombre elegido, si lo hay) y devuelve su código de recuperación para que el jugador lo guarde.
 export async function createAccount(name) {
-  const res = await createGuest(name);
+  const res = await createGuest(name, { guest: false });
   if (res.ok) emit();
   return res;
+}
+
+// «Jugar como invitado»: cuenta sin nombre elegido (el nombre es automático). Puede reclamarla después con `claimAccount`.
+export async function createGuestAccount() {
+  const res = await createGuest('', { guest: true });
+  if (res.ok) emit();
+  return res;
+}
+
+// Convierte la cuenta de invitado en una cuenta propia: nombre público elegido y código de recuperación guardado.
+export async function claimAccount(name) {
+  if (name) {
+    const res = await renameUser(name);
+    if (!res.ok) return res;
+  }
+  setGuest(false);
+  emit();
+  return { ok: true, status: 200, json: { user: net.user, recovery: net.auth?.recovery } };
 }
 
 // Antes de salir de una cuenta, los módulos con datos pendientes (la cartera) los envían y vacían su cola local.
@@ -179,6 +217,7 @@ export async function logout() {
   if (net.user && state.updatedAt > state.cloud.rev) await pushNow();
   socket.close();
   writeAuth(null);
+  setGuest(false);
   net.user = null;
   setLoggedOut(true);
   replaceState({}, 0);

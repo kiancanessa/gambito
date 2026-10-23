@@ -1,6 +1,6 @@
 // Arranque y navegación: Academia (pruebas finales), partida rápida contra la IA, tienda, recompensas y enlaces a los demás modos.
 import {
-  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS,
+  CAMPAIGN, DAILY_REWARDS, GLYPH, QUICK_LEVELS, ratingText,
 } from './data.js';
 import { enterDaily, initDaily } from './daily.js';
 import { Engine } from './engine.js';
@@ -61,7 +61,7 @@ function updateHud() {
   }
   $('#hudCoins').textContent = state.coins;
   $('#hudLevel').textContent = state.level;
-  $('#profileRating').textContent = net.user ? `${net.user.rating} pts` : '—';
+  $('#profileRating').textContent = net.user ? (net.guest ? 'Invitado' : ratingText(net.user)) : '—';
   applyFlair();
   refreshIdentity();
   $('#shopCoins').textContent = state.coins;
@@ -449,7 +449,7 @@ window.addEventListener('resize', () => stage?.resize());
   refreshHome();
   // Sesión cerrada a propósito: se ofrece entrar o crear cuenta (se puede seguir sin cuenta con la Academia y la IA).
   if (net.loggedOut && !online) {
-    (await import('./auth.js')).openAuth();
+    (await import('./auth.js')).openAuth({ mode: net.firstVisit ? 'create' : 'login', welcome: true });
     return;
   }
   if (link) {

@@ -59,7 +59,7 @@ export function createProfiles({ db, social, presence = () => ({}) }) {
     const restricted = social.isRestricted(id);
     const self = rel === 'self';
     const friends = rel === 'friends';
-    const base = { id: u.id, name: u.name, relation: rel, visibility: priv.profile, link: `/u/${u.id}` };
+    const base = { id: u.id, name: u.name, relation: rel, visibility: priv.profile, ranked: u.games > 0, link: `/u/${u.id}` };
     const canRequest = !!viewerId && !self && rel === 'none' && priv.acceptRequests && !restricted;
     const canInvite = friends && priv.acceptInvites !== 'nobody';
     const viewerCan = { request: canRequest, invite: canInvite, block: !!viewerId && !self, report: !!viewerId && !self };
