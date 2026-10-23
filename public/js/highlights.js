@@ -365,5 +365,12 @@ export function enterHighlights() {
     renderWorld();
   }, { rootMargin: '200px' });
   worldObserver.observe(target);
+  // Si el navegador no avisa (pestaña en segundo plano), no se deja la sección en el esqueleto para siempre.
+  setTimeout(() => {
+    if (hs.world || app.screen !== 'home') return;
+    worldObserver.disconnect();
+    hs.world = true;
+    renderWorld();
+  }, 3000);
   return undefined;
 }
