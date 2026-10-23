@@ -122,7 +122,7 @@ function renderMine() {
   const [top, ...rest] = hs.mine;
   box.innerHTML = `${featuredMine(top)}${rest.length ? `<ul class="hl-list">${rest.map(compactMine).join('')}</ul>` : ''}
     ${hs.analysedAny ? '' : `<p class="hl-note">Solo se muestran hechos de las jugadas. <button class="link-btn" data-hl="analyze" ${hs.analyzing ? 'disabled' : ''}>${hs.analyzing ? 'Analizando…' : 'Analiza tu última partida'}</button> para descubrir sacrificios y errores aprovechados.</p>`}`;
-  mountPlayer($('#hlMineBody .hl-feature'), { sans: top.plies.map((p) => p.san), key: top.ply, flip: top.game.you === 'b', label: `Tu jugada ${top.plies[top.ply - 1].san}` });
+  mountPlayer($('#hlMineBody .hl-feature'), { sans: top.plies.map((p) => p.san), key: top.ply, flip: top.game.you === 'b', label: `Tu jugada ${top.plies[top.ply - 1].san}`, comments: { [top.ply]: { text: top.detail, tag: top.title } } });
 }
 
 function moveLine(m) {
@@ -213,8 +213,10 @@ function renderWorld() {
       </div></article>
     ${rest.length ? `<ul class="hl-list">${rest.map(compactWorld).join('')}</ul>` : ''}
     <p class="hl-note">Partidas históricas de dominio público. Las jugadas se comprueban con las reglas del ajedrez; la evaluación la calcula Stockfish en tu navegador cuando la pides.</p>`;
-  const from = Math.max(0, top.ply - 6);
-  mountPlayer(box.querySelector('.hl-feature'), { sans, key: top.ply, from, to: sans.length, label: `${top.white} contra ${top.black}, ${top.year}` });
+  // La secuencia arranca justo antes del primer comentario y cada jugada comentada se detiene el tiempo de leerla.
+  const comments = Object.fromEntries((top.notes ?? []).map((n) => [n.ply, { text: n.text, tag: n.tag }]));
+  const first = (top.notes ?? []).reduce((min, n) => Math.min(min, n.ply), top.ply);
+  mountPlayer(box.querySelector('.hl-feature'), { sans, key: top.ply, from: Math.max(0, first - 1), to: sans.length, label: `${top.white} contra ${top.black}, ${top.year}`, comments });
 }
 
 function compactWorld(h) {
@@ -227,11 +229,11 @@ function compactWorld(h) {
     <span class="hl-item-copy"><b>${esc(h.title)}</b><small>${esc(h.white)} vs ${esc(h.black)} · ${h.year}</small></span></button></li>`;
 }
 
-function mountPlayer(article, { sans, key, flip = false, from = null, to = null, label }) {
+function mountPlayer(article, { sans, key, flip = false, from = null, to = null, label, comments = {} }) {
   if (!article) return;
   const start = from ?? Math.max(0, key - 4);
   const end = to ?? Math.min(sans.length, key + 1);
-  article.player = createPlayer(article, { sans, from: start, to: end, key, flip, label });
+  article.player = createPlayer(article, { sans, from: start, to: end, key, flip, label, comments });
 }
 
 // ---------- Acciones ----------

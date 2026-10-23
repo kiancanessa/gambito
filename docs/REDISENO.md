@@ -68,3 +68,12 @@ Un hermano abrió el enlace en un móvil (navegador con «modo oscuro para sitio
 ### Código viejo tras un despliegue (service worker)
 
 Al verificar en producción, el navegador de pruebas cargó una mezcla de módulos antiguos y nuevos (el diálogo de bienvenida con textos de la versión anterior y la lógica nueva). La causa estaba en `sw.js`: servía los `.js` y `.css` **de la caché y los actualizaba después**, así que cualquier visitante recurrente veía una versión vieja de cada módulo (a veces cada uno de una distinta) hasta recargar dos veces. Ahora el código de la app (js, css, html) va **red primero** con revalidación y la caché solo como respaldo sin conexión, y se subió la versión de la caché a `checkpoint-v2` para vaciar las copias antiguas. Los archivos que no cambian (vendor, iconos) siguen en caché.
+
+## World-class moves: reproducción más ágil y comentada
+
+Queja: las jugadas de «World-class moves» pasaban lentas y no se entendía por qué eran buenas.
+
+- **Ritmo.** El reproductor (`createPlayer` en `public/js/miniboard.js`) ya no usa una pausa fija. La pieza se desliza en ~340 ms (la capturada se desvanece), una jugada sin comentario se queda ~0,65 s y una comentada se queda el tiempo de leerla (1,2 s + 34 ms por carácter, máx. 6 s). Botón de velocidad 1× / 1,5× / 2× / 0,6×. La secuencia arranca justo antes del primer comentario en vez de seis jugadas antes.
+- **Qué se ve.** Flecha sobre la última jugada y un panel de comentario bajo los controles (`aria-live`). Las jugadas comentadas llevan un subrayado en la lista de jugadas; las demás muestran una descripción neutra («Dama captura torre · jaque»).
+- **Los comentarios no se inventan.** Cada nota de `world-highlights.js` lleva `facts` (jaque, mate, captura, material entregado, nº de respuestas legales, mate en la jugada siguiente, clavadas, casillas atacadas o protegidas, líneas libres...) y `test/highlight-notes.test.js` los comprueba con chess.js. Al escribirlas, la prueba cazó tres afirmaciones falsas (dos «única jugada legal» que eran dos y un alfil «en a3» que ya estaba en e7) y se corrigieron los textos, no la prueba. Lo que no se pueda comprobar así no se escribe: no hay evaluaciones del motor en los comentarios (esa la da Stockfish a petición).
+- **Tus propias jugadas** usan el mismo panel con el título y el detalle de la jugada destacada.
