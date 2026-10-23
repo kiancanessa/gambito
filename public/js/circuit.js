@@ -245,7 +245,7 @@ function actionPanel(c) {
   if (c.status === 'running') {
     if (you && !you.out) {
       return you.matchCode
-        ? `<section class="lb-card circuit-end"><p class="eyebrow">¡Te toca!</p><h3>Tu partida está en juego</h3><button class="play-now sm" data-cir-watch="${esc(you.matchCode)}"><span class="pn-main">IR A LA PARTIDA</span><small>Tu rival te espera</small></button></section>`
+        ? `<section class="lb-card circuit-end"><p class="eyebrow">¡Te toca!</p><h3>Tu partida está en juego</h3><button class="play-now sm" data-cir-watch="${esc(you.matchCode)}"><span class="pn-main">Ir a la partida</span><small>Tu rival te espera</small></button></section>`
         : '<section class="lb-card circuit-end"><p class="eyebrow">Sigues dentro</p><h3>Esperando tu próxima partida</h3><p class="muted">Mantén esta pestaña abierta: entrarás a tu sala automáticamente cuando esté lista.</p></section>';
     }
     if (you?.out) return `<section class="lb-card circuit-end"><p class="eyebrow">Estás fuera</p><h3>${PLACE_TEXT[you.placement] ?? 'Eliminado'}</h3><p class="muted">Premio: ${prizeText(you.prize)} (se cobra al terminar el torneo). Puedes seguir las partidas en directo desde el cuadro.</p></section>`;
@@ -254,7 +254,7 @@ function actionPanel(c) {
   if (c.status === 'open') {
     if (you) return `<section class="lb-card circuit-end"><p class="eyebrow">Inscrito</p><h3>Estás dentro (${c.players}/${c.size})</h3><p class="muted">Puedes cancelar hasta que cierre la inscripción, en ${countdown(c.regClosesAt)}. Estar conectado al cerrarse es obligatorio.</p><button class="btn danger" data-cir="leave" data-id="${esc(c.id)}">Cancelar inscripción</button></section>`;
     if (mineElsewhere) return '<section class="lb-card circuit-end"><p class="eyebrow">Inscripción</p><h3>Ya participas en otro torneo</h3><p class="muted">Solo puedes estar en un torneo a la vez.</p></section>';
-    return `<section class="lb-card circuit-end"><p class="eyebrow">Inscripción abierta</p><h3>${c.players}/${c.size} jugadores</h3><button class="play-now sm" data-cir="join" data-id="${esc(c.id)}"><span class="pn-main">INSCRIBIRME</span><small>Cierra en ${clock(c.regClosesAt - serverNow())} · mínimo ${c.minPlayers} para jugar</small></button></section>`;
+    return `<section class="lb-card circuit-end"><p class="eyebrow">Inscripción abierta</p><h3>${c.players}/${c.size} jugadores</h3><button class="play-now sm" data-cir="join" data-id="${esc(c.id)}"><span class="pn-main">Inscribirme</span><small>Cierra en ${clock(c.regClosesAt - serverNow())} · mínimo ${c.minPlayers} para jugar</small></button></section>`;
   }
   if (c.status === 'closed') return `<section class="lb-card circuit-end"><p class="eyebrow">Inscripción cerrada</p><h3>${you ? 'Estás dentro: no cierres esta pestaña' : 'Ya no se admiten jugadores'}</h3><p class="muted">Empieza en ${countdown(c.startsAt)}. Solo continúan los jugadores conectados y hacen falta ${c.minPlayers} para que se juegue.</p></section>`;
   return `<section class="lb-card circuit-end"><p class="eyebrow">Programado</p><h3>La inscripción abre en ${countdown(c.regOpensAt)}</h3></section>`;

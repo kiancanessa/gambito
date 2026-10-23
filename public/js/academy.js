@@ -76,7 +76,7 @@ function lessonRow(l, i, open) {
   return `<li class="ac-lesson ${s ? 'done' : ''} ${isNext ? 'next' : ''} ${open ? '' : 'locked'}">
     <span class="ac-num" aria-hidden="true">${s ? '✓' : open ? i + 1 : '🔒'}</span>
     <span class="ac-info"><b>${esc(l.title)}</b><small>${l.exercises.length} ejercicios${s ? ` · <span class="ac-stars" aria-label="${s} de 3 estrellas">${stars(s)}</span>` : ''}</small></span>
-    ${open ? `<button class="btn ${isNext ? 'primary' : ''}" data-ac-lesson="${l.id}">${s ? 'Repetir' : isNext ? 'Empezar' : 'Abrir'}</button>` : '<small class="muted">Bloqueada</small>'}</li>`;
+    ${open ? `<button class="btn" data-ac-lesson="${l.id}">${s ? 'Repetir' : isNext ? 'Empezar' : 'Abrir'}</button>` : '<small class="muted">Bloqueada</small>'}</li>`;
 }
 
 function render() {
@@ -111,7 +111,7 @@ function render() {
         <p class="muted">${next.type === 'done' ? '¡Has completado toda la ruta!' : `Siguiente: ${esc(next.title)}`}</p>
         <div class="meter"><div class="meter-head"><span>Progreso de la Academia</span><small>${t.pct} %</small></div>
           <div class="xpline" role="progressbar" aria-label="Progreso de la Academia" aria-valuenow="${t.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${t.pct}%"></i></div></div></div>
-      <div class="ac-hero-cta"><button class="play-now sm" data-ac-continue><span class="pn-main">${next.type === 'done' ? 'REPASAR' : t.done + t.cleared ? 'CONTINUAR' : 'EMPEZAR'}</span><small>${esc(next.label)}</small></button>
+      <div class="ac-hero-cta"><button class="play-now sm" data-ac-continue><span class="pn-main">${next.type === 'done' ? 'Repasar' : t.done + t.cleared ? 'Continuar' : 'Empezar'}</span><small>${esc(next.label)}</small></button>
         <button class="link-btn" data-ac-skip>Ya sé jugar: saltar de nivel</button></div>
     </section>
     <div class="ac-path">${stages}${trials}</div>`;

@@ -326,3 +326,30 @@ main { max-width: var(--content); margin: 0 auto; }
 
 /* ---------- 15 · Personalización ---------- */
 @media (min-width: 900px) { .cz-cats { flex-wrap: wrap; overflow: visible; } }
+
+/* ---------- 16 · Pantallas secundarias ---------- */
+/* El antiguo «PLAY NOW» (Academia y Circuit) pasa a ser un botón primario normal, con una línea de contexto debajo. */
+.play-now { display: inline-grid; gap: 2px; justify-items: start; text-align: left; min-height: 52px; padding: 10px 20px; border-radius: 12px; background: var(--cp-cyan); color: var(--cp-cyan-ink); border: 0; box-shadow: none; cursor: pointer; }
+.play-now::before, .play-now::after { display: none !important; }
+.play-now:hover { background: #5ae7f7; transform: none; }
+.play-now .pn-main { font-family: var(--font); font-size: 1rem; font-weight: 700; letter-spacing: 0; }
+.play-now small { color: rgba(3, 26, 31, 0.75); font-size: 0.8rem; }
+.play-now kbd, .play-now .arrow { display: none; }
+.ac-hero { background: var(--cp-graphite); box-shadow: none; }
+.stat-grid li, .badge-grid li, .set-row, .ac-lesson { background: transparent; }
+.badge-grid li { border: 1px solid var(--cp-line); }
+.badge-grid li.done { border-color: rgba(52, 227, 160, 0.35); }
+.settings-grid { gap: 16px; }
+.set-row { border-bottom: 1px solid var(--cp-line); padding: 12px 0; }
+.set-row:last-child { border-bottom: 0; }
+
+/* Campos de texto: todos oscuros y con el mismo aspecto (el buscador de amigos y otros usaban el estilo nativo, blanco). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select, textarea {
+  min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--cp-line-2);
+  background: var(--cp-obsidian); color: var(--cp-text); font: inherit; color-scheme: dark;
+}
+textarea { padding: 10px 12px; }
+input::placeholder, textarea::placeholder { color: var(--cp-dim); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--cp-cyan); outline-offset: 1px; border-color: transparent; }
+input[type='search']::-webkit-search-cancel-button { filter: invert(0.7); }

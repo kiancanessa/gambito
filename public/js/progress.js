@@ -265,7 +265,7 @@ function renderOverview(d) {
     <section class="lb-card"><div class="card-head"><p class="eyebrow">Recompensas visuales</p>${nextUnlock ? `<small class="muted">siguiente: ${esc(nextUnlock.name)} (nivel ${nextUnlock.level})</small>` : ''}</div>
       <p class="muted">Avatares, marcos, títulos, efectos y más. Se desbloquean solos al subir de nivel o conseguir logros; son solo estéticos.</p>
       <p class="pg-label">${d.unlocks.filter((u) => u.unlocked).length} de ${d.unlocks.length} desbloqueos por nivel conseguidos</p>
-      <button class="btn primary" data-go="shop">Abrir la personalización</button></section>
+      <button class="btn" data-go="shop">Abrir la personalización</button></section>
     <section class="lb-card"><p class="eyebrow">Cómo se gana XP</p><ul class="pg-rules">${RULE_LINES(d.rules).map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join('')}</ul>
       <p class="muted fine">La XP premia participar y terminar; ganar es solo un extra. Hay un máximo por partida, por pareja de rivales y por día para que no se pueda granjear.</p></section>
   </div>`;

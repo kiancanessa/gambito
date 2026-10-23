@@ -25,7 +25,7 @@ export function historyHtml(games) {
       const [label, cls] = RESULT[g.result];
       return `<li><span class="pill ${cls === 'ok' ? 'ok' : cls === 'bad' ? 'bad' : ''}">${label}</span>
         <div class="vs"><b>vs ${esc(g.opponent)}</b><small>${g.rated ? 'Clasificatoria' : 'Con amigo'} · ${tcName(g.tc)} · ${Math.ceil(g.plies / 2)} jugadas · ${new Date(g.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</small></div>
-        <button class="btn" data-replay="${esc(g.id)}">▶ Ver</button></li>`;
+        <button class="btn" data-replay="${esc(g.id)}">Ver</button></li>`;
     })
     .join('');
 }

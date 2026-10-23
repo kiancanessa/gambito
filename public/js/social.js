@@ -54,7 +54,7 @@ function searchHtml() {
   if (!so.results.length) return '<li><span class="muted">Nadie coincide con esa búsqueda.</span></li>';
   return so.results
     .map((u) => `<li><span class="fr-name"><b>${esc(u.name)}</b> <small class="muted">${u.rating} pts${REL_TEXT[u.relation] ? ` · ${REL_TEXT[u.relation]}` : ''}</small></span>
-      <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(u.id)}">Ver perfil</button>${u.relation === 'none' || u.relation === 'pending_in' ? `<button class="btn primary" data-so="add" data-id="${esc(u.id)}" data-name="${esc(u.name)}">${u.relation === 'pending_in' ? 'Aceptar' : '➕ Añadir'}</button>` : ''}</span></li>`)
+      <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(u.id)}">Ver perfil</button>${u.relation === 'none' || u.relation === 'pending_in' ? `<button class="btn" data-so="add" data-id="${esc(u.id)}" data-name="${esc(u.name)}">${u.relation === 'pending_in' ? 'Aceptar' : 'Añadir'}</button>` : ''}</span></li>`)
     .join('');
 }
 
@@ -129,7 +129,7 @@ function render() {
     .map((f) => {
       const [label, cls] = PRESENCE[f.presence] ?? PRESENCE.offline;
       return `<li><span class="fr-name"><i class="pdot ${cls}" title="${label}"></i><b>${esc(f.name)}</b> <small class="muted">${f.rating} pts · ${label}</small></span>
-        <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(f.id)}" aria-label="Ver el perfil de ${esc(f.name)}">👤</button>${f.presence === 'offline' ? '' : `<button class="btn primary" data-so="challenge" data-id="${esc(f.id)}" data-name="${esc(f.name)}">⚔ Retar</button>`}
+        <span class="row-actions"><button class="btn" data-so="profile" data-id="${esc(f.id)}" aria-label="Ver el perfil de ${esc(f.name)}">Perfil</button>${f.presence === 'offline' ? '' : `<button class="btn" data-so="challenge" data-id="${esc(f.id)}" data-name="${esc(f.name)}">Retar</button>`}
         <button class="btn" data-so="remove" data-id="${esc(f.id)}" data-name="${esc(f.name)}" aria-label="Quitar a ${esc(f.name)}">✖</button>
         <button class="btn" data-so="block" data-id="${esc(f.id)}" data-name="${esc(f.name)}" aria-label="Bloquear a ${esc(f.name)}">🚫</button></span></li>`;
     })
