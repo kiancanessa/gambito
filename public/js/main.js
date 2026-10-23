@@ -447,6 +447,11 @@ window.addEventListener('resize', () => stage?.resize());
   applySkins();
   updateHud();
   refreshHome();
+  // Sesión cerrada a propósito: se ofrece entrar o crear cuenta (se puede seguir sin cuenta con la Academia y la IA).
+  if (net.loggedOut && !online) {
+    (await import('./auth.js')).openAuth();
+    return;
+  }
   if (link) {
     if (online) joinFromLink(link[1]);
     else toast('No hay conexión con el servidor para unirte a esa partida');

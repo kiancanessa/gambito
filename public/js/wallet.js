@@ -2,7 +2,7 @@
 // El cliente sigue aplicando los cambios al instante (para jugar sin esperar ni sin conexión) y los envía al servidor
 // como operaciones. Cuando el servidor responde, su cartera manda: el estado local pasa a ser un espejo.
 import { flags } from './flags.js';
-import { api, net, onReady } from './net.js';
+import { api, net, onLeave, onReady } from './net.js';
 import { applyWallet, setOpSink } from './store.js';
 import { toast } from './ui.js';
 
@@ -101,6 +101,12 @@ export function initWallet() {
   if (!flags.wallet) return;
   setOpSink(enqueue);
   onReady(init);
+  // Al cerrar sesión: se envía lo pendiente y la cola se vacía (nada de una cuenta debe acabar en otra).
+  onLeave(async () => {
+    await flush();
+    queue = [];
+    persistQueue();
+  });
   window.addEventListener('online', () => schedule(500));
   window.addEventListener('visibilitychange', () => {
     if (document.hidden && queue.length) flush();

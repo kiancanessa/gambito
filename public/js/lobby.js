@@ -50,7 +50,7 @@ const mmss = (ms) => {
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
 const cd = (until) => `<b class="cd" data-until="${until}">${mmss(until - circuitClock())}</b>`;
 // Qué acción es la principal ahora mismo (solo una se pinta como botón primario).
-const primaryMode = () => (lb.mode !== 'ranked' ? lb.mode : online() || connecting() ? 'ranked' : 'ai');
+const primaryMode = () => (lb.mode !== 'ranked' ? lb.mode : online() || connecting() || net.loggedOut ? 'ranked' : 'ai');
 
 function tcChips(withNone) {
   const cur = getTc();
@@ -81,6 +81,8 @@ function renderHero() {
     action = `<div class="pl-queue" role="status"><span class="spinner"></span><span><b>Buscando rival…</b><small>${esc(tcName(getTc()))} · ${mmss(s * 1000)} · la búsqueda se amplía con el tiempo</small></span><button class="btn" data-lb="cancel">Cancelar</button></div>`;
   } else if (connecting()) {
     action = '<p class="pl-note" aria-busy="true">Conectando con el servidor…</p>';
+  } else if (net.loggedOut) {
+    action = '<div class="pl-offline"><span>Entra o crea una cuenta para jugar clasificatorias.</span><button class="btn primary lg" id="plPrimary" data-lb="login">Entrar</button></div>';
   } else if (!online()) {
     action = '<div class="pl-offline" role="alert"><span>Sin conexión: la clasificatoria necesita el servidor.</span><button class="btn" data-lb="retry">Reintentar</button></div>';
   } else {
@@ -279,6 +281,7 @@ export function initLobby() {
     if (act === 'ranked') return startQueue();
     if (act === 'play') return runPlay();
     if (act === 'cancel') return cancelQueue();
+    if (act === 'login') return (await import('./auth.js')).openAuth();
     if (act === 'retry') {
       lb.loaded = false;
       renderAll();

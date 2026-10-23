@@ -1,6 +1,7 @@
 // Perfil: identidad y rango arriba; debajo, por pestañas, el resumen (estadísticas y trofeos), los logros y la cuenta.
-import { CAMPAIGN, GLYPH, LEAGUES, leagueOf } from './data.js';
-import { api, net, newRecoveryCode, onNet, recoverAccount, renameUser, syncDown, pushNow } from './net.js';
+import { CAMPAIGN, GLYPH, LEAGUES, RARITY, leagueOf } from './data.js';
+import { CATEGORIES, ITEMS, findItem, isObtainable, itemKey } from './cosmetics-data.js';
+import { api, net, newRecoveryCode, onNet, renameUser, syncDown, pushNow } from './net.js';
 import { decorClass, identityHtml, titleOf } from './cosmetics-art.js';
 import { state } from './store.js';
 import { $, app, copyText, esc, showScreen, toast, VS } from './ui.js';
@@ -41,10 +42,36 @@ function leagueProgress(rating) {
 const TABS = [['summary', 'Resumen'], ['badges', 'Logros'], ['account', 'Cuenta']];
 let tab = 'summary';
 
+// Lo próximo que se desbloquea subiendo de nivel (avatares, marcos y demás): una meta concreta cada vez.
+const GOAL_CATS = ['avatar', 'frame', 'crown', 'victory', 'set', 'board'];
+function nextGoals(limit = 4) {
+  return ITEMS.filter((it) => GOAL_CATS.includes(it.category) && isObtainable(it) && it.unlock.type === 'level' && it.unlock.level > state.level)
+    .sort((a, b) => a.unlock.level - b.unlock.level)
+    .slice(0, limit);
+}
+function collection() {
+  const list = ITEMS.filter(isObtainable);
+  return { have: list.filter((it) => state.owned.includes(itemKey(it.category, it.id))).length, total: list.length };
+}
+
+function goalHtml(it) {
+  const left = it.unlock.level - state.level;
+  const cat = CATEGORIES.find((c) => c.id === it.category)?.one ?? '';
+  const eq = { ...state.equipped, [it.category]: it.id };
+  const art = it.category === 'avatar' ? identityHtml(eq, { size: 48, locked: true }) : it.category === 'frame' ? identityHtml(eq, { size: 48 }) : `<span class="pf-goal-ico" aria-hidden="true">${esc(cat.slice(0, 1))}</span>`;
+  return `<li><button class="pf-goal" data-go="shop" style="--rc:${RARITY[it.rarity].color}">${art}<span><em>${esc(RARITY[it.rarity].label)} · ${esc(cat)}</em><b>${esc(it.name)}</b><small>Nivel ${it.unlock.level} · ${left === 1 ? 'te falta 1 nivel' : `te faltan ${left} niveles`}</small></span></button></li>`;
+}
+
 function render(extra) {
   const body = $('#profileBody');
   const u = net.user;
   if (!body) return;
+  if (!u && net.loggedOut) {
+    body.innerHTML = `<section class="lb-card pf-gate"><p class="eyebrow">Sin sesión</p><h3>Entra para ver tu perfil</h3>
+      <p class="muted">Con una cuenta guardas tu progreso, tu rating y tus cosméticos, y juegas partidas online, torneos y retos con amigos.</p>
+      <div class="pl-row"><button class="btn primary lg" data-pf="login">Entrar</button><button class="btn lg" data-pf="create">Crear cuenta</button></div></section>`;
+    return;
+  }
   if (!u) {
     body.innerHTML = `<section class="lb-card"><p class="eyebrow">Sin conexión</p><h3>No se pudo cargar tu perfil</h3>
       <p class="muted">Tu progreso local sigue a salvo en este dispositivo. Conéctate para ver tu liga y gestionar tu cuenta.</p>
@@ -57,7 +84,7 @@ function render(extra) {
   const bs = badges(extra);
   const earned = bs.filter((b) => b.done).length;
   const head = `
-    <section class="pf-hero ${decorClass()}">
+    <section class="pf-hero ${decorClass()}" style="--aura:${RARITY[findItem('avatar', state.equipped.avatar)?.rarity ?? 'common'].color}">
       <div class="pf-emblem" style="--c:${lg.color}">${identityHtml(state.equipped, { size: 76, label: `Avatar de ${esc(u.name)}` })}</div>
       <div class="pf-id">
         <h3 class="pf-name">${esc(u.name)}</h3>
@@ -91,15 +118,23 @@ function render(extra) {
           <small>Guárdalo: con él recuperas tu cuenta y tu progreso en otro dispositivo.</small>
           <button class="link-btn" data-pf="regen">Generar un código nuevo</button>
         </div>
-        <div class="pf-field">Usar otra cuenta
-          <span class="pf-row"><input id="pfRecover" placeholder="XXXX-XXXX-XXXX" maxlength="14" autocomplete="off"><button class="btn" data-pf="recover">Recuperar</button></span>
+        <div class="pf-field">Sesión
+          <small>Para usar otra cuenta, cierra esta sesión y entra con el código de la otra. Tu progreso queda guardado en el servidor.</small>
+          <span class="pf-row"><button class="btn danger" data-pf="logout">Cerrar sesión</button></span>
         </div>
         <p class="pf-sync">Progreso sincronizado: ${ago(net.lastSync)} · <button class="link-btn" data-pf="sync">Sincronizar ahora</button></p>
       </section>`;
   } else {
     const main = [[u.wins, 'Victorias'], [u.losses, 'Derrotas'], [u.draws, 'Tablas'], [u.games, 'Clasificatorias']];
     const more = [[st.games, 'Partidas en total'], [st.checks, 'Jaques'], [st.captures, 'Capturas'], [st.promotions, 'Coronaciones'], [st.dailySolved, 'Desafíos resueltos']];
-    section = `<section class="lb-card">
+    const goals = nextGoals();
+    const col = collection();
+    const next = `<section class="lb-card pf-next">
+        <div class="pf-next-head"><h3>Tu colección</h3><span class="muted">${col.have} de ${col.total} desbloqueados · nivel ${state.level}</span></div>
+        <div class="pf-meter" role="progressbar" aria-label="Colección desbloqueada" aria-valuenow="${col.have}" aria-valuemin="0" aria-valuemax="${col.total}"><i style="width:${(col.have / col.total) * 100}%"></i></div>
+        ${goals.length ? `<ul class="pf-goals">${goals.map(goalHtml).join('')}</ul>` : '<p class="muted">Has desbloqueado todo lo que se consigue subiendo de nivel. Quedan los logros, las temporadas y el Circuit.</p>'}
+      </section>`;
+    section = `${next}<section class="lb-card">
         <ul class="pf-stats">${main.map(([n, l]) => `<li><b>${n}</b><small>${l}</small></li>`).join('')}</ul>
         <p class="pf-more">${more.map(([n, l]) => `<span><b>${n}</b> ${l.toLowerCase()}</span>`).join('')}</p>
       </section>
@@ -146,6 +181,8 @@ async function onAction(e) {
   if (!b) return undefined;
   const act = b.dataset.pf;
   if (act === 'retry') return enterProfile();
+  if (act === 'login' || act === 'create') return (await import('./auth.js')).openAuth({ mode: act });
+  if (act === 'logout') return (await import('./auth.js')).confirmLogout();
   if (act === 'rename') {
     const res = await renameUser($('#pfName').value);
     toast(res.ok ? '✓ Nombre actualizado' : res.json?.error ?? 'No se pudo cambiar el nombre');
@@ -154,15 +191,6 @@ async function onAction(e) {
   } else if (act === 'regen') {
     const res = await newRecoveryCode();
     toast(res.ok ? 'Nuevo código generado: guárdalo' : 'No se pudo generar');
-  } else if (act === 'recover') {
-    const code = $('#pfRecover').value.trim();
-    if (code.replace(/[^A-Za-z0-9]/g, '').length !== 12) return toast('El código tiene 12 caracteres (XXXX-XXXX-XXXX)');
-    const res = await recoverAccount(code);
-    toast(res.ok ? `✓ Sesión de ${res.json.user.name} recuperada` : res.json?.error ?? 'No se pudo recuperar');
-    if (res.ok) {
-      current = await loadExtra();
-      app.refreshHome();
-    }
   } else if (act === 'sync') {
     await pushNow();
     await syncDown();
@@ -186,6 +214,7 @@ export function refreshIdentity() {
 
 export function initProfile() {
   $('#profileChip').addEventListener('click', () => app.go('profile'));
+  $('#loginBtn').addEventListener('click', async () => (await import('./auth.js')).openAuth({ mode: net.loggedOut ? 'login' : 'create' }));
   $('#profileBody').addEventListener('click', onAction);
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-open="profile"]')) app.go('profile');
@@ -193,6 +222,7 @@ export function initProfile() {
   onNet(() => {
     const chip = $('#profileChip');
     chip.hidden = !net.user;
+    $('#loginBtn').hidden = !!net.user || !net.loggedOut; // quien cerró la sesión ve «Entrar» arriba
     if (net.user) {
       const lg = leagueOf(net.user.rating);
       void lg;

@@ -67,17 +67,21 @@ const extra = (list, category) => list.map((s) => ({ ...s, category, asset: { re
 
 export const ITEMS = [
   // ----- Avatares (arte en cosmetics-art.js) -----
-  avatar('pawn', 'Peón', 'Pequeño pero con futuro.', { glyph: '♟', a: '#22e1ff', b: '#8b5cf6' }, { type: 'default' }),
-  avatar('knight', 'Caballo', 'Salta donde nadie espera.', { glyph: '♞', a: '#34e3a0', b: '#22e1ff' }, { type: 'level', level: 3 }),
-  avatar('bishop', 'Alfil', 'Diagonales largas, ideas claras.', { glyph: '♝', a: '#ffd24a', b: '#ff8a4c' }, { type: 'level', level: 6 }),
-  avatar('rook', 'Torre', 'Firme en la columna abierta.', { glyph: '♜', a: '#8b5cf6', b: '#4d6bff' }, { type: 'level', level: 10 }, 'rare'),
-  avatar('queen', 'Dama', 'La pieza más poderosa del tablero.', { glyph: '♛', a: '#ff8a98', b: '#ffd24a' }, { type: 'level', level: 15 }, 'epic'),
-  avatar('king', 'Rey', 'Todo gira a tu alrededor.', { glyph: '♚', a: '#ffd24a', b: '#b8860b' }, { type: 'level', level: 25 }, 'legendary'),
-  avatar('comet', 'Cometa', 'Rápido y brillante.', { art: 'comet', a: '#22e1ff', b: '#8b5cf6' }, { type: 'achievement', id: 'wins_1' }),
-  avatar('orbit', 'Órbita', 'Siempre dando vueltas a una idea.', { art: 'orbit', a: '#34e3a0', b: '#4d6bff' }, { type: 'achievement', id: 'puzzle_10' }, 'rare'),
-  avatar('prism', 'Prisma', 'Descompone la posición en colores.', { art: 'prism', a: '#ff8a98', b: '#22e1ff' }, { type: 'achievement', id: 'mate_10' }, 'rare'),
-  avatar('ember', 'Ascua', 'Brasa de competidor.', { art: 'ember', a: '#ffd24a', b: '#ff5a1f' }, { type: 'achievement', id: 'circuit_final' }, 'epic'),
-  avatar('lotus', 'Loto', 'Calma bajo presión.', { art: 'lotus', a: '#ff9ccb', b: '#8b5cf6' }, { type: 'season', season: 3, level: 20 }, 'epic'),
+  avatar('pawn', 'Peón', 'Pequeño pero con futuro.', { piece: 'p', scene: 'halo', a: '#22e1ff', b: '#8b5cf6' }, { type: 'default' }),
+  avatar('knight', 'Caballo', 'Salta donde nadie espera.', { piece: 'n', scene: 'grid', a: '#34e3a0', b: '#22e1ff' }, { type: 'level', level: 3 }),
+  avatar('bishop', 'Alfil', 'Diagonales largas, ideas claras.', { piece: 'b', scene: 'rays', a: '#ffd24a', b: '#ff8a4c' }, { type: 'level', level: 6 }),
+  avatar('sentinel', 'Centinela', 'Nadie pasa por su columna.', { piece: 'r', scene: 'grid', a: '#7dd3fc', b: '#4d6bff' }, { type: 'level', level: 8 }, 'rare'),
+  avatar('rook', 'Torre', 'Firme en la columna abierta.', { piece: 'r', scene: 'halo', a: '#8b5cf6', b: '#4d6bff' }, { type: 'level', level: 10 }, 'rare'),
+  avatar('gambit', 'Gambito', 'Sacrifica hoy, gana mañana.', { piece: 'n', scene: 'flames', a: '#ff8a98', b: '#ff5a1f' }, { type: 'level', level: 12 }, 'rare'),
+  avatar('queen', 'Dama', 'La pieza más poderosa del tablero.', { piece: 'q', scene: 'rays', a: '#ff8a98', b: '#ffd24a' }, { type: 'level', level: 15 }, 'epic'),
+  avatar('phantom', 'Fantasma', 'Cuando lo ves, ya es tarde.', { piece: 'p', scene: 'stars', a: '#c4b5fd', b: '#22e1ff' }, { type: 'level', level: 20 }, 'epic'),
+  avatar('king', 'Rey', 'Todo gira a tu alrededor.', { piece: 'k', scene: 'rays', a: '#ffd24a', b: '#b8860b' }, { type: 'level', level: 25 }, 'legendary'),
+  avatar('monarch', 'Monarca', 'El tablero entero te obedece.', { piece: 'k', scene: 'stars', a: '#fff1b8', b: '#ff8a98' }, { type: 'level', level: 35 }, 'legendary'),
+  avatar('comet', 'Cometa', 'Rápido y brillante.', { art: 'comet', scene: 'stars', a: '#22e1ff', b: '#8b5cf6' }, { type: 'achievement', id: 'wins_1' }),
+  avatar('orbit', 'Órbita', 'Siempre dando vueltas a una idea.', { art: 'orbit', scene: 'stars', a: '#34e3a0', b: '#4d6bff' }, { type: 'achievement', id: 'puzzle_10' }, 'rare'),
+  avatar('prism', 'Prisma', 'Descompone la posición en colores.', { art: 'prism', scene: 'rays', a: '#ff8a98', b: '#22e1ff' }, { type: 'achievement', id: 'mate_10' }, 'rare'),
+  avatar('ember', 'Ascua', 'Brasa de competidor.', { art: 'ember', scene: 'flames', a: '#ffd24a', b: '#ff5a1f' }, { type: 'achievement', id: 'circuit_final' }, 'epic'),
+  avatar('lotus', 'Loto', 'Calma bajo presión.', { art: 'lotus', scene: 'petals', a: '#ff9ccb', b: '#8b5cf6' }, { type: 'season', season: 3, level: 20 }, 'epic'),
 
   // ----- Marcos -----
   frame('none', 'Sin marco', 'Sin adorno.', 'transparent', 'none', { type: 'default' }),
@@ -170,7 +174,10 @@ export function unlockInfo(it, ctx = {}) {
   const u = it.unlock;
   switch (u.type) {
     case 'default': return { icon: '●', short: 'Incluido', long: 'Lo tienes desde el principio' };
-    case 'level': return { icon: '⬆', short: `Nivel ${u.level}`, long: `Se desbloquea al llegar al nivel ${u.level} de cuenta` };
+    case 'level': {
+      const left = Number.isFinite(ctx.level) ? u.level - ctx.level : 0; // niveles que le faltan a quien mira (si se conoce)
+      return { icon: '⬆', short: `Nivel ${u.level}`, long: `Se desbloquea al llegar al nivel ${u.level} de cuenta${left > 0 ? ` · te ${left === 1 ? 'falta 1 nivel' : `faltan ${left} niveles`}` : ''}` };
+    }
     case 'achievement': {
       const name = ctx.achievementNames?.[u.id] ?? u.id;
       return { icon: '🏅', short: 'Logro', long: `Se desbloquea al conseguir el logro «${name}»` };

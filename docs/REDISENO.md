@@ -38,3 +38,18 @@ Se midieron los estilos calculados (22 propiedades de cada elemento visible) con
 
 - Fase 5 (arriba). Progreso, Amigos, Historial, Ajustes y Academia aún usan algunos iconos emoji y tarjetas densas; `minimal.css` las suaviza pero no las reorganiza.
 - Las piezas son glifos Unicode con contorno (como antes); un juego de piezas SVG propio mejoraría la legibilidad en tamaños pequeños.
+
+## Revisión tras las pruebas de uso: cuentas, avatares y tablero de la repetición
+
+- **Tablero de la repetición (bug):** las filas sin piezas se aplastaban (la fila 3 medía una fracción de las demás) porque la rejilla no fijaba la altura de las filas. Ahora `grid-template-rows: repeat(8, minmax(0, 1fr))`; medido: las 8 filas miden igual (55 px).
+- **Entrar, crear cuenta y cerrar sesión** (`auth.js`, `net.js`). Antes la app creaba una cuenta de invitado sola y no había forma de salir. Ahora:
+  - **Perfil → Cuenta → Cerrar sesión**: avisa de que el código de recuperación es la única forma de volver (lo muestra con «Copiar»), envía lo pendiente (cartera y guardado), olvida la sesión, **vacía el progreso local y la cola de operaciones** (nada de una cuenta puede acabar en otra) y recarga. La cuenta sigue en el servidor.
+  - Con la sesión cerrada **no se crea ninguna cuenta por detrás**. Se abre el diálogo **Entrar / Crear cuenta** (se puede seguir sin cuenta con la Academia y la IA); arriba aparece el botón «Entrar»; las pantallas online explican que hace falta una cuenta en vez de decir «sin conexión».
+  - **Entrar** = escribir el código (acepta minúsculas, espacios o guiones; se guarda como `XXXX-XXXX-XXXX`). **Crear cuenta** = nombre público opcional (se valida y, si el servidor lo rechaza por una palabra no permitida, avisa del nombre asignado) y muestra el código antes de continuar. Sin contraseñas ni correos, como hasta ahora.
+  - `test/session.test.js` ejecuta el `net.js` real contra un servidor real (arranque, cierre, no recrear cuenta, crear con nombre, entrar con código desordenado, código incorrecto) y falla si se quita la protección de «no crear cuenta tras cerrar sesión» (comprobado).
+- **Iconos de usuario descentrados:** el avatar de pieza era un glifo de texto (`♟`) y cada fuente lo colocaba distinto, además de que una regla del contenedor anulaba su centrado. Ahora todos son **siluetas SVG** dibujadas en un lienzo 64×64, centradas siempre igual.
+- **Más carácter en los perfiles:**
+  - Cada avatar tiene su **escena** (rayos, estrellas, rejilla, llamas, olas, pétalos, halo) y un brillo según su rareza; los legendarios llevan un destello animado (desactivado con movimiento reducido).
+  - **Cuatro avatares nuevos**, todos por nivel: Centinela (8), Gambito (12), Fantasma (20) y Monarca (35).
+  - **Lo bloqueado enseña su silueta** (con el color de su rareza) en lugar de un candado vacío; la vista previa grande sí muestra el aspecto completo, y el texto dice cuántos niveles faltan («te faltan 14 niveles»).
+  - **Perfil → Resumen** estrena «Tu colección»: barra de desbloqueados y los **próximos objetivos** (avatares, marcos, coronaciones, efectos...), con su nivel y lo que falta. La tarjeta del perfil tiene un aura del color de la rareza del avatar equipado.

@@ -19,7 +19,7 @@ const IDENTITY = new Set(['avatar', 'frame', 'badge', 'title', 'decor']);
 
 const owned = (it) => cz.inv.has(itemKey(it.category, it.id));
 const equipped = (it) => state.equipped[it.category] === it.id;
-const info = (it) => unlockInfo(it, { achievementNames: NAMES });
+const info = (it) => unlockInfo(it, { achievementNames: NAMES, level: state.level });
 const live = (msg) => {
   const el = $('#czLive');
   if (el) el.textContent = msg;
@@ -110,13 +110,13 @@ function setFallback(it) {
   return `<div class="pv pv-board board-${it.id} set-${state.equipped.set}">${['light', 'dark', 'dark', 'light', 'light', 'dark', 'dark', 'light', 'light'].map((c, i) => `<div class="sq ${c}">${i === 4 ? `<span class="piece w t-k">${GLYPH.k}${VS}</span>` : ''}</div>`).join('')}</div>`;
 }
 
-function previewHtml(it, big = false) {
+function previewHtml(it, big = false, locked = false) {
   const eq = { ...state.equipped, [it.category]: it.id };
   switch (it.category) {
     case 'avatar':
     case 'frame':
     case 'badge':
-      return `<div class="cz-id">${identityHtml(eq, { size: big ? 96 : 56 })}</div>`;
+      return `<div class="cz-id">${identityHtml(eq, { size: big ? 96 : 56, locked: locked && it.category === 'avatar' })}</div>`;
     case 'title':
       return `<div class="cz-text"><b>${esc(it.name)}</b><small>Título de perfil</small></div>`;
     case 'decor':
@@ -177,7 +177,7 @@ function cardHtml(it) {
   else action = `<button class="btn" disabled>${soon ? '⏳ Próximamente' : '🔒 Bloqueado'}</button>`;
   const key = itemKey(it.category, it.id);
   return `<article class="cz-card ${eq ? 'equipped' : ''} ${own ? '' : 'locked'} ${cz.sel === key ? 'selected' : ''} ${cz.just === key ? 'just' : ''}" data-key="${key}" tabindex="0" role="button" aria-pressed="${cz.sel === key}" aria-label="${esc(it.name)}: ${own ? (eq ? 'equipado' : 'desbloqueado') : 'bloqueado'}" style="--r:${r.color}">
-    <div class="cz-pv">${previewHtml(it)}${own ? '' : '<span class="cz-lock" aria-hidden="true">🔒</span>'}</div>
+    <div class="cz-pv">${previewHtml(it, false, !own)}${own ? '' : '<span class="cz-lock" aria-hidden="true">🔒</span>'}</div>
     <div class="cz-info"><b>${esc(it.name)}</b><span class="rarity">${r.label}</span></div>
     <p class="cz-unlock ${own ? 'ok' : ''}" title="${esc(u.long)}"><i aria-hidden="true">${own ? '✔' : u.icon}</i>${own ? 'Desbloqueado' : esc(u.short)}</p>
     ${action}

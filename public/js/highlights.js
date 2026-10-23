@@ -35,7 +35,7 @@ const loadMine = () => (inflight ??= doLoadMine().finally(() => (inflight = null
 
 async function doLoadMine() {
   if (!net.user) {
-    hs.mineState = net.booted ? 'offline' : 'loading';
+    hs.mineState = net.loggedOut ? 'loggedout' : net.booted ? 'offline' : 'loading';
     return renderMine();
   }
   loadedFor = net.user.id;
@@ -93,6 +93,12 @@ function renderMine() {
   const st = hs.mineState;
   if (st === 'loading' || st === 'idle') {
     box.innerHTML = '<div class="hl-skeleton" aria-busy="true"><span></span><span></span></div>';
+    return;
+  }
+  if (st === 'loggedout') {
+    box.innerHTML = `<div class="hl-empty"><h3>Entra para ver tus mejores jugadas.</h3>
+      <p>Tus momentos más brillantes salen de las partidas que juegas con tu cuenta.</p>
+      <div class="hl-actions"><button class="btn" data-hl="login">Entrar o crear cuenta</button></div></div>`;
     return;
   }
   if (st === 'offline' || st === 'error') {
@@ -321,6 +327,7 @@ function wire() {
     if (!b) return undefined;
     const a = b.dataset.hl;
     if (a === 'retry') return loadMine();
+    if (a === 'login') return (await import('./auth.js')).openAuth();
     if (a === 'analyze') return analyzeLatest();
     if (a === 'replay') return (await import('./replay.js')).openReplay(b.dataset.id, { ply: Number(b.dataset.ply) || null });
     const h = worldById(b.dataset.id);

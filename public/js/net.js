@@ -2,6 +2,7 @@
 import { onChange, progressScore, replaceState, save, state } from './store.js';
 
 const AUTH_KEY = 'gambito.auth.v1';
+const LOGOUT_KEY = 'gambito.loggedout.v1'; // «1» = el jugador cerró la sesión a propósito: no se crea una cuenta sola
 
 // URL base del servidor. Vacía = mismo origen que la página. Si el cliente se sirve aparte (Vercel),
 // `public/config.js` define `window.GAMBITO_API` con la URL del servidor.
@@ -19,6 +20,7 @@ export const net = {
   syncing: false,
   lastSync: 0,
   booted: false, // ya se intentó conectar al menos una vez (para no mostrar "sin conexión" mientras se conecta)
+  loggedOut: false, // cerró la sesión: hay que entrar o crear una cuenta para jugar online
 };
 
 const readAuth = () => {
@@ -31,12 +33,29 @@ const readAuth = () => {
 const writeAuth = (auth) => {
   net.auth = auth;
   try {
-    if (auth) localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
-    else localStorage.removeItem(AUTH_KEY);
+    if (auth) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+      localStorage.removeItem(LOGOUT_KEY);
+    } else localStorage.removeItem(AUTH_KEY);
+  } catch {
+    /* sin almacenamiento */
+  }
+  if (auth) net.loggedOut = false;
+};
+const setLoggedOut = (on) => {
+  net.loggedOut = on;
+  try {
+    if (on) localStorage.setItem(LOGOUT_KEY, '1');
+    else localStorage.removeItem(LOGOUT_KEY);
   } catch {
     /* sin almacenamiento */
   }
 };
+try {
+  net.loggedOut = localStorage.getItem(LOGOUT_KEY) === '1' && !localStorage.getItem(AUTH_KEY);
+} catch {
+  /* sin almacenamiento */
+}
 
 export async function api(path, { method = 'GET', body, auth = true } = {}) {
   try {
@@ -61,12 +80,12 @@ const readyHooks = new Set();
 export const onReady = (fn) => readyHooks.add(fn);
 const emit = () => listeners.forEach((fn) => fn(net));
 
-async function createGuest() {
-  const res = await api('/api/guest', { method: 'POST', body: {}, auth: false });
-  if (!res.ok) return false;
+async function createGuest(name) {
+  const res = await api('/api/guest', { method: 'POST', body: name ? { name } : {}, auth: false });
+  if (!res.ok) return res;
   writeAuth({ token: res.json.token, recovery: res.json.recovery });
   net.user = res.json.user;
-  return true;
+  return res;
 }
 
 // Crea o recupera la sesión. Devuelve true si hay servidor y sesión válida.
@@ -90,7 +109,12 @@ async function connectSession() {
       return false;
     }
   }
-  if (!net.user && !(await createGuest())) {
+  // Quien cerró la sesión a propósito decide si entra o crea una cuenta: no se le crea una invitada por detrás.
+  if (!net.user && net.loggedOut) {
+    emit();
+    return false;
+  }
+  if (!net.user && !(await createGuest()).ok) {
     emit();
     return false;
   }
@@ -100,7 +124,12 @@ async function connectSession() {
   return true;
 }
 
-export const ensureOnline = async () => (net.user ? true : bootstrap());
+// Con sesión cerrada se abre el diálogo de entrar / crear cuenta; devuelve true si acaba con sesión.
+export async function ensureOnline() {
+  if (net.user) return true;
+  if (net.loggedOut) return (await import('./auth.js')).openAuth();
+  return bootstrap();
+}
 
 export async function refreshUser() {
   const me = await api('/api/me');
@@ -123,12 +152,37 @@ export async function renameUser(name) {
 export async function recoverAccount(code) {
   const res = await api('/api/recover', { method: 'POST', body: { code }, auth: false });
   if (!res.ok) return res;
-  writeAuth({ token: res.json.token, recovery: code.toUpperCase() });
+  const flat = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  writeAuth({ token: res.json.token, recovery: flat.length === 12 ? `${flat.slice(0, 4)}-${flat.slice(4, 8)}-${flat.slice(8)}` : flat }); // siempre con el formato XXXX-XXXX-XXXX
   net.user = res.json.user;
   state.cloud.rev = 0; // fuerza a comparar con el guardado de esa cuenta
   await syncDown(true);
   emit();
   return res;
+}
+
+// Crea una cuenta nueva (con el nombre elegido, si lo hay) y devuelve su código de recuperación para que el jugador lo guarde.
+export async function createAccount(name) {
+  const res = await createGuest(name);
+  if (res.ok) emit();
+  return res;
+}
+
+// Antes de salir de una cuenta, los módulos con datos pendientes (la cartera) los envían y vacían su cola local.
+const leaveHooks = new Set();
+export const onLeave = (fn) => leaveHooks.add(fn);
+
+// Cierra la sesión: sube lo pendiente, olvida la cuenta en este dispositivo y deja el progreso local limpio, para que la siguiente
+// cuenta (otra persona, o la misma desde su código) no herede nada de esta. La cuenta sigue existiendo en el servidor.
+export async function logout() {
+  for (const fn of leaveHooks) await Promise.resolve(fn()).catch(() => {});
+  if (net.user && state.updatedAt > state.cloud.rev) await pushNow();
+  socket.close();
+  writeAuth(null);
+  net.user = null;
+  setLoggedOut(true);
+  replaceState({}, 0);
+  emit();
 }
 
 export async function newRecoveryCode() {

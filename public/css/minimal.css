@@ -149,9 +149,9 @@ main { max-width: var(--content); margin: 0 auto; }
 @keyframes hlPulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
 /* ---------- 7 · Tablero 2D de los highlights ---------- */
-.mb { position: relative; display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; border-radius: 8px; overflow: hidden; user-select: none; --board: 440px; }
+.mb { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 8px; overflow: hidden; user-select: none; --board: 440px; }
 .hl-thumb .mb { border-radius: 6px; --board: 72px; }
-.mb-sq { position: relative; display: grid; place-items: center; cursor: default; } /* hereda los colores del tablero equipado (clase .sq) */
+.mb-sq { position: relative; display: grid; place-items: center; cursor: default; min-width: 0; min-height: 0; overflow: hidden; } /* hereda los colores del tablero equipado (clase .sq) */
 .mb-sq.light { background: var(--light); }
 .mb-sq.dark { background: var(--dark); }
 .mb-sq.last::before, .mb-sq.key::before, .mb-sq.check::before, .mb-sq.mate::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
@@ -353,3 +353,59 @@ textarea { padding: 10px 12px; }
 input::placeholder, textarea::placeholder { color: var(--cp-dim); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--cp-cyan); outline-offset: 1px; border-color: transparent; }
 input[type='search']::-webkit-search-cancel-button { filter: invert(0.7); }
+
+/* ---------- 17 · Entrar, crear cuenta y cerrar sesión ---------- */
+.auth-card { max-width: 420px; width: 100%; text-align: left; display: grid; gap: 14px; }
+.auth-card h3 { margin: 0; font-size: 1.25rem; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; }
+.auth-form { display: grid; gap: 12px; }
+.auth-form label { display: grid; gap: 6px; font-size: 0.88rem; color: var(--cp-muted); }
+.auth-form label small { color: var(--cp-dim); }
+.auth-form input { font-size: 1rem; letter-spacing: 0.04em; }
+.auth-help { margin: 0; color: var(--cp-muted); font-size: 0.82rem; line-height: 1.5; }
+.auth-err { margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(255, 90, 110, 0.1); color: #ff9aa6; font-size: 0.85rem; }
+.auth-err[hidden] { display: none; }
+.auth-foot { margin: 0; text-align: center; }
+.auth-done { display: grid; gap: 10px; }
+.auth-done h3 { margin: 0; }
+.auth-code { margin: 0; display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 10px; background: var(--cp-obsidian); border: 1px solid var(--cp-line-2); }
+.auth-code code { font-size: 1.15rem; letter-spacing: 0.12em; color: var(--cp-cyan); font-variant-numeric: tabular-nums; }
+.pf-gate { max-width: 520px; display: grid; gap: 12px; }
+
+/* ---------- 18 · Avatares con carácter ---------- */
+.idn { --rc: #8d97ab; }
+.idn[data-r='rare'] { --rc: #4d9bff; }
+.idn[data-r='epic'] { --rc: #b07cff; }
+.idn[data-r='legendary'] { --rc: #ffd24a; }
+.idn .av { width: 100%; height: 100%; display: block; border-radius: 50%; }
+.idn[data-r='rare'] { box-shadow: 0 0 calc(var(--s) * 0.22) color-mix(in srgb, var(--rc) 35%, transparent); }
+.idn[data-r='epic'] { box-shadow: 0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--rc) 45%, transparent); }
+.idn[data-r='legendary'] { box-shadow: 0 0 calc(var(--s) * 0.38) color-mix(in srgb, var(--rc) 55%, transparent); }
+.idn[data-r='legendary']::before { content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 1; pointer-events: none; background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.38) 50%, transparent 62%); background-size: 260% 100%; animation: idnShine 3.4s linear infinite; }
+@keyframes idnShine { 0% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+@media (prefers-reduced-motion: reduce) { .idn[data-r='legendary']::before { animation: none; opacity: 0; } }
+/* Bloqueado: se ve la silueta y el brillo de su rareza, pero no el aspecto completo. */
+.idn.locked { box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc) 70%, transparent), 0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--rc) 40%, transparent); }
+.idn.locked .av { filter: grayscale(1) brightness(0.5) contrast(1.15); }
+.idn.locked::before { content: none; }
+/* Tarjeta de perfil: el aura sale de la rareza del avatar equipado. */
+.pf-hero .pf-emblem { display: grid; place-items: center; }
+.pf-hero { position: relative; overflow: hidden; }
+.pf-hero::before { content: ''; position: absolute; left: -40px; top: -60px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--aura, #8d97ab) 22%, transparent), transparent 70%); pointer-events: none; }
+.pf-hero > * { position: relative; }
+
+/* Próximos desbloqueos en el perfil */
+.pf-next { display: grid; gap: 12px; }
+.pf-next-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pf-next-head h3 { margin: 0; font-size: 1.05rem; }
+.pf-meter { height: 6px; border-radius: 3px; background: var(--cp-graphite-3); overflow: hidden; }
+.pf-meter i { display: block; height: 100%; background: var(--cp-gold); }
+.pf-goals { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.pf-goal { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--cp-line); border-radius: 12px; width: 100%; text-align: left; background: transparent; color: var(--cp-text); cursor: pointer; }
+.pf-goal:hover { border-color: var(--cp-line-2); background: var(--cp-graphite-2); }
+.pf-goal span:last-child { display: grid; gap: 2px; min-width: 0; }
+.pf-goal b { font-size: 0.92rem; }
+.pf-goal small { color: var(--cp-muted); font-size: 0.78rem; }
+.pf-goal em { font-style: normal; color: var(--rc, var(--cp-gold)); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.pf-goal-ico { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px dashed var(--rc, var(--cp-line-2)); color: var(--rc, var(--cp-muted)); font-weight: 700; }
