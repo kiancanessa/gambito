@@ -95,3 +95,12 @@ test('el botón de preferencias de la partida no está sobre el tablero (tapaba 
   assert.doesNotMatch(frame, /gamePrefsBtn/);
   assert.match(html, /game-actions">\s*<button class="btn game-prefs-btn" id="gamePrefsBtn"/);
 });
+
+test('el service worker sirve el código de la app red primero (no una copia vieja tras un despliegue) y purga la caché anterior', () => {
+  const sw = readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8');
+  assert.match(sw, /isCode\(url\.pathname\)/);
+  assert.match(sw, /fetch\(req, \{ cache: 'no-cache' \}\)/);
+  assert.doesNotMatch(sw, /VERSION = 'checkpoint-v1'/, 'se subió la versión para vaciar la caché con módulos antiguos');
+  // Los archivos de código no pueden caer en la rama «caché primero»: la rama de red va antes que la genérica.
+  assert.ok(sw.indexOf('isCode(url.pathname)) {') < sw.indexOf('const cached = await cache.match(req);'));
+});

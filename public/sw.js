@@ -1,8 +1,11 @@
 // Service worker: la interfaz funciona sin conexión (campaña, tutorial, partidas contra la IA).
 // - Navegación: red primero, con la copia en caché como respaldo sin conexión.
-// - Archivos estáticos (css/js/vendor/iconos): sirve de caché y se actualiza en segundo plano.
+// - Código de la app (js, css, html): red primero, con la caché solo como respaldo sin conexión. Antes se servía la copia en caché
+//   y se actualizaba después, así que tras cada despliegue un visitante recurrente veía una mezcla de módulos viejos y nuevos.
+// - Archivos que no cambian (vendor, iconos, fuentes): caché y actualización en segundo plano.
 // - /api y /ws nunca se cachean. Sube VERSION para invalidar la caché tras un despliegue.
-const VERSION = 'checkpoint-v1';
+const VERSION = 'checkpoint-v2';
+const isCode = (path) => /\.(js|css|html|webmanifest)$/.test(path);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icons/icon.svg'])).then(() => self.skipWaiting()));
@@ -28,6 +31,20 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => caches.match('/')),
+    );
+    return;
+  }
+
+  if (isCode(url.pathname)) {
+    event.respondWith(
+      caches.open(VERSION).then((cache) =>
+        fetch(req, { cache: 'no-cache' }) // revalida siempre con el servidor (304 si no cambió)
+          .then((res) => {
+            if (res.ok) cache.put(req, res.clone());
+            return res;
+          })
+          .catch(async () => (await cache.match(req)) ?? Response.error()),
+      ),
     );
     return;
   }
