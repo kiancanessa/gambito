@@ -65,3 +65,10 @@ test('los highlights propios solo usan momentos que el criterio considera buenas
   assert.match(src, /m\.side !== d\.you/);
   for (const bad of ['blunder', 'mistake', 'inaccuracy', 'missed', 'sacrifice-candidate']) assert.doesNotMatch(src.match(/const GOOD = new Set\(\[([^\]]+)\]\)/)[1], new RegExp(`'${bad}'`), `«${bad}» no es una buena jugada`);
 });
+
+test('el inicio tiene un único botón primario: «Jugar» de la cabecera (los highlights usan botones secundarios)', () => {
+  const html = readFileSync(path.join(JS, '..', 'index.html'), 'utf8');
+  const home = html.slice(html.indexOf('id="screen-home"'), html.indexOf('<!-- LOBBY'));
+  assert.equal([...home.matchAll(/class="btn primary/g)].length, 1);
+  assert.doesNotMatch(readFileSync(path.join(JS, 'highlights.js'), 'utf8'), /btn primary/);
+});

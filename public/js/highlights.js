@@ -108,7 +108,7 @@ function renderMine() {
         ? 'Todavía no hay jugadas destacadas verificadas en tus partidas. Los mates y las coronaciones aparecen solos; los sacrificios y los errores aprovechados necesitan el análisis de Stockfish.'
         : 'Juega una partida online: cuando termine, sus mejores momentos aparecerán aquí.'}</p>
       <div class="hl-actions">
-        <button class="btn primary" data-go="lobby" data-play>Jugar una partida</button>
+        <button class="btn" data-go="lobby" data-play>Jugar una partida</button>
         ${has ? `<button class="btn" data-hl="analyze" ${hs.analyzing ? 'disabled aria-busy="true"' : ''}>${hs.analyzing ? 'Analizando…' : 'Analizar mi última partida'}</button><button class="btn ghost" data-go="history">Ver mis partidas</button>` : ''}
       </div></div>`;
     return;
@@ -134,7 +134,7 @@ function featuredMine(m) {
       <p class="hl-idea">${esc(m.detail)}</p>
       <p class="hl-meta">vs ${esc(opp)} · ${RESULT[res]} · ${esc(ctx)} · ${date(m.game.createdAt)}</p>
       <div class="hl-notes" data-mb="notes" aria-label="Jugadas de la secuencia"></div>
-      <div class="hl-actions"><button class="btn primary" data-hl="replay" data-id="${esc(m.game.id)}" data-ply="${m.ply}">Ver la partida completa</button></div>
+      <div class="hl-actions"><button class="btn" data-hl="replay" data-id="${esc(m.game.id)}" data-ply="${m.ply}">Ver la partida completa</button></div>
     </div></article>`;
 }
 
@@ -200,7 +200,7 @@ function renderWorld() {
         <div class="hl-notes" data-mb="notes" aria-label="Jugadas de la secuencia"></div>
         <p class="hl-eval" id="hlEval" aria-live="polite"></p>
         <div class="hl-actions">
-          <button class="btn primary" data-hl="world-replay" data-id="${esc(top.id)}">Explorar la partida</button>
+          <button class="btn" data-hl="world-replay" data-id="${esc(top.id)}">Explorar la partida</button>
           <button class="btn" data-hl="practice" data-id="${esc(top.id)}">Practicar la posición</button>
           <button class="btn ghost" data-hl="eval" data-id="${esc(top.id)}">Evaluar con Stockfish</button>
         </div>
